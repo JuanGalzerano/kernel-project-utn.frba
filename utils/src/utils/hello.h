@@ -3,6 +3,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include<signal.h>
+#include<unistd.h>
+#include<sys/socket.h>
+#include<netdb.h>
+#include<string.h>
+#include<commons/log.h>
 
 /**
 * @brief Imprime un saludo por consola
