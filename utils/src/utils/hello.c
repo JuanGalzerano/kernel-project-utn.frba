@@ -1,46 +1,108 @@
 #include <utils/hello.h>
 
-
 void saludar(char* quien) {
     printf("Hola desde %s!!\n", quien);
 }
 
+
+int esperar_cliente(int socket_escucha){
+
+
+	int socket_conexion = accept(socket_escucha, NULL, NULL);
+    if(socket_conexion == -1){
+        printf("Error al aceptar al cliente\n%s", strerror(errno));
+    }
+    
+
+	return socket_conexion;
+}
+
+int iniciar_servidor(char* puerto){
+
+    int err;
+
+    struct addrinfo hints, *server_info;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+
+    err = getaddrinfo(NULL, puerto, &hints, &server_info);
+    if(err != 0){
+        printf("Error en getaddrinfo() %s\n", gai_strerror(rv))
+    }
+
+
+    int socket_escucha = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
+    if (socket_escucha == -1) {
+        printf("Error en creacion de socket de escucha\n%s", strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+
+    err = setsockopt(socket_escucha, SOL_SOCKET, SO_REUSEPORT, &(int){1}, sizeof(int));
+    if(err == -1){
+        printf("Error en setsockopt()\n%s", strerror(errno)); // preguntar como ponerle al error
+        return EXIT_FAILURE;
+    }
+
+
+    err = bind(socket_escucha, server_info->ai_addr, server_info->ai_addrlen);
+    if(err == -1){
+        printf("Error al conectarse con el puerto\n%s", strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+
+    err = listen(socket_escucha, SOMAXCONN);
+    if(err == -1){
+        printf("Error al intentar escuchar conexiones\n%s", strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+
+    freeaddrinfo(server_info);
+
+    return socket_escucha;
+}
+
+
+
+
 int inciar_conexion(char* ip, char* puerto){
-    
-    
+
+
     struct addrinfo hints, *server_info;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    int err = getaddrinfo("127.0.0.1", "4444", &hints, &server_info);
+
+    int err = getaddrinfo(ip, puerto, &hints, &server_info);
     if(err!=0){
-        //poner log o printf de que no se pudo conectar
+        printf("getaddrinfo error: %s\n", gai_strerror(err));
         return EXIT_FAILURE; 
     }
 
-    int fd_conexion = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
 
-    if (fd_conexion == -1){
-        //fallo
+    int socket_conexion = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
+    if (socket_conexion == -1){
+        printf("Socket creation error\n%s", strerror(errno));
         return EXIT_FAILURE;
     }
 
-    err = connect(fd_conexion, server_info->ai_addr, server_info->ai_addrlen);
 
+    err = connect(socket_conexion, server_info->ai_addr, server_info->ai_addrlen);
     if(err == -1){
-        //fallo
+        printf("Connect error\n%s", strerror(errno)); 
+        // agregamos un close(socket_conexion) por no haberse podido conectar?
         return EXIT_FAILURE;
     }
 
     freeaddrinfo(server_info);
 
-    return fd_conexion;
-}
-
-
-
-int iniciar_servidor(){
-
+    return socket_conexion;
 }
