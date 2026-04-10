@@ -11,6 +11,7 @@ int esperar_cliente(int socket_escucha){
 	int socket_conexion = accept(socket_escucha, NULL, NULL);
     if(socket_conexion == -1){
         printf("Error al aceptar al cliente\n%s", strerror(errno));
+        return EXIT_FAILURE;
     }
     
 
@@ -31,7 +32,8 @@ int iniciar_servidor(char* puerto){
 
     err = getaddrinfo(NULL, puerto, &hints, &server_info);
     if(err != 0){
-        printf("Error en getaddrinfo() %s\n", gai_strerror(rv))
+        printf("Error en getaddrinfo() %s\n", gai_strerror(err));
+        return EXIT_FAILURE;
     }
 
 
@@ -71,7 +73,7 @@ int iniciar_servidor(char* puerto){
 
 
 
-int inciar_conexion(char* ip, char* puerto){
+int iniciar_conexion(char* ip, char* puerto){
 
 
     struct addrinfo hints, *server_info;
