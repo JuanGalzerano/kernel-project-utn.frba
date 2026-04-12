@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
-      "args": [],
+      "args": ["src/kernel.config", "./procesos/init.prog"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

@@ -16,7 +16,7 @@
 @param quien Módulo desde donde se llama a la función
 @return No devuelve nada
 **/
-void saludar(char quien);
+void saludar(char* quien);
 
 int iniciar_servidor(char* puerto);
 
