@@ -10,6 +10,19 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     char* IPMemory = config_get_string_value(configKernel, "IP_MEMORY");
 
 
+
+//LEVANTAR CONEXION CON MEMORY
+    int socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
+    if(socketConexionMemory == EXIT_FAILURE){
+        log_info(loggerKernel, "no se pudo conectar a Kernel Memory");
+        //ver si hay que abortar
+    }
+
+    log_info(loggerKernel, "conexion establecida con Kernel Memory");
+    //hacer handshake
+   
+
+
 //LEVANTAR SERVIDOR
     int socketEscucha = iniciar_servidor(puertoEscucha);
     if(socketEscucha == EXIT_FAILURE){
@@ -30,16 +43,6 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
 
 
 
-//LEVANTAR CONEXION CON MEMORY
-    int socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
-    if(socketConexionMemory == EXIT_FAILURE){
-        log_info(loggerKernel, "no se pudo conectar a Kernel Memory");
-        //ver si hay que abortar
-    }
-
-    log_info(loggerKernel, "conexion establecida con Kernel Memory");
-    //hacer handshake
-   
 
 
     return 0;

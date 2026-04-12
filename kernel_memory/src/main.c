@@ -18,29 +18,33 @@ int main(int argc, char* argv[]) {
         log_info(loggerMemory, "No se pudo iniciar el servidor");
     }
     log_info(loggerMemory, "Servidor iniciado");
-
-    // ESPERAR KERNEL SCHEDULER
+    log_info(loggerMemory, "Servidor esta escuchando...");
+        // ESPERAR KERNEL SCHEDULER
     int socketKernel = esperar_cliente(socketEscucha);
     if(socketKernel == EXIT_FAILURE){
-    log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
+        log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
     }
     log_info(loggerMemory, "Kernel-Scheduler conectado");
 
-    // ESPERAR CPU
+
+
+
+
+        // ESPERAR CPU
     int socketCPU = esperar_cliente(socketEscucha);
     if(socketCPU == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con CPU");
     }
     log_info(loggerMemory, "CPU conectado");
 
-    // ESPERAR MEMORY STICK
+        // ESPERAR MEMORY STICK
     int socketMemoryStick = esperar_cliente(socketEscucha);
     if(socketMemoryStick == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con Memory Stick");
     }
     log_info(loggerMemory, "Memory Stick conectado");
 
-    // ESPERAR SWAP
+        // ESPERAR SWAP
     int socketSwap = esperar_cliente(socketEscucha);
     if(socketSwap == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con Swap");
@@ -48,4 +52,4 @@ int main(int argc, char* argv[]) {
     log_info(loggerMemory, "Swap conectado");
 
     return 0;
-    }
+}
