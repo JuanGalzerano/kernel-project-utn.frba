@@ -18,24 +18,24 @@ int main(int argc, char* argv[]) {
         log_info(loggerMemory, "No se pudo iniciar el servidor");
     }
     log_info(loggerMemory, "Servidor iniciado");
-    log_info(loggerMemory, "Servidor esta escuchando...");
         // ESPERAR KERNEL SCHEDULER
     int socketKernel = esperar_cliente(socketEscucha);
     if(socketKernel == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
     }
     log_info(loggerMemory, "Kernel-Scheduler conectado");
-
-
-
-
-
         // ESPERAR CPU
     int socketCPU = esperar_cliente(socketEscucha);
     if(socketCPU == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con CPU");
     }
     log_info(loggerMemory, "CPU conectado");
+
+
+
+
+
+
 
         // ESPERAR MEMORY STICK
     int socketMemoryStick = esperar_cliente(socketEscucha);

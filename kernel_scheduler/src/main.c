@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
         log_info(loggerKernel, "error al conectar cliente");
         //ver si hay que abortar
     }
+    log_info(loggerKernel, "conexion establecida con CPU");
 
     //acá agregar para reconocer que se conectó la CPU (se hace con los handshakes) cuando haga lo de los handshakes
     // xq pide de hacer un log especifico para cuando se conecta la CPU
