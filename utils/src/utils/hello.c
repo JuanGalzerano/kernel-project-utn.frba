@@ -108,3 +108,41 @@ int iniciar_conexion(char* ip, char* puerto){
 
     return socket_conexion;
 }
+
+
+void handshake_cliente(int socket_conexion, t_log *log)
+{
+
+	int32_t handshake = 1;
+	int32_t result;
+
+	send(socket_conexion, &handshake, sizeof(int32_t), 0);
+	recv(socket_conexion, &result, sizeof(int32_t), MSG_WAITALL);
+
+	if (result == 0)
+	{
+		log_info(log, "Handshake OK");
+	}
+	else
+	{
+		printf("Error al realizar Handshake"); //ver si no es un log esto
+		//ver si hay que abortar
+	}
+}
+
+void handshake_servidor(int socket_conexion)
+{
+	int32_t handshake = 0;
+	int32_t resultOk = 0;
+	int32_t resultError = -1;
+
+	recv(socket_conexion, &handshake, sizeof(int32_t), MSG_WAITALL);
+	if (handshake == 1)
+	{
+		send(socket_conexion, &resultOk, sizeof(int32_t), 0);
+	}
+	else
+	{
+		send(socket_conexion, &resultError, sizeof(int32_t), 0);
+	}
+}

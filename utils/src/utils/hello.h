@@ -24,5 +24,9 @@ int iniciar_conexion(char* ip, char* puerto);
 
 int esperar_cliente(int socket_escucha);
 
+void handshake_cliente(int socket_conexion, t_log *log);
+
+void handshake_servidor(int socket_conexion);
+
 
 #endif

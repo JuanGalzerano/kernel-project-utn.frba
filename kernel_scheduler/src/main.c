@@ -19,7 +19,8 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     }
 
     log_info(loggerKernel, "conexion establecida con Kernel Memory");
-    //hacer handshake
+    
+    handshake_cliente(socketConexionMemory, loggerKernel);
    
 
 
@@ -31,16 +32,29 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     }
     log_info(loggerKernel, "Servidor iniciado");
 
-    int socketConexion = esperar_cliente(socketEscucha);
 
-    if(socketConexion == EXIT_FAILURE){
-        log_info(loggerKernel, "error al conectar cliente");
+
+    //SUPONIENDO QUE CPU SE CONECTA ANTES QUE IO (cuando aprenda hilos lo cambiamos)
+
+    int socketCPU = esperar_cliente(socketEscucha);
+
+    if(socketCPU == EXIT_FAILURE){
+        log_info(loggerKernel, "error al conectar CPU");
         //ver si hay que abortar
     }
-    log_info(loggerKernel, "conexion establecida con CPU");
+    log_info(loggerKernel, "CPU <id cpu> CONECTADA"); //agregar despues lo de loggear el id de la cpu 
 
-    //acá agregar para reconocer que se conectó la CPU (se hace con los handshakes) cuando haga lo de los handshakes
-    // xq pide de hacer un log especifico para cuando se conecta la CPU
+    handshake_servidor(socketCPU);
+
+
+    int socketIO = esperar_cliente(socketEscucha);
+    if(socketIO == EXIT_FAILURE){
+        log_info(loggerKernel, "error al conectar IO");
+        //ver si hay que abortar
+    }
+    log_info(loggerKernel, "IO CONECTADO"); 
+
+    handshake_servidor(socketIO);
 
 
 

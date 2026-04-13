@@ -24,6 +24,7 @@ int main(int argc, char* argv[]) {
         log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
     }
     log_info(loggerMemory, "Kernel-Scheduler conectado");
+    handshake_servidor(socketKernel);//agregao por marotti
         // ESPERAR CPU
     int socketCPU = esperar_cliente(socketEscucha);
     if(socketCPU == EXIT_FAILURE){
