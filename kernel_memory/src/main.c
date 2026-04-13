@@ -18,24 +18,24 @@ int main(int argc, char* argv[]) {
         log_info(loggerMemory, "No se pudo iniciar el servidor");
     }
     log_info(loggerMemory, "Servidor iniciado");
+
+
+
         // ESPERAR KERNEL SCHEDULER
     int socketKernel = esperar_cliente(socketEscucha);
     if(socketKernel == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
     }
-    log_info(loggerMemory, "Kernel-Scheduler conectado");
+    log_info(loggerMemory, "Kernel Scheduler Conectado - FD del socket: <FD_DEL_SOCKET>"); //a implementar el <FD_DEL_SOCKET>
     handshake_servidor(socketKernel);//agregao por marotti
+
+
         // ESPERAR CPU
     int socketCPU = esperar_cliente(socketEscucha);
     if(socketCPU == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con CPU");
     }
-    log_info(loggerMemory, "CPU conectado");
-
-
-
-
-
+    log_info(loggerMemory, "CPU <ID CPU> Conectada"); //a implementar el <ID CPU>
 
 
         // ESPERAR MEMORY STICK
@@ -43,7 +43,8 @@ int main(int argc, char* argv[]) {
     if(socketMemoryStick == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con Memory Stick");
     }
-    log_info(loggerMemory, "Memory Stick conectado");
+    log_info(loggerMemory, "Memory Stick de <TAMAÑO> bytes Conectada");//a implementar el <TAMAÑO>
+
 
         // ESPERAR SWAP
     int socketSwap = esperar_cliente(socketEscucha);
