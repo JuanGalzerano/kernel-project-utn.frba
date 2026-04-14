@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
-      "args": [],
+      "args": ["src/memoryStick.config","512"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
