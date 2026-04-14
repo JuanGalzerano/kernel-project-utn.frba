@@ -5,7 +5,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     t_log* loggerKernel = log_create("kernel.log", "main.c", true, LOG_LEVEL_INFO); //acordarse de cambiar el 2do parametro si cambi el nombre del archivo//Ver si va LOG_LEVEL_INFO o hay que usar lo de las config
 
     t_config* configKernel = config_create(argv[1]); // para que funcione en el launch.json en la linea 9 puse los parametros de lanzamiento adecuados para que se arme bien el config
-    char* puertoEscucha= config_get_string_value(configKernel, "PUERTO_ESCUCHA");
+    char* puertoEscucha= config_get_string_value(configKernel, "PUERTO_SCHEDULER");
     char* puertoMemory= config_get_string_value(configKernel, "PUERTO_MEMORY");
     char* IPMemory = config_get_string_value(configKernel, "IP_MEMORY");
 
@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
 
     log_info(loggerKernel, "conexion establecida con Kernel Memory");
     
-    handshake_cliente(socketConexionMemory, loggerKernel);
+    //handshake_cliente(socketConexionMemory, loggerKernel);
    
 
 
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     }
     log_info(loggerKernel, "CPU <id cpu> CONECTADA"); //agregar despues lo de loggear el id de la cpu 
 
-    handshake_servidor(socketCPU);
+    //handshake_servidor(socketCPU);
 
 
     int socketIO = esperar_cliente(socketEscucha);
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     }
     log_info(loggerKernel, "IO CONECTADO"); 
 
-    handshake_servidor(socketIO);
+    //handshake_servidor(socketIO);
 
 
 

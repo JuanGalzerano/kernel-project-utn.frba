@@ -109,7 +109,7 @@ int iniciar_conexion(char* ip, char* puerto){
     return socket_conexion;
 }
 
-
+/*
 void handshake_cliente(int socket_conexion, t_log *log)
 {
 
@@ -146,3 +146,5 @@ void handshake_servidor(int socket_conexion)
 		send(socket_conexion, &resultError, sizeof(int32_t), 0);
 	}
 }
+
+*/

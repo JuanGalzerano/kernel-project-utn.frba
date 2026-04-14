@@ -12,8 +12,8 @@ int main(int argc, char* argv[]) {
     t_config* configIO = config_create(argv[1]);
     //Defino las variables para conectarme al scheduler
     int socketConScheduler;
-    char* ip=config_get_string_value(configIO,"IP_KERNEL");
-    char* puerto= config_get_string_value(configIO,"PUERTO_KERNEL");
+    char* ip=config_get_string_value(configIO,"IP_SCHEDULER");
+    char* puerto= config_get_string_value(configIO,"PUERTO_SCHEDULER");
 
 
     //Creo conexion con Scheduler
@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
 
     log_info(loggerIO, "conexion establecida con Kernel Scheduler");
     
-    handshake_cliente(socketConScheduler,loggerIO);
+    //handshake_cliente(socketConScheduler,loggerIO);
 
 
 

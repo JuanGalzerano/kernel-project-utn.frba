@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
     
 
     //guardo el valor del puerto de escucha que esta en el config
-    char* puertoEscucha = config_get_string_value(configMemory, "PUERTO_ESCUCHA");
+    char* puertoEscucha = config_get_string_value(configMemory, "PUERTO_MEMORY");
 
     // LEVANTAR SERVIDOR (espera conexiones de Kernel, CPU, Memory Stick y SWAP)
     int socketEscucha = iniciar_servidor(puertoEscucha);
@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
         log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
     }
     log_info(loggerMemory, "Kernel Scheduler Conectado - FD del socket: <FD_DEL_SOCKET>"); //a implementar el <FD_DEL_SOCKET>
-    handshake_servidor(socketKernel);//agregao por marotti
+    //handshake_servidor(socketKernel);//agregao por marotti
 
 
         // ESPERAR CPU
