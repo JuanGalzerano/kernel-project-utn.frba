@@ -1,10 +1,10 @@
-#include <utils/hello.h>
+#include <cpu.h>
 
 int main(int argc, char* argv[]) {
 
     //inicializo log y config
-    t_log* loggerCpu = log_create("cpu.log", "main.c", true, LOG_LEVEL_INFO);
-    t_config* configCpu = config_create(argv[1]);
+    inicializar_log_y_config(argv[1]);
+
     //Meto todo lo del config
     char* puertoKernel= config_get_string_value(configCpu, "PUERTO_SCHEDULER");
     char* IPKernel = config_get_string_value(configCpu, "IP_SCHEDULER");
