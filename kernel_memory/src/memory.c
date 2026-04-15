@@ -1,16 +1,14 @@
-#include <utils/hello.h>
+#include "memory.h"
 
 int main(int argc, char* argv[]) {
 
 
     //inicializo log y config, desp lo pongo en archivo aparte
-
-    t_log* loggerMemory = log_create("memory.log", "main.c", true, LOG_LEVEL_INFO);
-    t_config* configMemory = config_create(argv[1]);
+    inicializar_log_y_config(argv[1]);
     
 
     //guardo el valor del puerto de escucha que esta en el config
-    char* puertoEscucha = config_get_string_value(configMemory, "PUERTO_MEMORY");
+    puertoEscucha = config_get_string_value(configMemory, "PUERTO_MEMORY");
 
     // LEVANTAR SERVIDOR (espera conexiones de Kernel, CPU, Memory Stick y SWAP)
     int socketEscucha = iniciar_servidor(puertoEscucha);
