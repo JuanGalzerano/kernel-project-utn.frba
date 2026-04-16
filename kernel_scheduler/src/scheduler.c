@@ -47,16 +47,25 @@ int atender_cliente(int socketEscucha){
 
     int32_t idCliente=handshake_servidor_id(socketCliente, idCliente);
 
-    if(idCliente == CPU){
+
+    switch (idCliente)
+    {
+    case CPU:
         //aca se deberia solicitar para conseguir el id cpu
         log_info(loggerScheduler, "CPU <id cpu> CONECTADA");
-    }
-    if(idCliente == IO){
+
+        break;
+    case IO:
         log_info(loggerScheduler, "IO CONECTADO"); 
+    
+    /*default:
+
+        log_info(loggerScheduler, "Error en la conexion con el cliente");
+        break;*/
     }
- 
 
     return socketCliente;
+
 
 
 }
