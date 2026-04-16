@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerCpu, "CPU: conexion establecida con Kernel Scheduler");
     //handshake_cliente(socketConexionKernel, loggerCpu);
+    handshake_cliente_id(socketConexionKernel, loggerCpu, CPU);
 
 
         //LEVANTAR CONEXION CON MEMORY STICK

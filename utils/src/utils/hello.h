@@ -11,6 +11,7 @@
 #include<netdb.h>
 #include<commons/log.h>
 #include <commons/config.h>
+
 /**
 @brief Imprime un saludo por consola
 @param quien Módulo desde donde se llama a la función
@@ -24,9 +25,21 @@ int iniciar_conexion(char* ip, char* puerto);
 
 int esperar_cliente(int socket_escucha);
 
-void handshake_cliente(int socket_conexion, t_log *log);
+void handshake_cliente_id(int socket_conexion, t_log *log, int32_t id);
 
-void handshake_servidor(int socket_conexion);
+int32_t handshake_servidor_id(int socket_conexion, int32_t id);
+
+
+
+
+typedef enum{
+    SCHEDULER,
+    MEMORY,
+    CPU,
+    MEMORY_STICK,
+    SWAP,
+    IO
+}modulo;
 
 
 #endif

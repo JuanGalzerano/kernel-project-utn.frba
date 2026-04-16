@@ -12,15 +12,16 @@ t_log* loggerScheduler;
 t_config* configScheduler;
 
 
-//Variables de memory.config
+//Variables de scheduler.config
 
 char* puertoEscucha;
 char* puertoMemory;
 char* IPMemory;
 
-//char* puertoEscucha;  esta es de juani
 
 
+
+int atender_cliente(int socketEscucha);
 
 
 
