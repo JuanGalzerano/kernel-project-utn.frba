@@ -17,11 +17,11 @@ int main(int argc, char* argv[]) {
     socketConMemory= iniciar_conexion(ip,puerto);
     if(socketConMemory == EXIT_FAILURE){
         log_info(loggerSwap, "no se pudo conectar a Kernel Memory");
-        //ver si hay que abortar
+        abort();
     }
 
     log_info(loggerSwap, "conexion establecida con Kernel Memory");
-    //handshake_cliente(socketConMemory,loggerSwap);
+    handshake_cliente_id(socketConMemory, loggerSwap, SWAP);
 
 
 

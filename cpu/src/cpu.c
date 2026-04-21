@@ -18,20 +18,20 @@ int main(int argc, char* argv[]) {
     int socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
     if(socketConexionMemory == EXIT_FAILURE){
         log_info(loggerCpu, "CPU no se pudo conectar a Kernel Memory");
-        //ver si hay que abortar
+        abort();
     }
     log_info(loggerCpu, "CPU: conexion establecida con Kernel Memory");
-    //handshake_cliente(socketConexionMemory, loggerCpu);
 
+    handshake_cliente_id(socketConexionMemory, loggerCpu, CPU);
     
     //LEVANTAR CONEXION CON SCHEDULER
     int socketConexionKernel = iniciar_conexion(IPKernel, puertoKernel);
     if(socketConexionKernel == EXIT_FAILURE){
         log_info(loggerCpu, "CPU no se pudo conectar a Kernel Scheduler");
-        //ver si hay que abortar
+        abort();
     }
     log_info(loggerCpu, "CPU: conexion establecida con Kernel Scheduler");
-    //handshake_cliente(socketConexionKernel, loggerCpu);
+
     handshake_cliente_id(socketConexionKernel, loggerCpu, CPU);
 
 
@@ -39,11 +39,12 @@ int main(int argc, char* argv[]) {
     int socketConexionMemoryStick = iniciar_conexion(IPMemoryStick, puertoMemoryStick);
     if(socketConexionMemoryStick == EXIT_FAILURE){
         log_info(loggerCpu, "CPU no se pudo conectar a Memory Stick");
-        //ver si hay que abortar
+        abort();
     }
 
     log_info(loggerCpu, "CPU: conexion establecida con Memory Stick");
-    //handshake_cliente(socketConexionMemoryStick, loggerCpu);
+    
+    //handshake_cliente_id(socketConexionMemory, loggerCpu, CPU);
 
 
 

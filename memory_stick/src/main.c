@@ -18,14 +18,18 @@ int main(int argc, char* argv[]) {
             abort();
         }
     log_info(loggerMemoryStick,"Memory stick conectado a Kernel Memory");
+    handshake_cliente_id(socketconexionKernelMemory, loggerMemoryStick, MEMORY_STICK);
     
-    //handshake
-    //handshake_cliente(socketconexionKernelMemory,loggerMemoryStick);
+  
 
     //abrir socket de escucha para que se conecte la cpu
     int socketEscucha = iniciar_servidor(puertoEscucha);
-
     log_info(loggerMemoryStick, "Servidor iniciado");
+
+    int socketParaCpu = atender_cliente(socketEscucha, loggerMemoryStick);
+
+
+    /*
     //esperar cpu
     int socketCPU = esperar_cliente(socketEscucha);
     if(socketCPU==EXIT_FAILURE)
@@ -34,8 +38,8 @@ int main(int argc, char* argv[]) {
             abort();
         }
     
-    log_info(loggerMemoryStick,"Memory Stick: CPU <ID CPU> Conectada");
-    //handshake cpu
-    //handshake_servidor(socketCPU);
+    
+    log_info(loggerMemoryStick,"Memory Stick: CPU <ID CPU> Conectada");*/
+    
     return 0;
 }

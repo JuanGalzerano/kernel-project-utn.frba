@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     log_info(loggerScheduler, "Conectado a Kernel Memory");
     
     //hacer handshake cuando juani implemente:
-    //handshake_cliente_id(socketConexionMemory, loggerScheduler, SCHEDULER);
+    handshake_cliente_id(socketConexionMemory, loggerScheduler, SCHEDULER);
    
 //LEVANTAR SERVIDOR
     int socketEscucha = iniciar_servidor(puertoEscucha);
@@ -28,8 +28,8 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     log_info(loggerScheduler, "Servidor iniciado");
 
 //esto va con hilos cuando lo aprenda
-    int unSocket = atender_cliente(socketEscucha);
-    int otroSocket = atender_cliente(socketEscucha);
+    int unSocket = atender_cliente(socketEscucha, loggerScheduler);
+    int otroSocket = atender_cliente(socketEscucha, loggerScheduler);
 
     //Liberamos memoria
     close(socketConexionMemory);
@@ -40,35 +40,6 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
 }
 
 
-
-int atender_cliente(int socketEscucha){
-
-    int socketCliente = esperar_cliente(socketEscucha);
-
-    int32_t idCliente=handshake_servidor_id(socketCliente, idCliente);
-
-
-    switch (idCliente)
-    {
-    case CPU:
-        //aca se deberia solicitar para conseguir el id cpu
-        log_info(loggerScheduler, "CPU <id cpu> CONECTADA");
-
-        break;
-    case IO:
-        log_info(loggerScheduler, "IO CONECTADO"); 
-    
-    /*default:
-
-        log_info(loggerScheduler, "Error en la conexion con el cliente");
-        break;*/
-    }
-
-    return socketCliente;
-
-
-
-}
 
 
 

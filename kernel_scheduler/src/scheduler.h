@@ -21,7 +21,7 @@ char* IPMemory;
 
 
 
-int atender_cliente(int socketEscucha);
+
 
 
 

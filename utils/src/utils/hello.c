@@ -110,18 +110,12 @@ int iniciar_conexion(char* ip, char* puerto){
 }
 
 
-//FUNCIONES HANDSHAKE (TODAVIA EVALLUANDO FUNCIONAMIENTO)
-/*
-IMPORTANTE:
-    EL unico problema que le encuentro a las funciones de handshake de aca abajo es que en caso de fallar el handshake, el cliente hara exit(1)
-y el servidor se quedara esperando el id por el recv(... WAITALL), por lo que el servidor nunca se enterara del fallo
-*/
-
 
 void handshake_cliente_id(int socket_conexion, t_log *log, int32_t id)
 {
 	int32_t handshake = 1;
 	int32_t result = 0;
+    int32_t idFallo = -1;
   
 	send(socket_conexion, &handshake, sizeof(int32_t), 0);
 	recv(socket_conexion, &result, sizeof(int32_t), MSG_WAITALL);
@@ -129,13 +123,15 @@ void handshake_cliente_id(int socket_conexion, t_log *log, int32_t id)
 	if (result == 0)
 	{
 		log_info(log, "Handshake OK");
+        send(socket_conexion, &id, sizeof(int32_t), 0);
 	}
 	else
 	{
+        send(socket_conexion, &idFallo, sizeof(int32_t), 0);
 		perror("Error al realizar Handshake");
 		exit(1);
 	}
-    send(socket_conexion, &id, sizeof(int32_t), 0);
+    
 }
 
 int32_t handshake_servidor_id(int socket_conexion, int32_t id)
@@ -160,3 +156,43 @@ int32_t handshake_servidor_id(int socket_conexion, int32_t id)
 
 
 
+int atender_cliente(int socketEscucha, t_log *logger){
+
+    int socketCliente = esperar_cliente(socketEscucha);
+
+    int32_t idCliente=0;
+    idCliente = handshake_servidor_id(socketCliente, idCliente);
+
+
+    switch (idCliente)
+    {
+    case CPU:
+        //aca se deberia solicitar para conseguir el id cpu
+        log_info(logger, "CPU <id cpu> CONECTADA");
+
+        break;
+    case IO:
+        log_info(logger, "IO CONECTADO"); 
+        break;
+    case SWAP:
+        log_info(logger, "SWAP CONECTADO"); 
+        break;
+    case MEMORY_STICK:
+        log_info(logger, "MEMORY STICK CONECTADO"); 
+        break;
+    case SCHEDULER:
+        log_info(logger, "IO CONECTADO"); 
+        break;
+    
+    case -1:
+
+        log_info(logger, "Error en la conexion con el cliente");
+        //hay que abortar creo
+        break;
+    }
+
+    return socketCliente;
+
+
+
+}

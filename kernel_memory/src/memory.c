@@ -17,8 +17,14 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemory, "Servidor iniciado");
 
+    int unSocket = atender_cliente(socketEscucha, loggerMemory);
+    int otroSocket = atender_cliente(socketEscucha, loggerMemory);
+    int masSocket = atender_cliente(socketEscucha, loggerMemory);
+    int elUltimoSocket = atender_cliente(socketEscucha, loggerMemory);
 
 
+
+/*
         // ESPERAR KERNEL SCHEDULER
     int socketKernel = esperar_cliente(socketEscucha);
     if(socketKernel == EXIT_FAILURE){
@@ -49,7 +55,7 @@ int main(int argc, char* argv[]) {
     if(socketSwap == EXIT_FAILURE){
         log_info(loggerMemory, "error al conectar con Swap");
     }
-    log_info(loggerMemory, "Swap conectado");
+    log_info(loggerMemory, "Swap conectado");*/
 
     return 0;
 }

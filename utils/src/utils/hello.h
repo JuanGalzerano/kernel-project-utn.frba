@@ -29,7 +29,7 @@ void handshake_cliente_id(int socket_conexion, t_log *log, int32_t id);
 
 int32_t handshake_servidor_id(int socket_conexion, int32_t id);
 
-
+int atender_cliente(int socketEscucha, t_log *logger);
 
 
 typedef enum{
@@ -37,8 +37,8 @@ typedef enum{
     MEMORY,
     CPU,
     MEMORY_STICK,
-    SWAP,
-    IO
+    IO,
+    SWAP
 }modulo;
 
 
