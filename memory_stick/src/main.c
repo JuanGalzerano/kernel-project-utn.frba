@@ -1,4 +1,4 @@
-#include <utils/hello.h>
+#include <utils/utils.h>
 
 int main(int argc, char* argv[]) {
     // Inicializo log y config
@@ -24,22 +24,15 @@ int main(int argc, char* argv[]) {
 
     //abrir socket de escucha para que se conecte la cpu
     int socketEscucha = iniciar_servidor(puertoEscucha);
+    if(socketEscucha == EXIT_FAILURE){
+        log_info(loggerMemoryStick, "no se pudo iniciar servidor");
+        abort();
+    }
     log_info(loggerMemoryStick, "Servidor iniciado");
 
     int socketParaCpu = atender_cliente(socketEscucha, loggerMemoryStick);
 
 
-    /*
-    //esperar cpu
-    int socketCPU = esperar_cliente(socketEscucha);
-    if(socketCPU==EXIT_FAILURE)
-        {
-            log_info(loggerMemoryStick,"Error al iniciar Sevidor(Memory Stick)");
-            abort();
-        }
-    
-    
-    log_info(loggerMemoryStick,"Memory Stick: CPU <ID CPU> Conectada");*/
     
     return 0;
 }

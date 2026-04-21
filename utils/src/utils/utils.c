@@ -1,4 +1,4 @@
-#include <utils/hello.h>
+#include <utils/utils.h>
 
 void saludar(char* quien) {
     printf("Hola desde %s!!\n", quien);
@@ -181,7 +181,7 @@ int atender_cliente(int socketEscucha, t_log *logger){
         log_info(logger, "MEMORY STICK CONECTADO"); 
         break;
     case SCHEDULER:
-        log_info(logger, "IO CONECTADO"); 
+        log_info(logger, "KERNEL SCHEDULER CONECTADO"); 
         break;
     
     case -1:

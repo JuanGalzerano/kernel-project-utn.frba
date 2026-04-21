@@ -2,7 +2,7 @@
 #define CPU_GESTOR_H_
 
 
-#include <utils/hello.h>
+#include <utils/utils.h>
 
 
 //DECLARO VARIABLES GLOBALES

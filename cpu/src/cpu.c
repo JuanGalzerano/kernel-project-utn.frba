@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 
     log_info(loggerCpu, "CPU: conexion establecida con Memory Stick");
     
-    //handshake_cliente_id(socketConexionMemory, loggerCpu, CPU);
+    handshake_cliente_id(socketConexionMemoryStick, loggerCpu, CPU);
 
 
 

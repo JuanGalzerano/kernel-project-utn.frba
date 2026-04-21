@@ -1,7 +1,7 @@
 #ifndef GESTOR_SCHEDULER_H_
 #define GESTOR_SCHEDULER_H_
 
-#include <utils/hello.h>
+#include <utils/utils.h>
 
 //VARIABLES GLOBALES
 
