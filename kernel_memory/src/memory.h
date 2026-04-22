@@ -14,5 +14,11 @@ t_config* configMemory;
 
 char* puertoEscucha;
 
+//FUNCIONES
+char* recibir_path(int socket);
+void crear_proceso(int pid, char* path);
+void* hacerAlgo(void* arg);
+
+
 
 #endif

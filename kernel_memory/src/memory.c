@@ -2,7 +2,10 @@
 
 int main(int argc, char* argv[]) {
 
-
+    if (argc < 2) {
+    printf("Falta path de configuracion");
+    return EXIT_FAILURE; //no va a llegar a menos q alguien 
+    }
     //inicializo log y config, desp lo pongo en archivo aparte
     inicializar_log_y_config(argv[1]);
     
@@ -17,45 +20,48 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemory, "Servidor iniciado");
 
-    int unSocket = aceptar_cliente(socketEscucha, loggerMemory);
-    int otroSocket = aceptar_cliente(socketEscucha, loggerMemory);
-    int masSocket = aceptar_cliente(socketEscucha, loggerMemory);
-    int elUltimoSocket = aceptar_cliente(socketEscucha, loggerMemory);
+//Estas conexiones son primordiales al principio del run osea que si o si se van a conectar en este orden
+//desp cpu y stick ahi si que se van a esperar en un while(1)
+    int socketScheduler = aceptar_cliente(socketEscucha, loggerMemory);
+    int socketSwap = aceptar_cliente(socketEscucha, loggerMemory);
 
+    
 
+    char* path = recibir_path(socketScheduler); //scheduler me manda la ubicacion del archivo q contiene las instrucciones que va a ejecutar el PID 0
+    crear_proceso(0, path); //este tiene que guardar el archivo para cuadno el cpu pida instrucciones e inicializar el contexto de ejecucion (ax,bx, etc)
 
-/*
-        // ESPERAR KERNEL SCHEDULER
-    int socketKernel = esperar_cliente(socketEscucha);
-    if(socketKernel == EXIT_FAILURE){
-        log_info(loggerMemory, "error al conectar con Kernel-Scheduler");
+//while para recibir CPUs y STICKs
+    while (1) {
+        int socket_cliente = aceptar_cliente(socketEscucha, loggerMemory);
+
+        int* arg = malloc(sizeof(int)); 
+        *arg = socket_cliente;  //argumento random para pasarle al hilo generico
+
+        pthread_t hilo;
+        pthread_create(&hilo, NULL, hacerAlgo, arg);
+        pthread_detach(hilo);
     }
-    log_info(loggerMemory, "Kernel Scheduler Conectado - FD del socket: <FD_DEL_SOCKET>"); //a implementar el <FD_DEL_SOCKET>
-    //handshake_servidor(socketKernel);//agregao por marotti
-
-
-        // ESPERAR CPU
-    int socketCPU = esperar_cliente(socketEscucha);
-    if(socketCPU == EXIT_FAILURE){
-        log_info(loggerMemory, "error al conectar con CPU");
-    }
-    log_info(loggerMemory, "CPU <ID CPU> Conectada"); //a implementar el <ID CPU>
-
-
-        // ESPERAR MEMORY STICK
-    int socketMemoryStick = esperar_cliente(socketEscucha);
-    if(socketMemoryStick == EXIT_FAILURE){
-        log_info(loggerMemory, "error al conectar con Memory Stick");
-    }
-    log_info(loggerMemory, "Memory Stick de <TAMAÑO> bytes Conectada");//a implementar el <TAMAÑO>
-
-
-        // ESPERAR SWAP
-    int socketSwap = esperar_cliente(socketEscucha);
-    if(socketSwap == EXIT_FAILURE){
-        log_info(loggerMemory, "error al conectar con Swap");
-    }
-    log_info(loggerMemory, "Swap conectado");*/
 
     return 0;
+}
+
+void* hacerAlgo(void* arg) {
+    int socket = *(int*)arg;
+    free(arg);
+
+    // logica aca, me imagino que aca recivo y mando ni idea
+
+    return NULL;
+}
+
+char* recibir_path(int socket) {
+    // por ahora devuelvo algo a
+    char* path = malloc(20);
+    strcpy(path, "a.txt");
+    return path;
+}
+
+void crear_proceso(int pid, char* path) {
+    // implementación vacía por ahora
+    printf("Creando proceso PID %d con path %s\n", pid, path);
 }
