@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     }
     log_info(loggerScheduler, "Servidor iniciado");
 
+//aca deberia correr el pid 0
 
     while(1){
         int socketCliente = aceptar_cliente(socketEscucha, loggerScheduler);
@@ -39,10 +40,6 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
         pthread_detach(hilo);
     }
 
-
-//esto va con hilos cuando lo aprenda
-    //int unSocket = aceptar_cliente(socketEscucha, loggerScheduler);
-    //int otroSocket = aceptar_cliente(socketEscucha, loggerScheduler);
 
     //Liberamos memoria
     close(socketConexionMemory);
@@ -62,46 +59,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
     close(socketCliente);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*
-
-    //SUPONIENDO QUE CPU SE CONECTA ANTES QUE IO (cuando aprenda hilos lo cambiamos)
-
-    int socketCPU = esperar_cliente(socketEscucha);
-
-    if(socketCPU == EXIT_FAILURE){
-        log_info(loggerScheduler, "error al conectar CPU");
-        abort();//ver si hay que abortar
-    }
-    log_info(loggerScheduler, "CPU <id cpu> CONECTADA");//OBLIGATORIO //agregar despues lo de loggear el id de la cpu 
-
-    //handshake_servidor(socketCPU);
+t_pcb crear_proceso(uint32_t pid,char *path, int prioridad){
+    
+}*/
 
 
-    int socketIO = esperar_cliente(socketEscucha);
-    if(socketIO == EXIT_FAILURE){
-        log_info(loggerScheduler, "error al conectar IO");
-        abort();//ver si hay que abortar
-    }
-    log_info(loggerScheduler, "IO CONECTADO"); 
 
-    //handshake_servidor(socketIO);
 
-*/
+
+
+
+
+
+
+
