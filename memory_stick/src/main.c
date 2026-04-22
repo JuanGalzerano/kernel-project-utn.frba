@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemoryStick, "Servidor iniciado");
 
-    int socketParaCpu = atender_cliente(socketEscucha, loggerMemoryStick);
+    int socketParaCpu = aceptar_cliente(socketEscucha, loggerMemoryStick);
 
 
     

@@ -156,7 +156,7 @@ int32_t handshake_servidor_id(int socket_conexion, int32_t id)
 
 
 
-int atender_cliente(int socketEscucha, t_log *logger){
+int aceptar_cliente(int socketEscucha, t_log *logger){
 
     int socketCliente = esperar_cliente(socketEscucha);
 

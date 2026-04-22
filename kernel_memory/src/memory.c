@@ -17,10 +17,10 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemory, "Servidor iniciado");
 
-    int unSocket = atender_cliente(socketEscucha, loggerMemory);
-    int otroSocket = atender_cliente(socketEscucha, loggerMemory);
-    int masSocket = atender_cliente(socketEscucha, loggerMemory);
-    int elUltimoSocket = atender_cliente(socketEscucha, loggerMemory);
+    int unSocket = aceptar_cliente(socketEscucha, loggerMemory);
+    int otroSocket = aceptar_cliente(socketEscucha, loggerMemory);
+    int masSocket = aceptar_cliente(socketEscucha, loggerMemory);
+    int elUltimoSocket = aceptar_cliente(socketEscucha, loggerMemory);
 
 
 

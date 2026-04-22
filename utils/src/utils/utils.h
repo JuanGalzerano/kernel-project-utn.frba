@@ -1,5 +1,5 @@
-#ifndef UTILS_HELLOH
-#define UTILS_HELLOH
+#ifndef UTILS_H
+#define UTILS_H
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,12 +11,14 @@
 #include<netdb.h>
 #include<commons/log.h>
 #include <commons/config.h>
+#include <pthread.h>
 
 /**
 @brief Imprime un saludo por consola
 @param quien Módulo desde donde se llama a la función
 @return No devuelve nada
 **/
+
 
 //FUNCIONES CONEXIONES
 void saludar(char* quien);
@@ -31,7 +33,7 @@ void handshake_cliente_id(int socket_conexion, t_log *log, int32_t id);
 
 int32_t handshake_servidor_id(int socket_conexion, int32_t id);
 
-int atender_cliente(int socketEscucha, t_log *logger);
+int aceptar_cliente(int socketEscucha, t_log *logger);
 
 //TYPEDEF CONEXIONES
 typedef enum{
@@ -42,6 +44,24 @@ typedef enum{
     IO,
     SWAP
 }modulo;
+/*
+//TYPEDEF SERIALIZACION
+
+typedef struct {
+    uint32_t size; // Tamaño del payload
+    uint32_t offset; // Desplazamiento dentro del payload
+    void* stream; // Payload
+} t_buffer;
+
+typedef struct {
+    uint8_t codigo_operacion;
+    t_buffer* buffer;
+} t_paquete;
+
+typedef enum{
+    x,//de ejemplo
+    y
+}op_code;
 
 //FUNCIONES SERIALIZACION
 
@@ -78,21 +98,6 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length);
 //Crea un paquete vacio y con CODE como codigo de operacion
 t_paquete paquete_create(op_code code);
 
-//TYPEDEF SERIALIZACION
 
-typedef struct {
-    uint32_t size; // Tamaño del payload
-    uint32_t offset; // Desplazamiento dentro del payload
-    void* stream; // Payload
-} t_buffer;
-
-typedef struct {
-    uint8_t codigo_operacion;
-    t_buffer* buffer;
-} t_paquete;
-
-typedef enum{
-
-}op_code;
-
+*/
 #endif

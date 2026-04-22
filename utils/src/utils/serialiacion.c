@@ -1,4 +1,4 @@
-#include <utils/utils.h>
+/*#include <utils/utils.h>
 
 
 t_buffer *buffer_create(uint32_t size){
@@ -65,3 +65,4 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length){
 
 
 //Funciones de paquete
+*/

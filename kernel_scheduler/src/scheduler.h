@@ -18,6 +18,8 @@ char* puertoEscucha;
 char* puertoMemory;
 char* IPMemory;
 
+void *atender_cliente(void *arg);
+
 
 
 

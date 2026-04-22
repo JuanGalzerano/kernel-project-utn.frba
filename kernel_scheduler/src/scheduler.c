@@ -27,9 +27,22 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     }
     log_info(loggerScheduler, "Servidor iniciado");
 
+
+    while(1){
+        int socketCliente = aceptar_cliente(socketEscucha, loggerScheduler);
+
+        int* socket_ptr = malloc(sizeof(int));
+        *socket_ptr = socketCliente;
+
+        pthread_t hilo;
+        pthread_create(&hilo, NULL, atender_cliente, socket_ptr);
+        pthread_detach(hilo);
+    }
+
+
 //esto va con hilos cuando lo aprenda
-    int unSocket = atender_cliente(socketEscucha, loggerScheduler);
-    int otroSocket = atender_cliente(socketEscucha, loggerScheduler);
+    //int unSocket = aceptar_cliente(socketEscucha, loggerScheduler);
+    //int otroSocket = aceptar_cliente(socketEscucha, loggerScheduler);
 
     //Liberamos memoria
     close(socketConexionMemory);
@@ -40,6 +53,14 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
 }
 
 
+void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el que se comunican)
+    int socketCliente = *(int*) arg;
+    free(arg); 
+
+    //atender peticion o algo asi
+
+    close(socketCliente);
+}
 
 
 
