@@ -3,7 +3,6 @@
 
 #include "cpu_gestor.h"
 
-void inicializar_log_y_config(char* path);
-
+void inicializar_log_y_config(char* path, char* idCpu);
 
 #endif

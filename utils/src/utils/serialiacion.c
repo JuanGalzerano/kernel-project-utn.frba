@@ -1,8 +1,8 @@
-/*#include <utils/utils.h>
+#include <utils/utils.h>
 
 
 t_buffer *buffer_create(uint32_t size){
-    t_buffer buffer = malloc(sizeof(t_buffer));
+    t_buffer* buffer = malloc(sizeof(t_buffer));
     buffer->size = size;
     buffer->offset = 0;
     buffer->stream=NULL;
@@ -65,4 +65,3 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length){
 
 
 //Funciones de paquete
-*/

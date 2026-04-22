@@ -44,7 +44,7 @@ typedef enum{
     IO,
     SWAP
 }modulo;
-/*
+
 //TYPEDEF SERIALIZACION
 
 typedef struct {
@@ -98,6 +98,4 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length);
 //Crea un paquete vacio y con CODE como codigo de operacion
 t_paquete paquete_create(op_code code);
 
-
-*/
 #endif

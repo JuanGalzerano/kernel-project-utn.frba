@@ -2,17 +2,14 @@
 
 int main(int argc, char* argv[]) {
 
+    //Verifico haber recibido todos los argumentos
+    if(argc < 3){
+        fprintf(stderr, "Faltan argumentos\n"); 
+        return EXIT_FAILURE; 
+    }
+
     //inicializo log y config
-    inicializar_log_y_config(argv[1]);
-
-    //Meto todo lo del config
-    char* puertoKernel= config_get_string_value(configCpu, "PUERTO_SCHEDULER");
-    char* IPKernel = config_get_string_value(configCpu, "IP_SCHEDULER");
-    char* puertoMemory= config_get_string_value(configCpu, "PUERTO_MEMORY");
-    char* IPMemory = config_get_string_value(configCpu, "IP_MEMORY");
-    char* puertoMemoryStick= config_get_string_value(configCpu, "PUERTO_MEMORYSTICK");
-    char* IPMemoryStick = config_get_string_value(configCpu, "IP_MEMORYSTICK");
-
+    inicializar_log_y_config(argv[1], argv[2]);
 
     //LEVANTAR CONEXION CON MEMORY
     int socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
