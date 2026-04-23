@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 
     
     send(socketConexionMemory, &sizeIdCpu, sizeof(int), 0);
-    send(socketConexionMemory, &idCpu,sizeIdCpu, 0);
+    send(socketConexionMemory, idCpu, sizeIdCpu, 0);
     
     //LEVANTAR CONEXION CON SCHEDULER
     int socketConexionKernel = iniciar_conexion(IPKernel, puertoKernel);
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
     handshake_cliente_id(socketConexionKernel, loggerCpu, CPU);
 
     send(socketConexionKernel, &sizeIdCpu, sizeof(int), 0);
-    send(socketConexionKernel, &idCpu,sizeIdCpu, 0);
+    send(socketConexionKernel, idCpu, sizeIdCpu, 0);
 
 
         //LEVANTAR CONEXION CON MEMORY STICK
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     handshake_cliente_id(socketConexionMemoryStick, loggerCpu, CPU);
 
     send(socketConexionMemoryStick, &sizeIdCpu, sizeof(int), 0);
-    send(socketConexionMemoryStick, &idCpu,sizeIdCpu, 0);
+    send(socketConexionMemoryStick, idCpu, sizeIdCpu, 0);
 
 
 

@@ -27,8 +27,10 @@ int main(int argc, char* argv[]) {
 
     
 
-    char* path = recibir_path(socketScheduler); //scheduler me manda la ubicacion del archivo q contiene las instrucciones que va a ejecutar el PID 0
-    crear_proceso(0, path); //este tiene que guardar el archivo para cuadno el cpu pida instrucciones e inicializar el contexto de ejecucion (ax,bx, etc)
+    uint32_t pid;
+    char* path = recibir_path(socketScheduler, &pid);
+    int ok = crear_proceso(pid, path); //este tiene que guardar el archivo para cuadno el cpu pida instrucciones e inicializar el contexto de ejecucion (ax,bx, etc)
+    send(socketScheduler, &ok, sizeof(int), 0);
 
 //while para recibir CPUs y STICKs
     while (1) {
@@ -54,8 +56,8 @@ void* hacerAlgo(void* arg) {
     return NULL;
 }
 
-char* recibir_path(int socket) {
-    
+char* recibir_path(int socket, uint32_t* pid_out) {
+
 //marotti estuvo aqui
     uint32_t pid, sizeDePath;
     recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL);
@@ -65,11 +67,12 @@ char* recibir_path(int socket) {
 
     //necesito que cuando crees el proceso me hagas un send de 1 si se creo correctamente o 0 si no
     //xq yo necesito ver eso para ver si lo meto en ready o no
-  
+
     return path; //no te quiero cambiar esto pero creo que tmb vas a necesitar retornar el PID, capaz te combiene recibirlos por referencia
 }
 
-void crear_proceso(int pid, char* path) {
+int crear_proceso(int pid, char* path) {
     // implementación vacía por ahora
     printf("Creando proceso PID %d con path %s\n", pid, path);
+    return 1;
 }

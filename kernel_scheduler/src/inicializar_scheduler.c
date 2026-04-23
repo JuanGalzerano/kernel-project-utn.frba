@@ -12,4 +12,11 @@ void inicializar(char* path){
 
 
     loggerScheduler = log_create("kernel.log", "main.c", true, LOG_LEVEL_INFO); //acordarse de cambiar el 2do parametro si cambi el nombre del archivo//Ver si va LOG_LEVEL_INFO o hay que usar lo de las config
+
+    new_lista    = list_create();
+    ready_cola   = queue_create();
+    block        = list_create();
+    susp_block   = list_create();
+    susp_ready   = list_create();
+    exec_lista   = list_create();
 }

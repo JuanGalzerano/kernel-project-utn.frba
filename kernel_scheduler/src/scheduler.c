@@ -83,11 +83,14 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
         log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
         return NULL;
     }
-    list_remove_element(new_lista, pcb);
-    queue_push(ready_cola, pcb);
-    log_info(loggerScheduler, "## (%d) Pasa del estado NEW al estado READY", pcb->pid);
+    else{
+        list_remove_element(new_lista, pcb);
+        queue_push(ready_cola, pcb);
+        log_info(loggerScheduler, "## (%d) Pasa del estado NEW al estado READY", pcb->pid);
 
-    return pcb;
+        return pcb;
+    }
+    
 }
 
 
