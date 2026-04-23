@@ -8,8 +8,9 @@ char* puertoMemoryStick;
 char* IPMemoryStick;
 char* idCpu;
 
-void inicializar_log_y_config(char* path, char* idCpu){
-    idCpu = idCpu;
+void inicializar_log_y_config(char* path, char* idDeCpu){
+    idCpu = malloc(strlen(idDeCpu) + 1);
+    strcpy(idCpu,idDeCpu);
     char* configNombre[15];
     strcpy(configNombre, "cpu_");
     strcat(configNombre, idCpu);

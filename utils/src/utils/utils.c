@@ -168,7 +168,13 @@ int aceptar_cliente(int socketEscucha, t_log *logger){
     {
     case CPU:
         //aca se deberia solicitar para conseguir el id cpu
-        log_info(logger, "CPU <id cpu> CONECTADA");
+        char* idCPU;
+        int sizeIdCpu;
+        recv(socketCliente, &sizeIdCpu, sizeof(int), MSG_WAITALL);
+        idCPU = malloc(sizeIdCpu);
+        recv(socketCliente, &idCPU, sizeIdCpu,MSG_WAITALL);
+        log_info(logger, "CPU %s CONECTADA", idCPU);
+        
 
         break;
     case IO:

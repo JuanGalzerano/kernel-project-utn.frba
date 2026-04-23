@@ -55,10 +55,18 @@ void* hacerAlgo(void* arg) {
 }
 
 char* recibir_path(int socket) {
-    // por ahora devuelvo algo a
-    char* path = malloc(20);
-    strcpy(path, "a.txt");
-    return path;
+    
+//marotti estuvo aqui
+    uint32_t pid, sizeDePath;
+    recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL);
+    recv(socket, &sizeDePath, sizeof(uint32_t), MSG_WAITALL);
+    char* path = malloc(sizeDePath);
+    recv(socket, path, sizeDePath, MSG_WAITALL);
+
+    //necesito que cuando crees el proceso me hagas un send de 1 si se creo correctamente o 0 si no
+    //xq yo necesito ver eso para ver si lo meto en ready o no
+  
+    return path; //no te quiero cambiar esto pero creo que tmb vas a necesitar retornar el PID, capaz te combiene recibirlos por referencia
 }
 
 void crear_proceso(int pid, char* path) {

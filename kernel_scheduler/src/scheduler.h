@@ -41,12 +41,15 @@ t_config* configScheduler;
 char* puertoEscucha;
 char* puertoMemory;
 char* IPMemory;
+int socketConexionMemory;
 
 void *atender_cliente(void *arg);
 
+t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad);
 
+void enviar_path_proceso_memory(uint32_t pid,char* path);
 
-
+int recibir_ok_memory();
 
 
 
