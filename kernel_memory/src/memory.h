@@ -3,6 +3,7 @@
 
 #include "memory_gestor.h"
 #include "inicializar.h"
+#include "serializacion.h"
 
 //VARIABLES GLOBALES
 
@@ -16,7 +17,6 @@ char* puertoEscucha;
 
 //FUNCIONES
 char* recibir_path(int socket, uint32_t* pid_out);
-int crear_proceso(int pid, char* path);
 void* hacerAlgo(void* arg);
 
 

@@ -58,10 +58,13 @@ typedef struct {
     t_buffer* buffer;
 } t_paquete;
 
-typedef enum{
-    x,//de ejemplo
-    y
-}op_code;
+//No se si estoy poniendo de mas o  de menos pero quiero poner ejemplos que se entiendan para cuando alguien lee el def de op_code
+typedef enum {
+    OBTENER_CONTEXTO    = 0, // CPU → KM: dame el contexto del proceso PID X
+    ENVIAR_CONTEXTO     = 1, // KM  → CPU: aca va el contexto
+    ACTUALIZAR_CONTEXTO = 2, // CPU → KM: guarda este contexto actualizado del PID X
+    OBTENER_INSTRUCCION = 3, // CPU → KM: dame la instruccion en PC para PID X
+} op_code;
 
 //FUNCIONES SERIALIZACION
 
