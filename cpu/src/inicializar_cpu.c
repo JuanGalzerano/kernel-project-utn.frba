@@ -7,15 +7,14 @@ char* IPMemory;
 char* puertoMemoryStick;
 char* IPMemoryStick;
 char* idCpu;
+char* archivoLogNombre;
 
 void inicializar_log_y_config(char* path, char* idCpu){
     idCpu = idCpu;
-    char* configNombre[15];
-    strcpy(configNombre, "cpu_");
-    strcat(configNombre, idCpu);
-    strcat(configNombre, ".log");
+    archivoLogNombre = malloc(strlen("cpu_") + strlen(idCpu) + strlen(".log") + 1);
+    sprintf(archivoLogNombre, "cpu_%s.log", idCpu);
 
-    loggerCpu = log_create(configNombre, "cpu.c", true, LOG_LEVEL_INFO);
+    loggerCpu = log_create(archivoLogNombre, "cpu.c", true, LOG_LEVEL_INFO);
     configCpu = config_create(path);
 
     //Meto todo lo del config
@@ -25,4 +24,9 @@ void inicializar_log_y_config(char* path, char* idCpu){
     IPMemory = config_get_string_value(configCpu, "IP_MEMORY");
     puertoMemoryStick = config_get_string_value(configCpu, "PUERTO_MEMORYSTICK");
     IPMemoryStick = config_get_string_value(configCpu, "IP_MEMORYSTICK");
+}
+
+void liberar_log(t_log* loggerCpu) {
+    log_destroy(loggerCpu);
+    free(archivoLogNombre);
 }
