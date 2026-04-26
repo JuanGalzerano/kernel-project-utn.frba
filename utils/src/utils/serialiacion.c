@@ -65,3 +65,49 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length){
 
 
 //Funciones de paquete
+
+
+//Crear paquete
+t_paquete* crear_paquete(op_code codigo_operacion) {
+    t_paquete* paquete = malloc(sizeof(t_paquete));
+    paquete->codigo_operacion = codigo_operacion;
+    paquete->buffer = buffer_create(0);
+    return paquete;
+}
+
+//Agregar datos al buffer de un paquete
+void agregar_a_paquete(t_paquete* paquete, void* valor, uint32_t size) {
+	buffer_add(paquete->buffer, valor, size);
+}
+
+//Enviar paquete
+void enviar_paquete(int socket, t_paquete* paquete) {
+    uint8_t op = paquete->codigo_operacion;
+    uint32_t size = paquete->buffer->offset;
+    send(socket, &op;, sizeof(uint8_t), 0);
+    send(socket, &size;, sizeof(uint32_t), 0);
+    if (size > 0) {
+        send(socket, paquete->buffer->stream, size, 0);
+    }
+}
+
+//Recibir paquete
+t_paquete* recibir_paquete(int socket, uint8_t* op_out) {
+	recv(socket, op_out, sizeof(uint8_t), MSG_WAITALL);
+	uint32_t size;
+	recv(socket, &size;, sizeof(uint32_t), MSG_WAITALL);
+	t_buffer* buf = buffer_create(size);
+	buf->stream = malloc(size);
+	recv(socket, buf->stream, size, MSG_WAITALL);
+
+    t_paquete* paquete = crear_paquete(op_out);
+    paquete->buffer = buf;
+
+    return paquete;
+}
+
+//Eliminar paquete
+void eliminar_paquete(t_paquete* paquete) {
+    buffer_destroy(paquete->buffer);
+    free(paquete);
+}
