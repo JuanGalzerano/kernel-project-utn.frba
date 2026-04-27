@@ -84,18 +84,18 @@ void agregar_a_paquete(t_paquete* paquete, void* valor, uint32_t size) {
 void enviar_paquete(int socket, t_paquete* paquete) {
     uint8_t op = paquete->codigo_operacion;
     uint32_t size = paquete->buffer->offset;
-    send(socket, &op;, sizeof(uint8_t), 0);
-    send(socket, &size;, sizeof(uint32_t), 0);
+    send(socket, &op, sizeof(uint8_t), 0);
+    send(socket, &size, sizeof(uint32_t), 0);
     if (size > 0) {
         send(socket, paquete->buffer->stream, size, 0);
     }
 }
 
 //Recibir paquete
-t_paquete* recibir_paquete(int socket, uint8_t* op_out) {
+t_paquete* recibir_paquete(int socket, uint8_t op_out) {
 	recv(socket, op_out, sizeof(uint8_t), MSG_WAITALL);
 	uint32_t size;
-	recv(socket, &size;, sizeof(uint32_t), MSG_WAITALL);
+	recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
 	t_buffer* buf = buffer_create(size);
 	buf->stream = malloc(size);
 	recv(socket, buf->stream, size, MSG_WAITALL);

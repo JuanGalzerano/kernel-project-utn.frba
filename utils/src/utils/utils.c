@@ -193,7 +193,7 @@ int aceptar_cliente(int socketEscucha, t_log *logger){
     case -1:
 
         log_info(logger, "Error en la conexion con el cliente");
-        //hay que abortar creo
+        abort();
         break;
     }
 
