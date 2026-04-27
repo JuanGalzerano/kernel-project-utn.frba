@@ -5,7 +5,7 @@ t_buffer *buffer_create(uint32_t size){
     t_buffer* buffer = malloc(sizeof(t_buffer));
     buffer->size = size;
     buffer->offset = 0;
-    buffer->stream=NULL;
+    buffer->stream=malloc(size);
     return buffer;
 }
 
@@ -68,21 +68,18 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length){
 
 
 //Crear paquete
-t_paquete* crear_paquete(op_code codigo_operacion) {
+t_paquete* crear_paquete(op_code codigo_operacion, uint32_t size) {
     t_paquete* paquete = malloc(sizeof(t_paquete));
     paquete->codigo_operacion = codigo_operacion;
-    paquete->buffer = buffer_create(0);
+    paquete->buffer = buffer_create(size);
+    rellenar_paquete(op_code)
     return paquete;
 }
 
-//Agregar datos al buffer de un paquete
-void agregar_a_paquete(t_paquete* paquete, void* valor, uint32_t size) {
-	buffer_add(paquete->buffer, valor, size);
-}
 
 //Enviar paquete
 void enviar_paquete(int socket, t_paquete* paquete) {
-    uint8_t op = paquete->codigo_operacion;
+    op_code op = paquete->codigo_operacion;
     uint32_t size = paquete->buffer->offset;
     send(socket, &op, sizeof(uint8_t), 0);
     send(socket, &size, sizeof(uint32_t), 0);
@@ -91,23 +88,59 @@ void enviar_paquete(int socket, t_paquete* paquete) {
     }
 }
 
+
+
 //Recibir paquete
-t_paquete* recibir_paquete(int socket, uint8_t op_out) {
-	recv(socket, op_out, sizeof(uint8_t), MSG_WAITALL);
+t_paquete* recibir_paquete(int socket) {
+    op_code codigoDeOperacion;
+	recv(socket, codigoDeOperacion, sizeof(uint8_t), MSG_WAITALL);
 	uint32_t size;
 	recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
-	t_buffer* buf = buffer_create(size);
-	buf->stream = malloc(size);
-	recv(socket, buf->stream, size, MSG_WAITALL);
-
-    t_paquete* paquete = crear_paquete(op_out);
-    paquete->buffer = buf;
-
-    return paquete;
+    t_paquete* paqueteRecibido = crear_paquete(codigoDeOperacion, size);
+	recv(socket, paqueteRecibido->buffer->stream, size, MSG_WAITALL);
+    return paqueteRecibido;
 }
+
+
+
+
 
 //Eliminar paquete
 void eliminar_paquete(t_paquete* paquete) {
     buffer_destroy(paquete->buffer);
     free(paquete);
 }
+
+
+static void serializar_contexto_ctx(t_buffer* buf, t_contexto_ejecucion* ctx) {
+    buffer_add_uint32(buf, ctx->pc);
+    buffer_add_uint8 (buf, ctx->ax);
+    buffer_add_uint8 (buf, ctx->bx);
+    buffer_add_uint8 (buf, ctx->cx);
+    buffer_add_uint8 (buf, ctx->dx);
+    buffer_add_uint32(buf, ctx->eax);
+    buffer_add_uint32(buf, ctx->ebx);
+    buffer_add_uint32(buf, ctx->ecx);
+    buffer_add_uint32(buf, ctx->edx);
+    buffer_add_uint32(buf, ctx->si);
+    buffer_add_uint32(buf, ctx->di);
+}
+
+t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf) {
+    t_contexto_ejecucion* ctx;
+    ctx->pc  = buffer_read_uint32(buf);
+    ctx->ax  = buffer_read_uint8 (buf);
+    ctx->bx  = buffer_read_uint8 (buf);
+    ctx->cx  = buffer_read_uint8 (buf);
+    ctx->dx  = buffer_read_uint8 (buf);
+    ctx->eax = buffer_read_uint32(buf);
+    ctx->ebx = buffer_read_uint32(buf);
+    ctx->ecx = buffer_read_uint32(buf);
+    ctx->edx = buffer_read_uint32(buf);
+    ctx->si  = buffer_read_uint32(buf);
+    ctx->di  = buffer_read_uint32(buf);
+    return ctx;
+}
+
+
+t_contexto_ejecucion* = contDeEjercucionQueMeMandaCPU
