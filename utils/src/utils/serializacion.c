@@ -1,3 +1,4 @@
+#include "serializacion.h"
 #include <utils/utils.h>
 
 
@@ -33,7 +34,7 @@ void buffer_read(t_buffer *buffer, void *data, uint32_t size){//creemos que esta
 }
 
 void buffer_add_uint32(t_buffer *buffer, uint32_t data){
-    buffer_add(buffer, data, sizeof(uint32_t));
+    buffer_add(buffer, &data, sizeof(uint32_t));
 }
 
 uint32_t buffer_read_uint32(t_buffer *buffer){
@@ -43,7 +44,7 @@ uint32_t buffer_read_uint32(t_buffer *buffer){
 }
 
 void buffer_add_uint8(t_buffer *buffer, uint8_t data){
-    buffer_add(buffer, data, sizeof(uint8_t));
+    buffer_add(buffer, &data, sizeof(uint8_t));
 }
 
 uint8_t buffer_read_uint8(t_buffer *buffer){
@@ -90,10 +91,11 @@ void enviar_paquete(int socket, t_paquete* paquete) {
 //Recibir paquete
 t_paquete* recibir_paquete(int socket) {
     t_paquete* paqueteRecibido = malloc(sizeof(t_paquete));
-	recv(socket, paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
+	recv(socket, &paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
 	uint32_t size;
 	recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
     t_buffer *buffer = buffer_create(size);
+    buffer->stream = malloc(size);
 	recv(socket, buffer->stream, size, MSG_WAITALL);
     paqueteRecibido->buffer = buffer;
     return paqueteRecibido;
@@ -122,7 +124,7 @@ t_buffer* serializar_contexto_ctx(t_contexto_ejecucion* ctx){
 }
 
 t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf) {
-    t_contexto_ejecucion* ctx;
+    t_contexto_ejecucion* ctx = malloc(sizeof(t_contexto_ejecucion));
     ctx->pc  = buffer_read_uint32(buf);
     ctx->ax  = buffer_read_uint8 (buf);
     ctx->bx  = buffer_read_uint8 (buf);
