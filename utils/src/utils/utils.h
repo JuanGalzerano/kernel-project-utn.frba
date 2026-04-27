@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <errno.h> 
 #include <string.h>
-#include<signal.h>
-#include<unistd.h>
-#include<sys/socket.h>
-#include<netdb.h>
-#include<commons/log.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <commons/log.h>
 #include <commons/config.h>
 #include <pthread.h>
+#include "serializacion.h"
 
 /**
 @brief Imprime un saludo por consola
@@ -44,6 +45,21 @@ typedef enum{
     IO,
     SWAP
 }modulo;
+
+// Registros del contexto de ejecucion (ver tabla del enunciado)
+typedef struct {
+    uint32_t pc;   //Program Counter 4 bytes
+    uint8_t  ax;    
+    uint8_t  bx;    
+    uint8_t  cx;    
+    uint8_t  dx;    
+    uint32_t eax;  
+    uint32_t ebx;  
+    uint32_t ecx;  
+    uint32_t edx;  
+    uint32_t si;   // 4 bytes direccion logica de memoria de origen
+    uint32_t di;   // 4 bytes direccion logica de memoria de destino
+} t_contexto_ejecucion;
 
 //TYPEDEF SERIALIZACION
 

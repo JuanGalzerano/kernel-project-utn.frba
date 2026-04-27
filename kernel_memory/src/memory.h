@@ -3,7 +3,7 @@
 
 #include "memory_gestor.h"
 #include "inicializar.h"
-#include "serializacion.h"
+#include "serializacion_m.h"
 
 //VARIABLES GLOBALES
 

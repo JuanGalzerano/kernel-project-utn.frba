@@ -5,7 +5,7 @@ t_buffer *buffer_create(uint32_t size){
     t_buffer* buffer = malloc(sizeof(t_buffer));
     buffer->size = size;
     buffer->offset = 0;
-    buffer->stream=malloc(size);
+    buffer->stream = NULL;
     return buffer;
 }
 
@@ -68,11 +68,10 @@ char *buffer_read_string(t_buffer *buffer, uint32_t *length){
 
 
 //Crear paquete
-t_paquete* crear_paquete(op_code codigo_operacion, uint32_t size) {
+t_paquete* crear_paquete(op_code codigo_operacion, t_buffer* buffer) {
     t_paquete* paquete = malloc(sizeof(t_paquete));
     paquete->codigo_operacion = codigo_operacion;
-    paquete->buffer = buffer_create(size);
-    rellenar_paquete(op_code)
+    paquete->buffer = buffer;
     return paquete;
 }
 
@@ -81,29 +80,24 @@ t_paquete* crear_paquete(op_code codigo_operacion, uint32_t size) {
 void enviar_paquete(int socket, t_paquete* paquete) {
     op_code op = paquete->codigo_operacion;
     uint32_t size = paquete->buffer->offset;
-    send(socket, &op, sizeof(uint8_t), 0);
+    send(socket, &op, sizeof(op_code), 0);
     send(socket, &size, sizeof(uint32_t), 0);
     if (size > 0) {
         send(socket, paquete->buffer->stream, size, 0);
     }
 }
 
-
-
 //Recibir paquete
 t_paquete* recibir_paquete(int socket) {
-    op_code codigoDeOperacion;
-	recv(socket, codigoDeOperacion, sizeof(uint8_t), MSG_WAITALL);
+    t_paquete* paqueteRecibido = malloc(sizeof(t_paquete));
+	recv(socket, paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
 	uint32_t size;
 	recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
-    t_paquete* paqueteRecibido = crear_paquete(codigoDeOperacion, size);
-	recv(socket, paqueteRecibido->buffer->stream, size, MSG_WAITALL);
+    t_buffer *buffer = buffer_create(size);
+	recv(socket, buffer->stream, size, MSG_WAITALL);
+    paqueteRecibido->buffer = buffer;
     return paqueteRecibido;
 }
-
-
-
-
 
 //Eliminar paquete
 void eliminar_paquete(t_paquete* paquete) {
@@ -111,8 +105,8 @@ void eliminar_paquete(t_paquete* paquete) {
     free(paquete);
 }
 
-
-static void serializar_contexto_ctx(t_buffer* buf, t_contexto_ejecucion* ctx) {
+t_buffer* serializar_contexto_ctx(t_contexto_ejecucion* ctx){
+    t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, ctx->pc);
     buffer_add_uint8 (buf, ctx->ax);
     buffer_add_uint8 (buf, ctx->bx);
@@ -124,6 +118,7 @@ static void serializar_contexto_ctx(t_buffer* buf, t_contexto_ejecucion* ctx) {
     buffer_add_uint32(buf, ctx->edx);
     buffer_add_uint32(buf, ctx->si);
     buffer_add_uint32(buf, ctx->di);
+    return buf;
 }
 
 t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf) {
@@ -142,5 +137,14 @@ t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf) {
     return ctx;
 }
 
+/*
+t_contexto_ejecucion* ctx;
 
-t_contexto_ejecucion* = contDeEjercucionQueMeMandaCPU
+t_buffer* buffer_serializado = serializar_contexto_ctx(ctx);
+
+t_paquete* paquete_contexto = crear_paquete(MENSAJE_CONTEXTO, buffer_serializado); Mensaje_contexto es el op_code
+
+// Le aviso que le envio un paquete? Como sabe que debe recibir un paquete?
+
+enviar_paquete(socketCpu, paquete_contexto);
+*/

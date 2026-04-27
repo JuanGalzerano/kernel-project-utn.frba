@@ -4,7 +4,6 @@
 
 int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al proceso inicial. [ejs: ./bin/kernel_scheduler kernel.config ./procesos/init.prog]
 
-    
     inicializar(argv[1]); //loggers y configs
 
 //LEVANTAR CONEXION CON MEMORY
