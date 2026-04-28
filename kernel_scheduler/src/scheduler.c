@@ -4,25 +4,25 @@
 
 int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al proceso inicial. [ejs: ./bin/kernel_scheduler kernel.config ./procesos/init.prog]
 
-    inicializar(argv[1]); //loggers y configs
+    inicializar(argv[1]); 
 
 //LEVANTAR CONEXION CON MEMORY
     socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
     if(socketConexionMemory == EXIT_FAILURE){
         log_info(loggerScheduler, "no se pudo conectar a Kernel Memory");
-        abort();//ver si hay que abortar
+        abort();
     }
 
     log_info(loggerScheduler, "Conectado a Kernel Memory");
     
-    //hacer handshake cuando juani implemente:
+    
     handshake_cliente_id(socketConexionMemory, loggerScheduler, SCHEDULER);
    
 //LEVANTAR SERVIDOR
     int socketEscucha = iniciar_servidor(puertoEscucha);
     if(socketEscucha == EXIT_FAILURE){
         log_info(loggerScheduler, "No se pudo iniciar el servidor");
-        abort();//ver si hay que abortar
+        abort();
     }
     log_info(loggerScheduler, "Servidor iniciado");
 
@@ -59,33 +59,63 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
     free(arg); 
 
     //recibir paquete 
+    t_paquete* paquete;
+    paquete = recibir_paquete(socketCliente);//fijarse si hay que liberar memoria
+   
 
     //switch con op_code
         //uno de crear proceso
         //agregar nueva CPU
         //seguir agregando asi las dif cosas que me pueden pedir
 
+    switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
+        case MOTIVO_FIN_QUANTUM://en el buffer que me manden la CPU 
+            t_cpu_exec* cpuFinQuantum = malloc(sizeof(t_cpu_exec));
+            buffer_read(paquete->buffer, cpuFinQuantum, sizeof(t_cpu_exec));
+
+            log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
+
+            pthread_mutex_unlock(&exec_mutex);
+            t_pcb* pcb = cpuFinQuantum->pcb;
+            cpuFinQuantum->pcb = NULL;
+            pthread_mutex_lock(&exec_mutex);
+
+            pthread_mutex_unlock(&ready_mutex);
+            queue_push(ready_cola, pcb);
+            pthread_mutex_lock(&ready_mutex);
+
+            sem_post(&sem_hay_cpu_libre);
+            sem_post(&sem_hay_proceso_ready);
+
+            free(cpuFinQuantum);
+            break;
+    }
+
+    free(paquete->buffer->stream);
+    free(paquete->buffer);
+    free(paquete);
+
     close(socketCliente);
 }
 
 
-//nose si es necec retornar el pcb
+
 t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
     t_pcb* pcb = malloc(sizeof(t_pcb));
     pcb->pid = pid;
     pcb->prioridad = prioridad;
 
-    // 2. Meterlo en NEW y loguear
+    //Meterlo en NEW y loguear
     list_add(new_lista, pcb); 
     log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
 
-    // 3. Avisar al KM (mandar pid + path por socket)
+    //Avisar al KM (mandar pid + path)
     enviar_path_proceso_memory(pcb->pid, path);
 
-    // 4. Esperar respuesta OK del KM
+    //Esperar respuesta OK del KM
     int ok = recibir_ok_memory();
 
-    // 5. Mover a READY y loguear
+    //Mover a READY y loguear
     if(ok == 0){
         list_remove_element(new_lista, pcb);
         free(pcb);
@@ -105,7 +135,7 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
 }
 
 
-void enviar_path_proceso_memory(uint32_t pid, char* path){
+void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que esta va a haber que hacerla con paquete y eso xq sino solo funca para el proceso 0
     uint32_t sizePath = strlen(path)+1;
     send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
     send(socketConexionMemory, &sizePath, sizeof(uint32_t),0);
@@ -189,10 +219,10 @@ void* planificador(void* arg) {
         enviar_proceso_a_cpu(cpu, pcb); 
 
 
-/* si es RR
-        if (scheduler.algorithm == RR) {
+
+        if (algoritmo == RR) {
             iniciar_timer_quantum(pcb, cpu);
-        }*/
+        }
 
         //Implementar mas adelante para CMN
     }
@@ -218,9 +248,39 @@ t_cpu_exec* obtener_cpu_libre(){
 }
 void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
     cpu->pcb = pcb;
-    //send(cpu->socket_fd, &pcb->pid, sizeof(uint32_t), 0);
+
     //aca hay que hacer algo para comunicarle a la CPU que debe correr este proceso
+    t_buffer* buffer = buffer_create(0);
+    buffer_add(buffer, cpu, sizeof(t_cpu_exec));
+    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
+    enviar_paquete(cpu->socketConexion, paquete);
+
     //hacer log de que se pasa a running
+    log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado RUNNING", pcb->pid);
 }
 
+void iniciar_timer_quantum(t_cpu_exec* cpu){
+    pthread_t hiloQuantum;
+    pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, cpu);
+    pthread_detach(hiloQuantum);
+}
 
+void* hilo_timer_quantum(void* arg){
+    t_cpu_exec* cpu = (t_cpu_exec*) arg;
+    free(arg);
+    uint32_t pidCpuOriginal = cpu->pcb->pid;
+
+    usleep(quantum*1000);//usleep recibe microsegundos de parametro
+
+    pthread_mutex_lock(&exec_mutex);
+    bool sigueEjecutando = (cpu->pcb != NULL && cpu->pcb->pid != pidCpuOriginal);
+    pthread_mutex_unlock(&exec_mutex);
+
+    if(sigueEjecutando){
+        //pedir a CPU que finalice por quantum
+        t_buffer* buffer = buffer_create(0);
+        buffer_add(buffer, cpu, sizeof(t_cpu_exec));
+        t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
+        enviar_paquete(cpu->socketConexion, paquete);
+    }
+}

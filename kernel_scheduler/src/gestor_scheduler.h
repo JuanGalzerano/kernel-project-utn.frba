@@ -28,6 +28,7 @@ extern char* puertoEscucha;
 extern char* puertoMemory;
 extern char* IPMemory;
 extern t_planification_algorithm algoritmo;
+extern int quantum;
 
 //listas de los 7 estados
 extern t_list* new_lista;

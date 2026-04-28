@@ -53,6 +53,7 @@ char* puertoMemory;
 char* IPMemory;
 int socketConexionMemory;
 t_planification_algorithm algoritmo;
+int quantum;
 
 void *atender_cliente(void *arg);
 
@@ -69,6 +70,10 @@ void* planificador(void* arg);
 t_cpu_exec* obtener_cpu_libre();
 
 void enviar_proceso_a_cpu(t_cpu_exec* cpu, t_pcb* pcb);
+
+void iniciar_timer_quantum(t_cpu_exec* cpu);
+
+void* hilo_timer_quantum(void* arg);
 
 
 #endif
