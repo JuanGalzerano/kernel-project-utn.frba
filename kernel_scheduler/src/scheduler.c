@@ -260,7 +260,7 @@ void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
 
     //se le comunica a la CPU que debe correr este proceso
     t_buffer* buffer = buffer_create(0);
-    buffer_add(buffer, cpu, sizeof(t_cpu_exec));
+    buffer_add_uint32(buffer, cpu->pcb->pid);
     t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
     enviar_paquete(cpu->socketConexion, paquete);
 
@@ -288,7 +288,7 @@ void* hilo_timer_quantum(void* arg){
     if(sigueEjecutando){
         //pedir a CPU que finalice por quantum
         t_buffer* buffer = buffer_create(0);
-        buffer_add(buffer, cpu, sizeof(t_cpu_exec));
+        buffer_add_uint32(buffer, cpu->pcb->pid);
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
         enviar_paquete(cpu->socketConexion, paquete);
     }
