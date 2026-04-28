@@ -20,17 +20,7 @@ typedef struct {
     uint32_t di;   // dirección lógica de destino
 } t_contexto_ejecucion;
 
-typedef struct {
-    uint32_t pid;
-    int prioridad;//esto va para CMN
-    //despues se van a agregar cosas de mutex creo
-} t_pcb;
 
-typedef struct {
-    int cpu_id;
-    int socketConexion;
-    t_pcb* pcb; // NULL si la CPU está libre
-} t_cpu_exec; 
 
 typedef struct {
     uint32_t size;
