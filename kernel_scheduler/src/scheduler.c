@@ -8,6 +8,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
 
 //LEVANTAR CONEXION CON MEMORY
     socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
+    log_info(loggerScheduler, "algortimo: %d", algoritmo);
     if(socketConexionMemory == EXIT_FAILURE){
         log_info(loggerScheduler, "no se pudo conectar a Kernel Memory");
         abort();
@@ -65,7 +66,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
     //switch con op_code
         //uno de crear proceso
-        //agregar nueva CPU
+        //agregar nueva CPU (creo q esta no xq ya la agrego cuando se conecta)
         //seguir agregando asi las dif cosas que me pueden pedir
 
     switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
@@ -137,14 +138,22 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
 
 void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que esta va a haber que hacerla con paquete y eso xq sino solo funca para el proceso 0
     uint32_t sizePath = strlen(path)+1;
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    buffer_add_uint32(buffer, sizePath);
+    buffer_add_string(buffer, sizePath, path);
+    t_paquete* paquete = crear_paquete(PATH_PROCESO, buffer);
+    enviar_paquete(socketConexionMemory, paquete);
+
+/*
     send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
     send(socketConexionMemory, &sizePath, sizeof(uint32_t),0);
-    send(socketConexionMemory, path, sizePath,0);
+    send(socketConexionMemory, path, sizePath,0);*/
 }
 
 int recibir_ok_memory(){
     int resultado;
-    recv(socketConexionMemory, &resultado,sizeof(int),0);
+    recv(socketConexionMemory, &resultado,sizeof(int),0);//el OK no me lo mandes por paquete juani, pq si o si es lo siguiente a recibir
     if(!resultado){
         return 0;
     }
@@ -221,14 +230,14 @@ void* planificador(void* arg) {
 
 
         if (algoritmo == RR) {
-            iniciar_timer_quantum(pcb, cpu);
+            iniciar_timer_quantum(cpu);
         }
 
         //Implementar mas adelante para CMN
     }
 
 
-    //cuando un proceso termina de ejcutar, hacer el log que se pasa a exit y volar el PCB de ese proceso
+    //cuando un proceso termina de ejcutar, hacer el log que se pasa a exit y volar el PCB de ese proceso (nose si es que va aca)
 }
 
 
@@ -249,7 +258,7 @@ t_cpu_exec* obtener_cpu_libre(){
 void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
     cpu->pcb = pcb;
 
-    //aca hay que hacer algo para comunicarle a la CPU que debe correr este proceso
+    //se le comunica a la CPU que debe correr este proceso
     t_buffer* buffer = buffer_create(0);
     buffer_add(buffer, cpu, sizeof(t_cpu_exec));
     t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);

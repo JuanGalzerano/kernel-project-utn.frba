@@ -21,6 +21,18 @@ typedef struct {
 } t_contexto_ejecucion;
 
 typedef struct {
+    uint32_t pid;
+    int prioridad;//esto va para CMN
+    //despues se van a agregar cosas de mutex creo
+} t_pcb;
+
+typedef struct {
+    int cpu_id;
+    int socketConexion;
+    t_pcb* pcb; // NULL si la CPU está libre
+} t_cpu_exec; 
+
+typedef struct {
     uint32_t size;
     uint32_t offset;
     void*    stream;
@@ -34,6 +46,7 @@ typedef enum {
     MOTIVO_FIN_QUANTUM = 4,
     FINALIZAR_POR_QUANTUM = 5,
     EJECUTAR_PROCESO = 6,
+    PATH_PROCESO = 7,
 } op_code;
 
 typedef struct {
