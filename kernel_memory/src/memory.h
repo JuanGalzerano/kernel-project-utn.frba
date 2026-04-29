@@ -16,8 +16,10 @@ t_config* configMemory;
 char* puertoEscucha;
 
 //FUNCIONES
+int   aceptar_cliente_memory(int socketEscucha, modulo* quien_out);
 char* recibir_path(int socket, uint32_t* pid_out);
-void* hacerAlgo(void* arg);
+void* atender_scheduler(void* arg);
+void* atender_cpu(void* arg);
 
 
 

@@ -44,3 +44,34 @@ t_proceso_memory* buscar_proceso(uint32_t pid) {
     }
     return NULL;
 }
+
+// Lee la instruccion en la linea indicada por el PC del proceso.
+// Devuelve el string de la linea (el caller es responsable de liberarlo).
+// Devuelve NULL si el PC esta fuera de rango.
+char* leer_instruccion(t_proceso_memory* proceso) {
+    FILE* f = fopen(proceso->path_pseudocodigo, "r");
+    if (!f) {
+        log_error(loggerMemory, "PID %d: no se pudo abrir %s", proceso->pid, proceso->path_pseudocodigo);
+        return NULL;
+    }
+
+    char* linea = NULL;
+    size_t capacidad = 0;
+    uint32_t linea_actual = 0;
+    uint32_t pc = proceso->contexto->pc;
+
+    while (getline(&linea, &capacidad, f) != -1) {
+        if (linea_actual == pc) {
+            fclose(f);
+            // Sacar el salto de linea del final si existe
+            linea[strcspn(linea, "\n")] = '\0';
+            return linea;
+        }
+        linea_actual++;
+    }
+
+    fclose(f);
+    free(linea);
+    log_error(loggerMemory, "PID %d: PC %d fuera de rango", proceso->pid, pc);
+    return NULL;
+}

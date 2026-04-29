@@ -13,69 +13,163 @@ int main(int argc, char* argv[]) {
     }
 
     inicializar_log_y_config(argv[1]);
-    
-    //Traer del config
+
     puertoEscucha   = config_get_string_value(configMemory, "PUERTO_MEMORY");
     scriptsBasePath = config_get_string_value(configMemory, "SCRIPTS_BASEPATH");
 
-    //creo lista donde van a estar los procesos con su id y todos los punteros a sus datos
     lista_procesos = list_create();
 
-    // LEVANTAR SERVIDOR (espera conexiones de Kernel, CPU, Memory Stick y SWAP)
     int socketEscucha = iniciar_servidor(puertoEscucha);
     if (socketEscucha == EXIT_FAILURE) {
-        log_info(loggerMemory, "No se pudo iniciar el servidor");
+        log_error(loggerMemory, "No se pudo iniciar el servidor");
+        return EXIT_FAILURE;
     }
-    log_info(loggerMemory, "Servidor iniciado");
+    log_info(loggerMemory, "Servidor iniciado en puerto %s", puertoEscucha);
 
-    // Estas conexiones son primordiales al principio del run
+    // El scheduler y el swap son los primeros en conectarse (arranque del sistema)
+    // Ya sabemos quienes son, no necesitamos identificarlos
     int socketScheduler = aceptar_cliente(socketEscucha, loggerMemory);
-    int socketSwap = aceptar_cliente(socketEscucha, loggerMemory);
+    log_info(loggerMemory, "## Kernel Scheduler Conectado - FD del socket: %d", socketScheduler);
+    int socketSwap      = aceptar_cliente(socketEscucha, loggerMemory);
+    (void)socketSwap; // TODO: usar cuando se implemente swap
 
-    // Primer proceso: recibir path del Scheduler, inicializar y responder OK
-    uint32_t pid;
-    char* path = recibir_path(socketScheduler, &pid);
-    int ok = inicializar_proceso(pid, path);
-    free(path);
-    send(socketScheduler, &ok, sizeof(int), 0);
+    // Thread dedicado al scheduler: recibe nuevos procesos en loop
+    int* argSched = malloc(sizeof(int));
+    *argSched = socketScheduler;
+    pthread_t hilo_scheduler;
+    pthread_create(&hilo_scheduler, NULL, atender_scheduler, argSched);
+    pthread_detach(hilo_scheduler);
 
-    // while para recibir CPUs y STICKs
+    // Loop principal: acepta CPUs y Memory Sticks, identifica quien es y le da su thread
+    modulo quien;
     while (1) {
-        int socket_cliente = aceptar_cliente(socketEscucha, loggerMemory);
+        int socket_cliente = aceptar_cliente_memory(socketEscucha, &quien);
 
         int* arg = malloc(sizeof(int));
         *arg = socket_cliente;
 
         pthread_t hilo;
-        pthread_create(&hilo, NULL, hacerAlgo, arg);
-        pthread_detach(hilo);
+        switch (quien) {
+            case CPU:
+                pthread_create(&hilo, NULL, atender_cpu, arg);
+                pthread_detach(hilo);
+                break;
+            case MEMORY_STICK:
+                // TODO: implementar atender_memory_stick cuando este listo con hilos me imagino
+                log_warning(loggerMemory, "Memory Stick conectado - num nose arce PONETE A LABURAR");
+                free(arg);
+                break;
+            default:
+                log_warning(loggerMemory, "Modulo desconocido conectado: %d", quien);
+                free(arg);
+                break;
+        }
     }
 
     return 0;
 }
 
-void* hacerAlgo(void* arg) {
+// Acepta un cliente, completa el handshake y devuelve quien se conecto via *quien_out.
+// Para CPU consume tambien el string de ID que el cliente manda (para no desincronizar el socket).
+// Usa loggerMemory directamente por ser global en este modulo.
+int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
+    int socket = esperar_cliente(socketEscucha);
+
+    int32_t id = 0;
+    id = handshake_servidor_id(socket, id);
+    *quien_out = (modulo)id; // est oes para que la viable modulo del main se modifique, para 
+
+    switch (id) {
+        case CPU: {
+            // El cliente CPU manda ademas un string con su identificador
+            int sizeCpuId;
+            recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
+            char* cpuId = malloc(sizeCpuId);
+            recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
+            log_info(loggerMemory, "## CPU %s Conectada", cpuId);
+            free(cpuId);
+            break;
+        }
+        case MEMORY_STICK:
+            log_info(loggerMemory, "Memory Stick conectado");
+            break;
+        default:
+            log_error(loggerMemory, "Modulo inesperado intentó conectarse al loop: %d", id);
+            close(socket);
+            break;
+    }
+
+    return socket;
+}
+
+//Loop que atiende al scheduler:
+//KM → Scheduler: ok (int, 1=exito 0=error)
+void* atender_scheduler(void* arg) {
     int socket = *(int*)arg;
     free(arg);
 
-    // logica aca, me imagino que aca recivo y mando ni idea
+    while (1) {
+        uint32_t pid;
+        char* path = recibir_path(socket, &pid);
+        if (!path) break; // scheduler cerro conexion
 
+        int ok = inicializar_proceso(pid, path);
+        free(path);
+        send(socket, &ok, sizeof(int), 0);
+    }
+
+    log_warning(loggerMemory, "Scheduler desconectado");
+    return NULL;
+}
+
+// Loop que atiende a un CPU:
+// Respeustas:
+//     OBTENER_CONTEXTO    → KM responde con paquete
+//     ACTUALIZAR_CONTEXTO → CPU envia ademas un paquete completo con el contexto
+void* atender_cpu(void* arg) {
+    int socket = *(int*)arg;
+    free(arg);
+
+    op_code opcode;
+    uint32_t pid;
+
+    while (recv(socket, &opcode, sizeof(op_code), MSG_WAITALL) > 0) {
+        if (recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL) <= 0) break;
+
+        switch (opcode) {
+            case OBTENER_CONTEXTO:
+                enviar_contexto_cpu(socket, pid);
+                break;
+            case ACTUALIZAR_CONTEXTO:
+                // recibir_contexto_cpu llama a recibir_paquete internamente para leer el contexto
+                recibir_contexto_cpu(socket, pid);
+                break;
+            case OBTENER_INSTRUCCION:
+                enviar_instruccion_cpu(socket, pid);
+                break;
+            default:
+                // TODO: manejar OBTENER_INSTRUCCION y otros cuando esten implementados
+                log_warning(loggerMemory, "Opcode desconocido del CPU: %d", opcode);
+                break;
+        }
+    }
+
+    log_warning(loggerMemory, "CPU desconectado");
     return NULL;
 }
 
 char* recibir_path(int socket, uint32_t* pid_out) {
-
-    //marotti estuvo aqui
     uint32_t pid, sizeDePath;
-    recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL);
-    recv(socket, &sizeDePath, sizeof(uint32_t), MSG_WAITALL);
+
+    if (recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL) <= 0) return NULL;
+    if (recv(socket, &sizeDePath, sizeof(uint32_t), MSG_WAITALL) <= 0) return NULL;
+
     char* path = malloc(sizeDePath);
-    recv(socket, path, sizeDePath, MSG_WAITALL);
+    if (recv(socket, path, sizeDePath, MSG_WAITALL) <= 0) {
+        free(path);
+        return NULL;
+    }
 
     *pid_out = pid;
-
-    //necesito que cuando crees el proceso me hagas un send de 1 si se creo correctamente o 0 si no
-    //xq yo necesito ver eso para ver si lo meto en ready o no
     return path;
 }
-
