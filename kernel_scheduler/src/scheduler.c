@@ -50,6 +50,7 @@ int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al p
     close(socketConexionMemory);
     config_destroy(configScheduler);
     log_destroy(loggerScheduler);
+    //LIBERAR RECURSOS DE SEMAFOROS Y MUTEX
 
     return 0;
 }
@@ -59,42 +60,50 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
     int socketCliente = *(int*) arg;
     free(arg); 
 
-    //recibir paquete 
-    t_paquete* paquete;
-    paquete = recibir_paquete(socketCliente);//fijarse si hay que liberar memoria
-   
 
-    //switch con op_code
-        //uno de crear proceso
-        //agregar nueva CPU (creo q esta no xq ya la agrego cuando se conecta)
-        //seguir agregando asi las dif cosas que me pueden pedir
 
-    switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
-        case MOTIVO_FIN_QUANTUM://en el buffer que me manden la CPU 
-            t_cpu_exec* cpuFinQuantum = malloc(sizeof(t_cpu_exec));
-            buffer_read(paquete->buffer, cpuFinQuantum, sizeof(t_cpu_exec));
+    while(1){
+        //recibir paquete 
+        t_paquete* paquete;
+        paquete = recibir_paquete(socketCliente);//fijarse si hay que liberar memoria
+        if(paquete==NULL){
+            break; //cliente se desconecto
+        }
+    
 
-            log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
+        //switch con op_code
+            //uno de crear proceso
+            //agregar nueva CPU (creo q esta no xq ya la agrego cuando se conecta)
+            //para todas las syscalls
+            //seguir agregando asi las dif cosas que me pueden pedir
 
-            pthread_mutex_unlock(&exec_mutex);
-            t_pcb* pcb = cpuFinQuantum->pcb;
-            cpuFinQuantum->pcb = NULL;
-            pthread_mutex_lock(&exec_mutex);
+        switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
+            case MOTIVO_FIN_QUANTUM://en el buffer que me manden la CPU 
+                t_cpu_exec* cpuFinQuantum = malloc(sizeof(t_cpu_exec));
+                buffer_read(paquete->buffer, cpuFinQuantum, sizeof(t_cpu_exec));
 
-            pthread_mutex_unlock(&ready_mutex);
-            queue_push(ready_cola, pcb);
-            pthread_mutex_lock(&ready_mutex);
+                log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
 
-            sem_post(&sem_hay_cpu_libre);
-            sem_post(&sem_hay_proceso_ready);
+                pthread_mutex_lock(&exec_mutex);
+                t_pcb* pcb = cpuFinQuantum->pcb;
+                cpuFinQuantum->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex);
 
-            free(cpuFinQuantum);
-            break;
-    }
+                pthread_mutex_lock(&ready_mutex);
+                queue_push(ready_cola, pcb);
+                pthread_mutex_unlock(&ready_mutex);
 
-    free(paquete->buffer->stream);
-    free(paquete->buffer);
-    free(paquete);
+                sem_post(&sem_hay_cpu_libre);
+                sem_post(&sem_hay_proceso_ready);
+
+                free(cpuFinQuantum);
+                break;
+        }
+
+        free(paquete->buffer->stream);
+        free(paquete->buffer);
+        free(paquete);
+        }
 
     close(socketCliente);
 }
@@ -279,7 +288,7 @@ void* hilo_timer_quantum(void* arg){
     free(arg);
     uint32_t pidCpuOriginal = cpu->pcb->pid;
 
-    usleep(quantum*1000);//usleep recibe microsegundos de parametro
+    usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
 
     pthread_mutex_lock(&exec_mutex);
     bool sigueEjecutando = (cpu->pcb != NULL && cpu->pcb->pid != pidCpuOriginal);

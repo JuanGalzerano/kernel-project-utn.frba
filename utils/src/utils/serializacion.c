@@ -87,16 +87,21 @@ void enviar_paquete(int socket, t_paquete* paquete) {
         send(socket, paquete->buffer->stream, size, 0);
     }
 }
-
-//Recibir paquete
+//recibir paquete
 t_paquete* recibir_paquete(int socket) {
     t_paquete* paqueteRecibido = malloc(sizeof(t_paquete));
-	recv(socket, &paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
-	uint32_t size;
-	recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
+    
+    int bytes = recv(socket, &paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
+    if(bytes <= 0) {  // 0 = desconexión, -1 = error
+        free(paqueteRecibido);
+        return NULL;
+    }
+
+    uint32_t size;
+    recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
     t_buffer *buffer = buffer_create(size);
     buffer->stream = malloc(size);
-	recv(socket, buffer->stream, size, MSG_WAITALL);
+    recv(socket, buffer->stream, size, MSG_WAITALL);
     paqueteRecibido->buffer = buffer;
     return paqueteRecibido;
 }
