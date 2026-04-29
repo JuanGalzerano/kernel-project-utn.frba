@@ -37,6 +37,7 @@ typedef enum {
     FINALIZAR_POR_QUANTUM = 5,
     EJECUTAR_PROCESO = 6,
     PATH_PROCESO = 7,
+    ENVIAR_INSTRUCCION = 8,
 } op_code;
 
 typedef struct {
