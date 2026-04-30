@@ -57,6 +57,19 @@ typedef enum {
     STDIN = 12,
     STDOUT = 13,
     SLEEP = 14,
+    NOOP    = 15,
+    SET     = 16,
+    MOV_IN = 17,
+    MOV_OUT = 18,
+    SUM = 19,
+    SUB = 20,
+    JNZ = 21,
+    COPY_MEM = 22,
+    MUTEX_CREATE = 23,
+    MUTEX_LOCK = 24,
+    MUTEX_UNLOCK = 25,
+    MEM_ALLOC = 26,
+    MEM_FREE = 27
 } op_code;
  
 typedef struct {

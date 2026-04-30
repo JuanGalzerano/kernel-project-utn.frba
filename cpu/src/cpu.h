@@ -58,29 +58,9 @@ Registro registros[] = {
 };
 
 //INSTRUCCIONES
-typedef enum {
-    NOOP    = 0,
-    SET     = 1,
-    MOV_IN = 2,
-    MOV_OUT = 3,
-    SUM = 4,
-    SUB = 5,
-    JNZ = 6,
-    COPY_MEM = 7,
-    MUTEX_CREATE = 8,
-    MUTEX_LOCK = 9,
-    MUTEX_UNLOCK = 10,
-    MEM_ALLOC = 11,
-    MEM_FREE = 12,
-    SLEEP  = 13,
-    STDOUT  = 14,
-    STDIN  = 15,
-    INIT_PROC = 16,
-    EXIT = 17
-} Instruccion_codigo;
 typedef struct {
     char *nombreDeLaInstruccion;
-    Instruccion_codigo instruccion_codigo;
+    op_code instruccion_codigo;
 } Instruccion;
 
 Instruccion instrucciones[] = {
@@ -95,8 +75,8 @@ Instruccion instrucciones[] = {
 uint32_t obtener_pid(int socketConexionScheduler);
 t_contexto_ejecucion* obtener_contexto(uint32_t pid, int socketConexionMemory);
 int ejecutar_ciclo_de_instruccion(t_contexto_ejecucion* ctx, int socketConexionMemory, t_log* loggerCpu);
-int obtener_instruccion_registro_valor(char *string);
-void decode(Instruccion_codigo tipoInstruccion, char *instruccionFormatoString);
+int obtener_instruccion_registro_valor(char **string);
+void decode(op_code tipoInstruccion, char *instruccionFormatoString);
 
     //Por el momento asi
 void ejecutar_noop(void);
