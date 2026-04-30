@@ -100,5 +100,7 @@ t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid);
 
 void recibir_tipo_IO(int socketCliente);
 
+void bloquear_proceso(t_pcb* pcbBlock);
+
 
 #endif

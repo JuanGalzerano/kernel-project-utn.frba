@@ -8,7 +8,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
 
 //LEVANTAR CONEXION CON MEMORY
     socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
-    log_info(loggerScheduler, "algortimo: %d", algoritmo);
+
     if(socketConexionMemory == EXIT_FAILURE){
         log_info(loggerScheduler, "no se pudo conectar a Kernel Memory");
         abort();
@@ -71,11 +71,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
         }
     
 
-        //switch con op_code
-            //uno de crear proceso
-            //agregar nueva CPU (creo q esta no xq ya la agrego cuando se conecta)
-            //para todas las syscalls
-            //seguir agregando asi las dif cosas que me pueden pedir
 
         switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
             case MOTIVO_FIN_QUANTUM://en el buffer que me manden la CPU 
@@ -134,28 +129,90 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case SLEEP://se recibe tiempo a dormir y pid
                 
-/*
-                t_sleep sleep = deserializar_sleep(paquete->buffer);
+                t_sleep* sleep = deserializar_sleep(paquete->buffer);
 
                 pthread_mutex_lock(&exec_mutex);
-                t_cpu_exec* cpu = encontrar_cpu_con_pid(sleep->pid); 
+                t_cpu_exec* cpuUsada = encontrar_cpu_con_pid(sleep->pid); 
 
-                t_pcb* pcbBlock = cpu->pcb;
-                cpu->pcb = NULL;
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
+
+                t_pcb* pcbBlock = cpuUsada->pcb;
+                cpuUsada->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
-                pthread_mutex_lock(&block_mutex);
-                list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
-                pthread_mutex_unlock(&block_mutex);
+                bloquear_proceso(pcbBlock);
 
-                //entiendo que aca se manda a el IO el paquete y que despues cuando termine me avise con un op_code tipo IO_TERMINADO y yo lo mando a reaady
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", sleep->pid);
 
-                break;*/
-            case STDIN:
+                //entiendo que aca se manda a el IO el paquete y que despues cuando termine me avise con un op_code tipo IO_TERMINADO y yo lo mando a ready
+                enviar_paquete(socketSleep, paquete);
 
+                sem_post(&sem_hay_cpu_libre);
+                free(sleep);
+                break;
+            case STDIN://ME HICE MEDIO UN QUILOMBO CON STDIN Y FINALIZAR_STDIN, ver mañana
+            /*
+                t_stdin* procesoStdin = deserializar_stdin(paquete->buffer);
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid); 
+
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDIN", procesoStdin->pid);
+
+                t_pcb* pcbBlock = cpuUsada->pcb;
+                cpuUsada->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex);     
+
+                bloquear_proceso(pcbBlock);           
+
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdin->pid);
+
+             
+                enviar_paquete(socketStdin, paquete);
+
+                //ver si hay que eliminar paquete aca                
+
+                sem_post(&sem_hay_cpu_libre);
+                free(procesoStdin);
+*/
                 break;
             case STDOUT:
 
+                break;
+            case IO_TERMINADO: //esta es util para STDOUT y SLEEP, pero para STDIN necesito desp pedirle a KM que lo guarde en una dire
+
+                break;
+            case FINALIZAR_STDIN: //aca rulo me pasa lo que hay que guardar en KM y literalmente casi que se lo paso como me lo dan
+                //recibir pid y bytes del IO
+                /*
+                t_stdin* resultado = deserializar_stdin(paquete->buffer);
+
+                //pedirle al KM que escriba en memoria
+                enviar_paquete(socketConexionMemory, crear_paquete(ESCRIBIR_BYTES, paquete->buffer));
+
+                //esperar OK del KM
+                int ok = recibir_ok_memory();
+
+                if(!ok){
+                    //loguear error al escrribir en memoria
+                    break;
+                }
+
+                //mover proceso BLOCK -> READY
+                t_pcb* pcb = buscar_y_sacar_de_block(resultado->pid);
+                
+                pthread_mutex_lock(&ready_mutex);
+                queue_push(ready_cola, pcb);
+                pthread_mutex_unlock(&ready_mutex);
+
+                log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
+                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
+                sem_post(&sem_hay_proceso_ready);
+                free(resultado);
+
+
+                //ver si hay que eliminar paquete aca
+                */
                 break;
 
             
@@ -415,4 +472,27 @@ void recibir_tipo_IO(int socketCliente){
     //no se usa mutex aunque sean globales xq solo se conectara 1 IO x cada tipo
     //tampoco se contempla que una CPU solicite un tipo de IO que no esta corriendo, ya que se dijo que en caso de ser necesaria, esta estara corriendo
 
+}
+
+void bloquear_proceso(t_pcb* pcbBlock){
+    pthread_mutex_lock(&block_mutex);
+    list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
+    pthread_mutex_unlock(&block_mutex);
+}
+
+t_pcb* buscar_y_sacar_de_block(uint32_t pid){
+    pthread_mutex_lock(&block_mutex);
+    
+    t_pcb* pcb = NULL;
+    for(int i = 0; i < list_size(block_lista); i++){
+        t_pcb* entrada = list_get(block_lista, i);
+        if(entrada->pid == pid){
+            pcb = entrada;
+            list_remove(block_lista, i);
+            break;
+        }
+    }
+    
+    pthread_mutex_unlock(&block_mutex);
+    return pcb;
 }

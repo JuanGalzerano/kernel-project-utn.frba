@@ -86,6 +86,7 @@ void enviar_paquete(int socket, t_paquete* paquete) {
     if (size > 0) {
         send(socket, paquete->buffer->stream, size, 0);
     }
+    //creo q aca hay que eliminar paquete
 }
 //recibir paquete
 t_paquete* recibir_paquete(int socket) {
@@ -188,4 +189,19 @@ t_sleep* deserializar_sleep(t_buffer* buf){
     sleep->pid = buffer_read_uint32(buf);
     sleep->tiempoADormir = buffer_read_uint32(buf);
     return sleep;
+}
+
+t_buffer* serializar_stdin(t_stdin* ProcesoStdin){
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, ProcesoStdin->pid);
+    buffer_add_uint32(buf, ProcesoStdin->bytesALeer);
+
+    return buf;
+}
+
+t_stdin* deserializar_stdin(t_buffer* buf){
+    t_stdin* ProcesoStdin = malloc(sizeof(t_stdin));
+    ProcesoStdin->pid = buffer_read_uint32(buf);
+    ProcesoStdin->bytesALeer = buffer_read_uint32(buf);
+    return ProcesoStdin;
 }

@@ -33,6 +33,13 @@ typedef struct{
     uint32_t tiempoADormir;
 }t_sleep;
 
+//para la syscall STDIN
+typedef struct{
+    uint32_t pid;
+    uint32_t bytesALeer;
+    uint32_t direccionLogica;
+}t_stdin;
+
 
 
 typedef struct {
@@ -69,7 +76,10 @@ typedef enum {
     MUTEX_LOCK = 24,
     MUTEX_UNLOCK = 25,
     MEM_ALLOC = 26,
-    MEM_FREE = 27
+    MEM_FREE = 27,
+    IO_TERMINADO = 28, //esto manda IO a scheduler
+    FINALIZAR_STDIN = 29, //esto tmb (solo para stdin)
+    ESCRIBIR_BYTES = 30,
 } op_code;
  
 typedef struct {
@@ -115,5 +125,9 @@ t_init_proc* deserializar_init_proc(t_buffer* buf);
 t_buffer* serializar_sleep(t_sleep* sleep);
 
 t_sleep* deserializar_sleep(t_buffer* buf);
+
+t_buffer* serializar_stdin(t_stdin* ProcesoStdin);
+
+t_stdin* deserializar_stdin(t_buffer* buf);
 
 #endif // SERIALIZACION_H
