@@ -37,9 +37,11 @@ void inicializar_semaforos(){
 
 void inicializar_listas(){
     new_lista    = list_create();
+    pthread_mutex_init(&new_mutex, NULL);
     ready_cola   = queue_create();
     pthread_mutex_init(&ready_mutex, NULL);
-    block        = list_create();
+    block_lista    = list_create();
+    pthread_mutex_init(&block_mutex, NULL);
     susp_block   = list_create();
     susp_ready   = list_create();
     exec_lista   = list_create();

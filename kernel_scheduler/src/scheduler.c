@@ -2,7 +2,7 @@
 
 
 
-int main(int argc, char* argv[]) { //argv[1]: Path al config, argv[2]: path al proceso inicial. [ejs: ./bin/kernel_scheduler kernel.config ./procesos/init.prog]
+int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al proceso inicial. [ejs: ./bin/kernel_scheduler kernel.config ./procesos/init.prog]
 
     inicializar(argv[1]); 
 
@@ -98,6 +98,67 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 free(cpuFinQuantum);
                 break;
+            case INIT_PROC:
+                t_init_proc* proc = deserializar_init_proc(paquete->buffer);
+
+                uint32_t nuevoPid = generar_pid();
+
+                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+
+                free(proc->pathArchivoInstrucciones);
+                free(proc);
+                break;
+            case EXIT: //aca solo recibir el pid
+            //despues ver los casos en los que se pasa de READY-> EXIT Y BLOCK->EXIT 
+                uint32_t pid;
+                buffer_read(paquete->buffer, &pid, sizeof(uint32_t));
+
+                // encontrar el pcb en exec_lista y liberarlo
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpu = encontrar_cpu_con_pid(pid);
+
+                t_pcb* pcbFin = cpu->pcb;
+                cpu->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex);
+
+                // notificar al KM que libere los recursos del proceso
+                enviar_fin_proceso_memory(pid);
+
+                // 3. loguear y liberar el PCB
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
+                log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de EXIT", pid);
+                free(pcbFin);
+
+                // 4. la CPU quedó libre
+                sem_post(&sem_hay_cpu_libre);
+                break;
+            case SLEEP://se recibe tiempo a dormir y pid
+                
+/*
+                t_sleep sleep = deserializar_sleep(paquete->buffer);
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpu = encontrar_cpu_con_pid(sleep->pid); 
+
+                t_pcb* pcbBlock = cpu->pcb;
+                cpu->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex);
+
+                pthread_mutex_lock(&block_mutex);
+                list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
+                pthread_mutex_unlock(&block_mutex);
+
+                //entiendo que aca se manda a el IO el paquete y que despues cuando termine me avise con un op_code tipo IO_TERMINADO y yo lo mando a reaady
+
+                break;*/
+            case STDIN:
+
+                break;
+            case STDOUT:
+
+                break;
+
+            
         }
 
         free(paquete->buffer->stream);
@@ -116,7 +177,9 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
     pcb->prioridad = prioridad;
 
     //Meterlo en NEW y loguear
+    pthread_mutex_lock(&new_mutex);
     list_add(new_lista, pcb); 
+    pthread_mutex_unlock(&new_mutex);
     log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
 
     //Avisar al KM (mandar pid + path)
@@ -127,7 +190,9 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
 
     //Mover a READY y loguear
     if(ok == 0){
+        pthread_mutex_lock(&new_mutex);
         list_remove_element(new_lista, pcb);
+        pthread_mutex_unlock(&new_mutex);
         free(pcb);
         log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
         return NULL;
@@ -207,6 +272,7 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         break;
     case IO:
         log_info(logger, "IO CONECTADO"); 
+        recibir_tipo_IO(socketCliente);
         break;
     case -1:
 
@@ -272,6 +338,7 @@ void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
     buffer_add_uint32(buffer, cpu->pcb->pid);
     t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
     enviar_paquete(cpu->socketConexion, paquete);
+    //creo q hay destruir el paquete y buffer
 
     //hacer log de que se pasa a running
     log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado RUNNING", pcb->pid);
@@ -300,5 +367,52 @@ void* hilo_timer_quantum(void* arg){
         buffer_add_uint32(buffer, cpu->pcb->pid);
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
         enviar_paquete(cpu->socketConexion, paquete);
+        //creo q hay destruir el paquete y buffer
     }
+}
+uint32_t generar_pid() {
+    pthread_mutex_lock(&mutex_pid);
+    uint32_t pid = proximo_pid++;
+    pthread_mutex_unlock(&mutex_pid);
+    return pid;
+}
+
+void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el de READY->EXIT Y BLOCK -> EXIT
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); //avisarle a juani que haga este case para  que libere todos los segmentos y estructuras asociadas a ese PID
+    enviar_paquete(socketConexionMemory, paquete);
+    //creo q hay destruir el paquete y buffer
+}
+
+t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid){
+    t_cpu_exec* cpu = NULL;
+        for(int i = 0; i < list_size(exec_lista); i++){
+            t_cpu_exec* entrada = list_get(exec_lista, i);
+            if(entrada->pcb != NULL && entrada->pcb->pid == pid){
+                cpu = entrada;
+                break;
+            }
+        }
+
+    return cpu;
+}
+
+void recibir_tipo_IO(int socketCliente){
+    tipo_IO tipo;
+    recv(socketCliente, &tipo, sizeof(tipo_IO), MSG_WAITALL); // ni bien se conecta la IO, envia que tipo es
+
+    if(tipo == TIPO_SLEEP){
+        socketSleep = socketCliente;
+    }
+    if(tipo == TIPO_STDIN){
+        socketStdin = socketCliente;
+    }
+    if(tipo == TIPO_STDOUT){
+        socketStdout = socketCliente;
+    }
+
+    //no se usa mutex aunque sean globales xq solo se conectara 1 IO x cada tipo
+    //tampoco se contempla que una CPU solicite un tipo de IO que no esta corriendo, ya que se dijo que en caso de ser necesaria, esta estara corriendo
+
 }

@@ -57,9 +57,9 @@ void buffer_add_string(t_buffer *buffer, uint32_t length, char *string){
     buffer_add(buffer, string, length +1);
 }
 
-char *buffer_read_string(t_buffer *buffer, uint32_t *length){
-    char *cadena = malloc(*length + 1);
-    buffer_read(buffer, cadena, *length+1);
+char *buffer_read_string(t_buffer *buffer, uint32_t length){
+    char *cadena = malloc(length + 1);
+    buffer_read(buffer, cadena, length+1);
     return cadena;
     //hacer el free en donde se usa la func
 }
@@ -156,3 +156,36 @@ t_paquete* paquete_contexto = crear_paquete(MENSAJE_CONTEXTO, buffer_serializado
 
 enviar_paquete(socketCpu, paquete_contexto);
 */
+
+t_buffer* serializar_init_proc(t_init_proc* proc){
+    t_buffer* buf = buffer_create(0);
+    uint32_t tamanioPath = strlen(proc->pathArchivoInstrucciones)+1;
+    buffer_add_uint32(buf, tamanioPath);
+    buffer_add_string(buf,tamanioPath, proc->pathArchivoInstrucciones);
+    buffer_add_uint32(buf, proc->prioridad);
+    return buf;
+}
+
+t_init_proc* deserializar_init_proc(t_buffer* buf){
+    t_init_proc* proc = malloc(sizeof(t_init_proc));
+    uint32_t tamanioPath = buffer_read_uint32(buf);
+    proc->pathArchivoInstrucciones = buffer_read_string(buf, tamanioPath);
+    proc->prioridad = buffer_read_uint32(buf);
+    return proc;
+}
+
+
+t_buffer* serializar_sleep(t_sleep* sleep){
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, sleep->pid);
+    buffer_add_uint32(buf, sleep->tiempoADormir);
+
+    return buf;
+}
+
+t_sleep* deserializar_sleep(t_buffer* buf){
+    t_sleep* sleep = malloc(sizeof(t_sleep));
+    sleep->pid = buffer_read_uint32(buf);
+    sleep->tiempoADormir = buffer_read_uint32(buf);
+    return sleep;
+}

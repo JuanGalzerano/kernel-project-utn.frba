@@ -20,6 +20,8 @@ typedef enum {
 extern t_log* loggerScheduler;
 extern t_config* configScheduler;
 extern int socketConexionMemory;
+extern uint32_t proximo_pid;
+extern pthread_mutex_t mutex_pid;
 
 
 //Variables del memory.config
@@ -32,10 +34,13 @@ extern int quantum;
 
 //listas de los 7 estados
 extern t_list* new_lista;
+extern pthread_mutex_t new_mutex;
 extern t_queue* ready_cola;
 extern pthread_mutex_t ready_mutex;
 //extern t_queue** ready_colas_multinivel; implemnetar para el 3er check
-extern t_list* block;
+extern t_list* block_lista;
+extern pthread_mutex_t block_mutex;
+
 extern t_list* susp_block;
 extern t_list* susp_ready;
 extern t_list* exec_lista; 
@@ -44,6 +49,12 @@ extern pthread_mutex_t exec_mutex;
 //SEMAFOROS
 extern sem_t sem_hay_proceso_ready;
 extern sem_t sem_hay_cpu_libre;
+
+//sockets de las IOs
+
+extern int socketSleep;
+extern int socketStdin;
+extern int socketStdout;
 
 
 

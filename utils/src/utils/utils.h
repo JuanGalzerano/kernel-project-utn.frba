@@ -47,5 +47,11 @@ typedef enum{
     SWAP
 }modulo;
 
+typedef enum{
+    TIPO_SLEEP=0,
+    TIPO_STDIN=1,
+    TIPO_STDOUT=2,
+}tipo_IO;
+
 
 #endif

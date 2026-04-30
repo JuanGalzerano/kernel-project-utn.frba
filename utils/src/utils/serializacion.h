@@ -21,6 +21,19 @@ typedef struct {
 } t_contexto_ejecucion;
 
 
+//para la syscall INIT_PROC
+typedef struct{
+    char* pathArchivoInstrucciones;
+    uint32_t prioridad;
+} t_init_proc;
+
+//para la syscall SLEEP
+typedef struct{
+    uint32_t pid;
+    uint32_t tiempoADormir;
+}t_sleep;
+
+
 
 typedef struct {
     uint32_t size;
@@ -38,8 +51,14 @@ typedef enum {
     EJECUTAR_PROCESO = 6,
     PATH_PROCESO = 7,
     ENVIAR_INSTRUCCION = 8,
+    INIT_PROC = 9, //desp agregar el resto de syscalls
+    EXIT = 10,
+    FIN_PROCESO = 11,
+    STDIN = 12,
+    STDOUT = 13,
+    SLEEP = 14,
 } op_code;
-
+ 
 typedef struct {
     uint8_t   codigo_operacion;
     t_buffer* buffer;
@@ -61,7 +80,7 @@ uint8_t   buffer_read_uint8(t_buffer *buffer);
 
 // El caller es responsable de liberar el string devuelto por buffer_read_string
 void      buffer_add_string(t_buffer *buffer, uint32_t length, char *string);
-char*     buffer_read_string(t_buffer *buffer, uint32_t *length);
+char*     buffer_read_string(t_buffer *buffer, uint32_t length);
 
 // ----- Paquete -----
 
@@ -74,5 +93,14 @@ void       eliminar_paquete(t_paquete* paquete);
 
 t_buffer*             serializar_contexto_ctx(t_contexto_ejecucion* ctx);
 t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf);
+
+// ----- Serializacion INIT_PROC -----
+t_buffer* serializar_init_proc(t_init_proc* proc);
+
+t_init_proc* deserializar_init_proc(t_buffer* buf);
+
+t_buffer* serializar_sleep(t_sleep* sleep);
+
+t_sleep* deserializar_sleep(t_buffer* buf);
 
 #endif // SERIALIZACION_H
