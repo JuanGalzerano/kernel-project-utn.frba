@@ -76,7 +76,7 @@ uint32_t obtener_pid(int socketConexionScheduler);
 t_contexto_ejecucion* obtener_contexto(uint32_t pid, int socketConexionMemory);
 int ejecutar_ciclo_de_instruccion(t_contexto_ejecucion* ctx, int socketConexionMemory, t_log* loggerCpu);
 int obtener_instruccion_registro_valor(char **string);
-void decode(op_code tipoInstruccion, char *instruccionFormatoString);
+void decode(op_code tipoInstruccion, char **string);
 
     //Por el momento asi
 void ejecutar_noop(void);

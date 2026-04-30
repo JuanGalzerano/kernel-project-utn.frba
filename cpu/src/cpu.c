@@ -111,7 +111,7 @@ int ejecutar_ciclo_de_instruccion(t_contexto_ejecucion* ctx, int socketConexionM
     log_info(loggerCpu, "CPU: Se obtuvo el tipo instruccion");
 
     log_info(loggerCpu, "CPU: Iniciando decode...");
-    decode(tipoInstruccion, inicioInstruccionFormatoString);
+    decode(tipoInstruccion, &cursor);
     free(inicioInstruccionFormatoString);
     return EXIT_SUCCESS;
 }
@@ -132,10 +132,12 @@ int obtener_instruccion_registro_valor(char **string) {
 
     //FUncion que copia i caracteres de *string en bufferTemporal
     strncpy(bufferTemporal, *string, i);
+    bufferTemporal[i] = '\0'; //Agrego el '\0' para que strcmp no lea basura
 
     //El string despues quiero que me de parametros. Quiero que avance desde donde se quedo
-    *string += ((*string)[i] == ' ') ? i + 1 : i;
-
+    if ((*string)[i] == ' ') {
+        *string += i + 1; // saltamos el token + el espacio
+    }
     
     //Identificar que es
     int resultado = EXIT_FAILURE;
@@ -166,7 +168,7 @@ int obtener_instruccion_registro_valor(char **string) {
     return resultado;
 }
 
-void decode(op_code tipoInstruccion, char *instruccionFormatoString) {
+void decode(op_code tipoInstruccion, char **string) {
     Codigo_registros_cpu tipoRegistro;
     Codigo_registros_cpu registroDestino;
     Codigo_registros_cpu registroOrigen;
@@ -184,105 +186,105 @@ void decode(op_code tipoInstruccion, char *instruccionFormatoString) {
             }
         case SET:
             {
-                tipoRegistro = obtener_instruccion_registro_valor(instruccionFormatoString);
-                valor = obtener_instruccion_registro_valor(instruccionFormatoString);
+                tipoRegistro = obtener_instruccion_registro_valor(string);
+                valor = obtener_instruccion_registro_valor(string);
                 //ejecutar_set(tipoRegistro, valor);
                 break;
             }
         case MOV_IN:
             {
-                tipoRegistro = obtener_instruccion_registro_valor(instruccionFormatoString);
+                tipoRegistro = obtener_instruccion_registro_valor(string);
                 //ejecutar_mov_in(tipoRegistro);
                 break;
             }
         case MOV_OUT:
             {
-                tipoRegistro = obtener_instruccion_registro_valor(instruccionFormatoString);
+                tipoRegistro = obtener_instruccion_registro_valor(string);
                 //ejecutar_mov_out(tipoRegistro);
                 break;
             }
         case SUM:
            {
-                registroDestino = obtener_instruccion_registro_valor(instruccionFormatoString);
-                registroOrigen = obtener_instruccion_registro_valor(instruccionFormatoString);
+                registroDestino = obtener_instruccion_registro_valor(string);
+                registroOrigen = obtener_instruccion_registro_valor(string);
                 //ejecutar_sum(registroDestino, registroOrigen);
                 break;
             }
         case SUB:
             {
-                registroDestino = obtener_instruccion_registro_valor(instruccionFormatoString);
-                registroOrigen = obtener_instruccion_registro_valor(instruccionFormatoString);
+                registroDestino = obtener_instruccion_registro_valor(string);
+                registroOrigen = obtener_instruccion_registro_valor(string);
                 //ejecutar_sub(registroDestino, registroOrigen);
                 break;
             }
         case JNZ:
             {
-                tipoRegistro = obtener_instruccion_registro_valor(instruccionFormatoString);
-                int instruccion = obtener_instruccion_registro_valor(instruccionFormatoString);
+                tipoRegistro = obtener_instruccion_registro_valor(string);
+                int instruccion = obtener_instruccion_registro_valor(string);
                 //ejectar_jnz(tipoRegistro, instruccion);
                 break;
             }
         case COPY_MEM:
             {           
-                valor = obtener_instruccion_registro_valor(instruccionFormatoString);
+                valor = obtener_instruccion_registro_valor(string);
                 //ejecutar_copy_mem(tamanio);
                 break;
             }
         case MUTEX_CREATE:
             {
-                //nombreMutex = obtener_nombre_mutex(instruccionFormatoString);
+                //nombreMutex = obtener_nombre_mutex(string);
                 //ejecutar_mutex_create(nombreMutex);
                 break;
             }
         case MUTEX_LOCK:
             {
-                //nombreMutex = obtener_nombre_mutex(instruccionFormatoString);
+                //nombreMutex = obtener_nombre_mutex(string);
                 //ejecutar_mutex_lock(nombreMutex);
                 break;
             }
         case MUTEX_UNLOCK:
             {
-                //nombreMutex = obtener_nombre_mutex(instruccionFormatoString);
+                //nombreMutex = obtener_nombre_mutex(string);
                 //ejecutar_mutex_unlock(nombreMutex);
                 break;
             }
         case MEM_ALLOC:
             {
-                segmentoId = obtener_instruccion_registro_valor(instruccionFormatoString);
-                int tamanio = obtener_instruccion_registro_valor(instruccionFormatoString);
+                segmentoId = obtener_instruccion_registro_valor(string);
+                int tamanio = obtener_instruccion_registro_valor(string);
                 //ejecutar_mem_alloc(segmentoId, tamanio);
                 break;
             }
         case MEM_FREE:
             {
-                segmentoId = obtener_instruccion_registro_valor(instruccionFormatoString);
+                segmentoId = obtener_instruccion_registro_valor(string);
                 //ejecutar_mem_free(segmentoId);
                 break;
             }
         case SLEEP:
             {
-                int tiempo = obtener_instruccion_registro_valor(instruccionFormatoString);
+                int tiempo = obtener_instruccion_registro_valor(string);
                 //ejecutar_sleep(tiempo);
                 break;
             }
         case STDOUT:
             {
-                registroDirLogica = obtener_instruccion_registro_valor(instruccionFormatoString);
-                tamanio = obtener_instruccion_registro_valor(instruccionFormatoString);
+                registroDirLogica = obtener_instruccion_registro_valor(string);
+                tamanio = obtener_instruccion_registro_valor(string);
                 //ejecutar_stdout(registroDirLogica, tamanio);
                 break;
             }
         case STDIN:
             {
-                registroDirLogica = obtener_instruccion_registro_valor(instruccionFormatoString);
-                tamanio = obtener_instruccion_registro_valor(instruccionFormatoString);
+                registroDirLogica = obtener_instruccion_registro_valor(string);
+                tamanio = obtener_instruccion_registro_valor(string);
                 //ejecutar_stdin(registroDirLogica, tamanio);
                 break;
             }
         case INIT_PROC:
             {
-                //char *pathArchivoInstrucciones = obtener_archivo_instrucciones(instruccionFormatoString);
-                int prioridad = obtener_instruccion_registro_valor(instruccionFormatoString);
+                //char *pathArchivoInstrucciones = obtener_archivo_instrucciones(string);
+                int prioridad = obtener_instruccion_registro_valor(string);
                 //ejecutar_init_proc(pathArchivoInstrucciones, prioridad);
                 break;
             }
