@@ -100,6 +100,7 @@ t_paquete* recibir_paquete(int socket) {
     uint32_t size;
     recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
     t_buffer *buffer = buffer_create(size);
+    buffer->size = size;
     buffer->stream = malloc(size);
     recv(socket, buffer->stream, size, MSG_WAITALL);
     paqueteRecibido->buffer = buffer;
