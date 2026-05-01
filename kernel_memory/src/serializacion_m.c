@@ -26,8 +26,10 @@ void recibir_contexto_cpu(int socket, uint32_t pid) {
     t_paquete* paquete = recibir_paquete(socket);
     t_contexto_ejecucion* ctx_nuevo = deserializar_contexto_ctx(paquete->buffer);
 
+    pthread_mutex_lock(&procesos_mutex);
     free(proceso->contexto);
     proceso->contexto = ctx_nuevo;
+    pthread_mutex_unlock(&procesos_mutex);
 
     eliminar_paquete(paquete); // libera buffer y paquete
 }

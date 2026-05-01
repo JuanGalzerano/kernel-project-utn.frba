@@ -5,22 +5,27 @@
 #include "inicializar.h"
 #include "serializacion_m.h"
 
-//VARIABLES GLOBALES
+// VARIABLES GLOBALES (definiciones — solo en memory.c)
 
-t_log* loggerMemory;
+t_log*    loggerMemory;
 t_config* configMemory;
 
+char*     puertoEscucha;
+char*     scriptsBasePath;
+uint32_t  segment_max_size;
+char*     allocation_strategy;
 
-//Variables de memory.config
+t_list*   lista_procesos;
+t_list*   lista_memory_sticks;
+t_list*   lista_huecos;
+uint32_t  memoria_total_size;
 
-char* puertoEscucha;
+pthread_mutex_t memoria_mutex;
+pthread_mutex_t procesos_mutex;
 
-//FUNCIONES
+// FUNCIONES
 int   aceptar_cliente_memory(int socketEscucha, modulo* quien_out);
-char* recibir_path(int socket, uint32_t* pid_out);
 void* atender_scheduler(void* arg);
 void* atender_cpu(void* arg);
-
-
 
 #endif

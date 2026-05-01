@@ -1,9 +1,5 @@
 #include "memory.h"
 
-// Definicion de variables globales declaradas en memory_gestor.h
-char*   puertoEscucha;
-char*   scriptsBasePath;
-t_list* lista_procesos;
 
 int main(int argc, char* argv[]) {
 
@@ -14,10 +10,17 @@ int main(int argc, char* argv[]) {
 
     inicializar_log_y_config(argv[1]);
 
-    puertoEscucha   = config_get_string_value(configMemory, "PUERTO_MEMORY");
+    puertoEscucha = config_get_string_value(configMemory, "PUERTO_MEMORY");
     scriptsBasePath = config_get_string_value(configMemory, "SCRIPTS_BASEPATH");
+    segment_max_size = (uint32_t)config_get_int_value(configMemory, "SEGMENT_MAX_SIZE");
+    allocation_strategy = config_get_string_value(configMemory, "ALLOCATION_STRATEGY");
 
     lista_procesos = list_create();
+    lista_memory_sticks = list_create();
+    lista_huecos = list_create();
+    memoria_total_size  = 0;
+    pthread_mutex_init(&memoria_mutex, NULL);
+    pthread_mutex_init(&procesos_mutex, NULL);
 
     int socketEscucha = iniciar_servidor(puertoEscucha);
     if (socketEscucha == EXIT_FAILURE) {
@@ -55,8 +58,9 @@ int main(int argc, char* argv[]) {
                 pthread_detach(hilo);
                 break;
             case MEMORY_STICK:
-                // TODO: implementar atender_memory_stick cuando este listo con hilos me imagino
-                log_warning(loggerMemory, "Memory Stick conectado - num nose arce PONETE A LABURAR");
+                // La conexion y registro del stick ya se hizo en aceptar_cliente_memory.
+                // El socket queda abierto; por ahora no hay loop de atencion (Memory Stick
+                // es pasivo: KM le manda pedidos de lectura/escritura cuando los necesite).
                 free(arg);
                 break;
             default:
@@ -77,11 +81,10 @@ int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
 
     int32_t id = 0;
     id = handshake_servidor_id(socket, id);
-    *quien_out = (modulo)id; // est oes para que la viable modulo del main se modifique, para 
+    *quien_out = (modulo)id;
 
     switch (id) {
         case CPU: {
-            // El cliente CPU manda ademas un string con su identificador
             int sizeCpuId;
             recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
             char* cpuId = malloc(sizeCpuId);
@@ -90,11 +93,14 @@ int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
             free(cpuId);
             break;
         }
-        case MEMORY_STICK:
-            log_info(loggerMemory, "Memory Stick conectado");
+        case MEMORY_STICK: {
+            uint32_t stick_size = 0;
+            recv(socket, &stick_size, sizeof(uint32_t), MSG_WAITALL);
+            agregar_memory_stick(socket, stick_size);
             break;
+        }
         default:
-            log_error(loggerMemory, "Modulo inesperado intentó conectarse al loop: %d", id);
+            log_error(loggerMemory, "Modulo inesperado intento conectarse al loop: %d", id);
             close(socket);
             break;
     }
@@ -102,20 +108,38 @@ int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
     return socket;
 }
 
-//Loop que atiende al scheduler:
-//KM → Scheduler: ok (int, 1=exito 0=error)
+// Loop que atiende al scheduler.
+// PATH_PROCESO → inicializar proceso, responde int ok
+// FIN_PROCESO  → liberar proceso, sin respuesta
 void* atender_scheduler(void* arg) {
     int socket = *(int*)arg;
     free(arg);
 
-    while (1) {
-        uint32_t pid;
-        char* path = recibir_path(socket, &pid);
-        if (!path) break; // scheduler cerro conexion
+    t_paquete* paquete;
+    while ((paquete = recibir_paquete(socket)) != NULL) {
+        switch ((op_code)paquete->codigo_operacion) {
+            case PATH_PROCESO: {
+                uint32_t pid = buffer_read_uint32(paquete->buffer);
+                uint32_t sizePath = buffer_read_uint32(paquete->buffer);
+                char*    path = buffer_read_string(paquete->buffer, sizePath);
+                eliminar_paquete(paquete);
 
-        int ok = inicializar_proceso(pid, path);
-        free(path);
-        send(socket, &ok, sizeof(int), 0);
+                int ok = inicializar_proceso(pid, path);
+                free(path);
+                send(socket, &ok, sizeof(int), 0);
+                break;
+            }
+            case FIN_PROCESO: {
+                uint32_t pid = buffer_read_uint32(paquete->buffer);
+                eliminar_paquete(paquete);
+                finalizar_proceso(pid);
+                break;
+            }
+            default:
+                log_warning(loggerMemory, "Opcode desconocido del Scheduler: %d", paquete->codigo_operacion);
+                eliminar_paquete(paquete);
+                break;
+        }
     }
 
     log_warning(loggerMemory, "Scheduler desconectado");
@@ -123,9 +147,8 @@ void* atender_scheduler(void* arg) {
 }
 
 // Loop que atiende a un CPU:
-// Respeustas:
-//     OBTENER_CONTEXTO    → KM responde con paquete
-//     ACTUALIZAR_CONTEXTO → CPU envia ademas un paquete completo con el contexto
+// OBTENER_CONTEXTO    → KM responde con paquete
+// ACTUALIZAR_CONTEXTO → CPU envia ademas un paquete completo con el contexto
 void* atender_cpu(void* arg) {
     int socket = *(int*)arg;
     free(arg);
@@ -141,14 +164,12 @@ void* atender_cpu(void* arg) {
                 enviar_contexto_cpu(socket, pid);
                 break;
             case ACTUALIZAR_CONTEXTO:
-                // recibir_contexto_cpu llama a recibir_paquete internamente para leer el contexto
                 recibir_contexto_cpu(socket, pid);
                 break;
             case OBTENER_INSTRUCCION:
                 enviar_instruccion_cpu(socket, pid);
                 break;
             default:
-                // TODO: manejar OBTENER_INSTRUCCION y otros cuando esten implementados
                 log_warning(loggerMemory, "Opcode desconocido del CPU: %d", opcode);
                 break;
         }
@@ -156,20 +177,4 @@ void* atender_cpu(void* arg) {
 
     log_warning(loggerMemory, "CPU desconectado");
     return NULL;
-}
-
-char* recibir_path(int socket, uint32_t* pid_out) {
-    uint32_t pid, sizeDePath;
-
-    if (recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL) <= 0) return NULL;
-    if (recv(socket, &sizeDePath, sizeof(uint32_t), MSG_WAITALL) <= 0) return NULL;
-
-    char* path = malloc(sizeDePath);
-    if (recv(socket, path, sizeDePath, MSG_WAITALL) <= 0) {
-        free(path);
-        return NULL;
-    }
-
-    *pid_out = pid;
-    return path;
 }

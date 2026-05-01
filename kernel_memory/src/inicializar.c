@@ -1,19 +1,14 @@
 #include "inicializar.h"
 
-void inicializar_log_y_config(char* path){
-
+void inicializar_log_y_config(char* path) {
     loggerMemory = log_create("memory.log", "memory.c", true, LOG_LEVEL_INFO);
     configMemory = config_create(path);
-
 }
 
 int inicializar_proceso(uint32_t pid, char* path) {
-    // Construir path completo: SCRIPTS_BASEPATH + "/" + path_relativo
-    // +2 por el '/' separador y el '\0' terminador de string
     char* full_path = malloc(strlen(scriptsBasePath) + strlen(path) + 2);
     sprintf(full_path, "%s/%s", scriptsBasePath, path);
 
-    // Verificar que el archivo existe y se puede leer
     FILE* f = fopen(full_path, "r");
     if (!f) {
         log_error(loggerMemory, "No se pudo abrir el archivo: %s", full_path);
@@ -22,32 +17,32 @@ int inicializar_proceso(uint32_t pid, char* path) {
     }
     fclose(f);
 
-    // Crear la estructura del proceso
     t_proceso_memory* proceso = malloc(sizeof(t_proceso_memory));
     proceso->pid = pid;
     proceso->path_pseudocodigo = full_path;
-
-    // Inicializar el contexto de ejecucion con TODOS los registros en 0
     proceso->contexto = malloc(sizeof(t_contexto_ejecucion));
     memset(proceso->contexto, 0, sizeof(t_contexto_ejecucion));
+    proceso->tabla_segmentos = list_create();
 
+    pthread_mutex_lock(&procesos_mutex);
     list_add(lista_procesos, proceso);
+    pthread_mutex_unlock(&procesos_mutex);
 
     log_info(loggerMemory, "## PID: %d - Proceso Creado", pid);
     return 1;
 }
 
 t_proceso_memory* buscar_proceso(uint32_t pid) {
+    pthread_mutex_lock(&procesos_mutex);
+    t_proceso_memory* resultado = NULL;
     for (int i = 0; i < list_size(lista_procesos); i++) {
         t_proceso_memory* p = list_get(lista_procesos, i);
-        if (p->pid == pid) return p;
+        if (p->pid == pid) { resultado = p; break; }
     }
-    return NULL;
+    pthread_mutex_unlock(&procesos_mutex);
+    return resultado;
 }
 
-// Lee la instruccion en la linea indicada por el PC del proceso.
-// Devuelve el string de la linea (el caller es responsable de liberarlo).
-// Devuelve NULL si el PC esta fuera de rango.
 char* leer_instruccion(t_proceso_memory* proceso) {
     FILE* f = fopen(proceso->path_pseudocodigo, "r");
     if (!f) {
@@ -55,15 +50,14 @@ char* leer_instruccion(t_proceso_memory* proceso) {
         return NULL;
     }
 
-    char* linea = NULL;
-    size_t capacidad = 0;
+    char*    linea       = NULL;
+    size_t   capacidad   = 0;
     uint32_t linea_actual = 0;
-    uint32_t pc = proceso->contexto->pc;
+    uint32_t pc           = proceso->contexto->pc;
 
     while (getline(&linea, &capacidad, f) != -1) {
         if (linea_actual == pc) {
             fclose(f);
-            // Sacar el salto de linea del final si existe
             linea[strcspn(linea, "\n")] = '\0';
             return linea;
         }
@@ -74,4 +68,197 @@ char* leer_instruccion(t_proceso_memory* proceso) {
     free(linea);
     log_error(loggerMemory, "PID %d: PC %d fuera de rango", proceso->pid, pc);
     return NULL;
+}
+
+// Memory Sticks 
+
+void agregar_memory_stick(int socket, uint32_t size) {
+    t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
+    stick->socket      = socket;
+    stick->size        = size;
+    stick->base_fisica = memoria_total_size; // se pega al final del espacio ya existente
+
+    pthread_mutex_lock(&memoria_mutex);
+
+    list_add(lista_memory_sticks, stick);
+
+    // Todo el espacio del nuevo stick es un hueco libre al final
+    t_hueco* nuevo_hueco   = malloc(sizeof(t_hueco));
+    nuevo_hueco->base      = memoria_total_size;
+    nuevo_hueco->limite    = size;
+    list_add(lista_huecos, nuevo_hueco); // la lista ya está ordenada por base; esto va al final
+
+    memoria_total_size += size;
+
+    pthread_mutex_unlock(&memoria_mutex);
+
+    log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", size);
+}
+
+// Gestión de huecos (lo pongo en static porque solo se usa dentro de este .c) 
+
+static t_hueco* encontrar_hueco_best_fit(uint32_t tamaño) {
+    t_hueco* mejor = NULL;
+    for (int i = 0; i < list_size(lista_huecos); i++) {
+        t_hueco* h = list_get(lista_huecos, i);
+        if (h->limite >= tamaño && (!mejor || h->limite < mejor->limite))
+            mejor = h;
+    }
+    return mejor;
+}
+
+static t_hueco* encontrar_hueco_worst_fit(uint32_t tamaño) {
+    t_hueco* peor = NULL;
+    for (int i = 0; i < list_size(lista_huecos); i++) {
+        t_hueco* h = list_get(lista_huecos, i);
+        if (h->limite >= tamaño && (!peor || h->limite > peor->limite))
+            peor = h;
+    }
+    return peor;
+}
+
+static t_hueco* encontrar_hueco(uint32_t tamaño) {
+    if (strcmp(allocation_strategy, "BEST") == 0)
+        return encontrar_hueco_best_fit(tamaño);
+    return encontrar_hueco_worst_fit(tamaño);
+}
+
+// Inserta un hueco en lista_huecos (ya ordenada por base) y fusiona con adyacentes.
+// usar memoria_mutex para usar funcion.
+static void insertar_hueco_y_fusionar(t_hueco* nuevo) {
+    //Mete hueco en el medio patenado para delante la posicion del que tiene por primera vez una vez mayor al nuevo
+    int pos = list_size(lista_huecos);
+    for (int i = 0; i < list_size(lista_huecos); i++) {
+        t_hueco* h = list_get(lista_huecos, i);
+        if (h->base > nuevo->base) { pos = i; break; }
+    }
+    list_add_in_index(lista_huecos, pos, nuevo);
+
+    // Intenta fusionar con el siguiente si es adyacente
+    if (pos + 1 < list_size(lista_huecos)) {
+        t_hueco* sig = list_get(lista_huecos, pos + 1);
+        if (nuevo->base + nuevo->limite == sig->base) {
+            nuevo->limite += sig->limite;
+            list_remove_and_destroy_element(lista_huecos, pos + 1, free);
+        }
+    }
+
+    // Intenta fusionar con el anterior si es adyacente
+    if (pos > 0) {
+        t_hueco* ant = list_get(lista_huecos, pos - 1);
+        if (ant->base + ant->limite == nuevo->base) {
+            ant->limite += nuevo->limite;
+            list_remove_and_destroy_element(lista_huecos, pos, free);
+        }
+    }
+}
+
+//Finalización de procesos
+
+void finalizar_proceso(uint32_t pid) {
+    pthread_mutex_lock(&procesos_mutex);
+    t_proceso_memory* proceso = NULL;
+    for (int i = 0; i < list_size(lista_procesos); i++) {
+        t_proceso_memory* p = list_get(lista_procesos, i);
+        if (p->pid == pid) { proceso = p; break; }
+    }
+    if (!proceso) {
+        pthread_mutex_unlock(&procesos_mutex);
+        log_warning(loggerMemory, "FIN_PROCESO: PID %d no encontrado", pid);
+        return;
+    }
+    list_remove_element(lista_procesos, proceso);
+    pthread_mutex_unlock(&procesos_mutex);
+
+    // Devolver todos los segmentos como huecos libres
+    pthread_mutex_lock(&memoria_mutex);
+    while (list_size(proceso->tabla_segmentos) > 0) {
+        t_segmento* seg   = list_remove(proceso->tabla_segmentos, 0);
+        t_hueco*    hueco = malloc(sizeof(t_hueco));
+        hueco->base       = seg->base;
+        hueco->limite     = seg->limite;
+        free(seg);
+        insertar_hueco_y_fusionar(hueco);
+    }
+    pthread_mutex_unlock(&memoria_mutex);
+
+    list_destroy(proceso->tabla_segmentos);
+    free(proceso->contexto);
+    free(proceso->path_pseudocodigo);
+    free(proceso);
+
+    log_info(loggerMemory, "## PID: %d - Proceso Finalizado", pid);
+}
+
+//Gestión de segmentos
+
+t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento) {
+    for (int i = 0; i < list_size(proceso->tabla_segmentos); i++) {
+        t_segmento* seg = list_get(proceso->tabla_segmentos, i);
+        if (seg->id_segmento == id_segmento) return seg;
+    }
+    return NULL;
+}
+
+// Retorna: 1=ok, 0=no hay hueco contiguo (ncesitaria compactar para buscar de nuevo un hueco), -1=error
+int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
+    t_proceso_memory* proceso = buscar_proceso(pid);
+    if (!proceso) {
+        log_error(loggerMemory, "PID %d no encontrado al crear segmento %d", pid, id_segmento);
+        return -1;
+    }
+
+    pthread_mutex_lock(&memoria_mutex);
+
+    t_hueco* hueco = encontrar_hueco(tamaño);
+    if (!hueco) {
+        pthread_mutex_unlock(&memoria_mutex);
+        return 0; //HAY que compactar supuestamente entonces si tengo que buscar un nuevo hueco post-compactacion
+    }
+
+    t_segmento* seg  = malloc(sizeof(t_segmento));
+    seg->id_segmento = id_segmento;
+    seg->base        = hueco->base;
+    seg->limite      = tamaño;
+    list_add(proceso->tabla_segmentos, seg);
+
+    // Recortar el hueco desde el principio
+    hueco->base   += tamaño;
+    hueco->limite -= tamaño;
+    if (hueco->limite == 0) {
+        list_remove_element(lista_huecos, hueco);
+        free(hueco);
+    }
+
+    pthread_mutex_unlock(&memoria_mutex);
+
+    log_info(loggerMemory, "## PID: %d - Segmento Creado %d - Tamaño: %d", pid, id_segmento, tamaño);
+    return 1;
+}
+
+// Retorna: 1=ok, -1=error (proceso o segmento no encontrado)
+int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
+    t_proceso_memory* proceso = buscar_proceso(pid);
+    if (!proceso) return -1;
+
+    pthread_mutex_lock(&memoria_mutex);
+
+    t_segmento* seg = buscar_segmento(proceso, id_segmento);
+    if (!seg) {
+        pthread_mutex_unlock(&memoria_mutex);
+        return -1;
+    }
+
+    t_hueco* hueco_liberado  = malloc(sizeof(t_hueco));
+    hueco_liberado->base     = seg->base;
+    hueco_liberado->limite   = seg->limite;
+
+    list_remove_element(proceso->tabla_segmentos, seg);
+    free(seg);
+
+    // Reintegrar el espacio al mapa de huecos (con fusión de adyacentes)
+    insertar_hueco_y_fusionar(hueco_liberado);
+
+    pthread_mutex_unlock(&memoria_mutex);
+    return 1;
 }

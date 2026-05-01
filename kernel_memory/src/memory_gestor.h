@@ -1,30 +1,54 @@
 #ifndef MEMORY_GESTOR_H_
 #define MEMORY_GESTOR_H_
 
-
 #include <utils/utils.h>
 #include <commons/collections/list.h>
 
-
-// Estructura que representa un proceso en Kernel Memory
+// Entrada en la tabla de segmentos de un proceso (segmentación pura)
 typedef struct {
-    uint32_t pid;
-    char* path_pseudocodigo;        // path completo al archivo .prog
-    t_contexto_ejecucion* contexto; // todos los registros inicializados en 0
-    // tabla de segmentos se agrega mas adelante me imagino, todo lo q es stack todo eso, por ahora asi me queda prolijo
+    uint32_t id_segmento;
+    uint32_t base;   // dirección física global donde empieza el segmento
+    uint32_t limite; // tamaño en bytes del segmento
+} t_segmento;
+
+// Información de un Memory Stick conectado
+typedef struct {
+    int      socket;
+    uint32_t size;
+    uint32_t base_fisica; // primera dirección física global de este stick
+} t_memory_stick_info;
+
+// Hueco libre contiguo en el espacio de memoria física global
+typedef struct {
+    uint32_t base;   // dirección física global donde empieza el hueco
+    uint32_t limite; // tamaño en bytes del hueco
+} t_hueco;
+
+// Proceso residente en Kernel Memory
+typedef struct {
+    uint32_t              pid;
+    char*                 path_pseudocodigo;
+    t_contexto_ejecucion* contexto;
+    t_list*               tabla_segmentos; // lista de t_segmento*
 } t_proceso_memory;
 
+// VARIABLES GLOBALES
 
-//VARIABLES GLOBALES
-
-extern t_log* loggerMemory;
+extern t_log*    loggerMemory;
 extern t_config* configMemory;
 
+// Variables del memory.config
+extern char*     puertoEscucha;
+extern char*     scriptsBasePath;
+extern uint32_t  segment_max_size;
+extern char*     allocation_strategy; //BEST o WORST
 
-//Variables del memory.config
+extern t_list*   lista_procesos;       //ista de t_proceso_memory*
+extern t_list*   lista_memory_sticks;  // lista de t_memory_stick_info*
+extern t_list*   lista_huecos;         // lista de t_hueco* ordenada por base física
+extern uint32_t  memoria_total_size;   //suma de tamaños de todos los sticks conectados
 
-extern char* puertoEscucha;
-extern char* scriptsBasePath; // SCRIPTS_BASEPATH del config
-extern t_list* lista_procesos; // lista de t_proceso_memory*
+extern pthread_mutex_t memoria_mutex;   //protege lista_huecos, lista_memory_sticks y tablas de segmentos
+extern pthread_mutex_t procesos_mutex;  //protege lista_procesos y proceso->contexto
 
 #endif
