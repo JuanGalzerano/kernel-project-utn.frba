@@ -2,7 +2,7 @@
 #include <commons/log.h>
 #include <commons/collections/list.h>
 
-
+tipo_IO tipo;
 
 int main(int argc, char* argv[]) {
 
@@ -14,6 +14,8 @@ int main(int argc, char* argv[]) {
     int socketConScheduler;
     char* ip=config_get_string_value(configIO,"IP_SCHEDULER");
     char* puerto= config_get_string_value(configIO,"PUERTO_SCHEDULER");
+
+    tipo = reconocer_io(argv[1]);
 
 
     //Creo conexion con Scheduler
@@ -28,6 +30,12 @@ int main(int argc, char* argv[]) {
     //handshake_cliente(socketConScheduler,loggerIO);
     handshake_cliente_id(socketConScheduler, loggerIO, IO);
 
+    send(socketConScheduler, &tipo, sizeof(tipo_IO), 0);
+
+    //recibir paquete
+
+    //switch de acuerdo al tipo de IO que sos
+
 
 
     return 0;
@@ -35,3 +43,14 @@ int main(int argc, char* argv[]) {
 
 
 
+tipo_IO reconocer_io(char* tipo){
+    if(strcmp(tipo, "SLEEP")){
+        tipo = TIPO_SLEEP;
+    }
+    if(strcmp(tipo, "STDIN")){
+        tipo = TIPO_STDIN;
+    }
+    if(strcmp(tipo, "STDOUT")){
+        tipo = TIPO_STDOUT;
+    }
+}

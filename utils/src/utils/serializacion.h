@@ -38,7 +38,9 @@ typedef struct{
     uint32_t pid;
     uint32_t bytesALeer;
     uint32_t direccionLogica;
+    char* cadenaLeida;
 }t_stdin;
+
 
 
 

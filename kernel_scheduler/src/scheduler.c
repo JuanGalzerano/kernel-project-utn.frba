@@ -150,8 +150,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 sem_post(&sem_hay_cpu_libre);
                 free(sleep);
                 break;
-            case STDIN://ME HICE MEDIO UN QUILOMBO CON STDIN Y FINALIZAR_STDIN, ver mañana
-            /*
+            case STDIN:
+            
                 t_stdin* procesoStdin = deserializar_stdin(paquete->buffer);
 
                 pthread_mutex_lock(&exec_mutex);
@@ -168,13 +168,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdin->pid);
 
              
-                enviar_paquete(socketStdin, paquete);
+                enviar_paquete(socketStdin,paquete); //la IO stdin ni bien se conecta, se queda esperando a recibir los bytes a leer
 
                 //ver si hay que eliminar paquete aca                
 
                 sem_post(&sem_hay_cpu_libre);
                 free(procesoStdin);
-*/
+
                 break;
             case STDOUT:
 
@@ -182,9 +182,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             case IO_TERMINADO: //esta es util para STDOUT y SLEEP, pero para STDIN necesito desp pedirle a KM que lo guarde en una dire
 
                 break;
-            case FINALIZAR_STDIN: //aca rulo me pasa lo que hay que guardar en KM y literalmente casi que se lo paso como me lo dan
-                //recibir pid y bytes del IO
-                /*
+            case FINALIZAR_STDIN:
+                //recibir pid, bytes, cadenaLeida y  del IO
+                
                 t_stdin* resultado = deserializar_stdin(paquete->buffer);
 
                 //pedirle al KM que escriba en memoria
@@ -195,6 +195,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 if(!ok){
                     //loguear error al escrribir en memoria
+                    log_error(loggerScheduler, "El proceso (%d) no pudo escribir en memoria", resultado->pid);
+                    free(resultado->cadenaLeida);
+                    free(resultado);
                     break;
                 }
 
@@ -208,11 +211,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
                 sem_post(&sem_hay_proceso_ready);
+
+                free(resultado->cadenaLeida);
                 free(resultado);
 
 
                 //ver si hay que eliminar paquete aca
-                */
+                
                 break;
 
             

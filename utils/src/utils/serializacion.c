@@ -195,6 +195,10 @@ t_buffer* serializar_stdin(t_stdin* ProcesoStdin){
     t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, ProcesoStdin->pid);
     buffer_add_uint32(buf, ProcesoStdin->bytesALeer);
+    buffer_add_uint32(buf, ProcesoStdin->direccionLogica);
+    uint32_t tamanioActualCadena = sizeof(ProcesoStdin->cadenaLeida)+1; // lo hacemos asi xq no sabemos si es el momento en que la cadena ya fue "rellenada" o es cuando se la estamos pasando a IO para que la llene
+    buffer_add_uint32(buf, tamanioActualCadena);
+    buffer_add_string(buf, tamanioActualCadena, ProcesoStdin->cadenaLeida);
 
     return buf;
 }
@@ -203,5 +207,8 @@ t_stdin* deserializar_stdin(t_buffer* buf){
     t_stdin* ProcesoStdin = malloc(sizeof(t_stdin));
     ProcesoStdin->pid = buffer_read_uint32(buf);
     ProcesoStdin->bytesALeer = buffer_read_uint32(buf);
+    ProcesoStdin->direccionLogica = buffer_read_uint32(buf);
+    uint32_t tamanioActualCadena = buffer_read_uint32(buf);
+    ProcesoStdin->cadenaLeida = buffer_read_string(buf, tamanioActualCadena);
     return ProcesoStdin;
 }
