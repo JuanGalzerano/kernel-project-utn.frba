@@ -41,6 +41,15 @@ typedef struct{
     char* cadenaLeida;
 }t_stdin;
 
+//para la syscall STDOUT
+typedef struct 
+{
+    uint32_t pid;
+    uint32_t cantBytesCadena;
+    char* mensajeAMostrar;
+
+}t_stdout;
+
 
 
 
