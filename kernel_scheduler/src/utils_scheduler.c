@@ -7,16 +7,20 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
     pcb->prioridad = prioridad;
 
     //Meterlo en NEW y loguear
+    //DESPUES VER POR QUE ESTA LISTA ES BASTANTE INNECESARIA
     pthread_mutex_lock(&new_mutex);
     list_add(new_lista, pcb); 
     pthread_mutex_unlock(&new_mutex);
     log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
 
     //Avisar al KM (mandar pid + path)
+    pthread_mutex_lock(&mutex_socket_memory);
     enviar_path_proceso_memory(pcb->pid, path);
 
     //Esperar respuesta OK del KM
     int ok = recibir_ok_memory();
+
+    pthread_mutex_unlock(&mutex_socket_memory);
 
     //Mover a READY y loguear
     if(ok == 0){
@@ -76,7 +80,11 @@ void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
     //creo q hay destruir el paquete y buffer
 
     //hacer log de que se pasa a running
-    log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado RUNNING", pcb->pid);
+    log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado EXEC", pcb->pid);
+
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
 }
 
 uint32_t generar_pid() {
@@ -86,7 +94,7 @@ uint32_t generar_pid() {
     return pid;
 }
 
-t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid){
+t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid){//entiendo que si se llama a esta funcion, es xq la cpu esta ejecutando, por lo que no contemplo el caso en las lamadas a la funcion que se pueda retornar NULL
     t_cpu_exec* cpu = NULL;
         for(int i = 0; i < list_size(exec_lista); i++){
             t_cpu_exec* entrada = list_get(exec_lista, i);
@@ -148,7 +156,37 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
     t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); //avisarle a juani que haga este case para  que libere todos los segmentos y estructuras asociadas a ese PID
     enviar_paquete(socketConexionMemory, paquete);
     //creo q hay destruir el paquete y buffer
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
 }
+
+void* hilo_timer_quantum(void* arg){
+    t_cpu_exec* cpu = (t_cpu_exec*) arg;
+
+    uint32_t pidCpuOriginal = cpu->pcb->pid;
+
+    usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
+
+    pthread_mutex_lock(&exec_mutex);
+    bool sigueEjecutando = (cpu->pcb != NULL && cpu->pcb->pid == pidCpuOriginal);
+    pthread_mutex_unlock(&exec_mutex);
+
+    if(sigueEjecutando){
+        //pedir a CPU que finalice por quantum
+        t_buffer* buffer = buffer_create(0);
+        buffer_add_uint32(buffer, cpu->pcb->pid);
+        t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
+        enviar_paquete(cpu->socketConexion, paquete);
+        //creo q hay destruir el paquete y buffer
+        free(buffer->stream);
+        free(buffer);
+        free(paquete);
+    }
+
+    return NULL;
+}
+
 
 void iniciar_timer_quantum(t_cpu_exec* cpu){
     pthread_t hiloQuantum;
@@ -164,9 +202,36 @@ void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que 
     buffer_add_string(buffer, sizePath, path);
     t_paquete* paquete = crear_paquete(PATH_PROCESO, buffer);
     enviar_paquete(socketConexionMemory, paquete);
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
 
 /*
     send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
     send(socketConexionMemory, &sizePath, sizeof(uint32_t),0);
     send(socketConexionMemory, path, sizePath,0);*/
+}
+
+char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes){
+    t_buffer* buffer = buffer_create(0);
+
+    buffer_add_uint32(buffer, direccionLogica);
+
+    buffer_add_uint32(buffer, bytes);
+
+    t_paquete* unPaquete = crear_paquete(LEER_BYTES, buffer);
+    
+    enviar_paquete(socketConexionMemory, unPaquete);
+
+    free(buffer->stream);
+    free(buffer);
+    free(unPaquete);
+
+    //ver si hay que elimiinar paquete
+
+    char* cadena = malloc(bytes+1);
+
+    recv(socketConexionMemory, cadena, bytes+1, MSG_WAITALL);
+
+    return cadena;
 }

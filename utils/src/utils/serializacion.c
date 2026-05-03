@@ -90,6 +90,8 @@ void enviar_paquete(int socket, t_paquete* paquete) {
 }
 //recibir paquete
 t_paquete* recibir_paquete(int socket) {
+
+
     t_paquete* paqueteRecibido = malloc(sizeof(t_paquete));
     
     int bytes = recv(socket, &paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
@@ -102,7 +104,7 @@ t_paquete* recibir_paquete(int socket) {
     recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
     t_buffer *buffer = buffer_create(size);
     buffer->size = size;
-    buffer->stream = malloc(size);
+    buffer->stream = malloc(size); //aca no se maneja el caso de que el size sea igual a 0 (paquete sin buffer)
     recv(socket, buffer->stream, size, MSG_WAITALL);
     paqueteRecibido->buffer = buffer;
     return paqueteRecibido;
@@ -191,7 +193,10 @@ t_sleep* deserializar_sleep(t_buffer* buf){
     return sleep;
 }
 
-t_buffer* serializar_stdin(t_stdin* ProcesoStdin){
+
+//------ ESTAS TAMBIEN FUNCIONAN PARA STDOUT, NO SOLO STDIN, NO QUIERO CAMBIAR EL NOMBRE EN TODAS LAS LLAMADAS A LA FUNCION
+
+t_buffer* serializar_stdin(t_stdin_stdout* ProcesoStdin){
     t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, ProcesoStdin->pid);
     buffer_add_uint32(buf, ProcesoStdin->bytesALeer);
@@ -203,8 +208,8 @@ t_buffer* serializar_stdin(t_stdin* ProcesoStdin){
     return buf;
 }
 
-t_stdin* deserializar_stdin(t_buffer* buf){
-    t_stdin* ProcesoStdin = malloc(sizeof(t_stdin));
+t_stdin_stdout* deserializar_stdin(t_buffer* buf){
+    t_stdin_stdout* ProcesoStdin = malloc(sizeof(t_stdin_stdout));
     ProcesoStdin->pid = buffer_read_uint32(buf);
     ProcesoStdin->bytesALeer = buffer_read_uint32(buf);
     ProcesoStdin->direccionLogica = buffer_read_uint32(buf);

@@ -3,6 +3,8 @@
 
 #include "gestor_scheduler.h"
 
+
+
 t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad);
 
 int recibir_ok_memory();
@@ -23,8 +25,12 @@ t_pcb* buscar_y_sacar_de_block(uint32_t pid);
 
 void enviar_fin_proceso_memory(uint32_t pid);
 
+void* hilo_timer_quantum(void* arg);
+
 void iniciar_timer_quantum(t_cpu_exec* cpu);
 
 void enviar_path_proceso_memory(uint32_t pid,char* path);
+
+char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes);
 
 #endif

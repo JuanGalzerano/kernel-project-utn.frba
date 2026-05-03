@@ -39,7 +39,10 @@ typedef struct{
     uint32_t bytesALeer;
     uint32_t direccionLogica;
     char* cadenaLeida;
-}t_stdin;
+}t_stdin_stdout;
+
+
+
 
 //para la syscall STDOUT
 typedef struct 
@@ -91,6 +94,7 @@ typedef enum {
     IO_TERMINADO = 28, //esto manda IO a scheduler
     FINALIZAR_STDIN = 29, //esto tmb (solo para stdin)
     ESCRIBIR_BYTES = 30,
+    LEER_BYTES = 31,
 } op_code;
  
 typedef struct {
@@ -137,8 +141,8 @@ t_buffer* serializar_sleep(t_sleep* sleep);
 
 t_sleep* deserializar_sleep(t_buffer* buf);
 
-t_buffer* serializar_stdin(t_stdin* ProcesoStdin);
+t_buffer* serializar_stdin(t_stdin_stdout* ProcesoStdin);
 
-t_stdin* deserializar_stdin(t_buffer* buf);
+t_stdin_stdout* deserializar_stdin(t_buffer* buf);
 
 #endif // SERIALIZACION_H

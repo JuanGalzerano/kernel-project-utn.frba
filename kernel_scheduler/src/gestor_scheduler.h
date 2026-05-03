@@ -36,6 +36,7 @@ extern t_config* configScheduler;
 extern int socketConexionMemory;
 extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
+extern pthread_mutex_t mutex_socket_memory;
 
 
 //Variables del memory.config
@@ -69,6 +70,24 @@ extern sem_t sem_hay_cpu_libre;
 extern int socketSleep;
 extern int socketStdin;
 extern int socketStdout;
+
+
+// colas de IOs
+extern t_queue* cola_sleep;
+extern t_queue* cola_stdin;
+extern t_queue* cola_stdout;
+
+extern pthread_mutex_t mutex_cola_sleep;
+extern pthread_mutex_t mutex_cola_stdin;
+extern pthread_mutex_t mutex_cola_stdout;
+
+// semáforos de disponibilidad de IO 
+extern sem_t sem_sleep_disponible;
+extern sem_t sem_stdin_disponible;
+extern sem_t sem_stdout_disponible;
+extern sem_t sem_hay_proc_esperando_sleep;
+extern sem_t sem_hay_proc_esperando_stdin;
+extern sem_t sem_hay_proc_esperando_stdout;
 
 
 

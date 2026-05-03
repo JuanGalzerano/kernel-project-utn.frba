@@ -6,6 +6,7 @@
 #include "gestor_scheduler.h"
 #include "inicializar_scheduler.h"
 #include "utils_scheduler.h"
+#include "gestion_IO_scheduler.h"
 
 
 //COLAS Y LISTAS DEL MODELO DE 7 ESTADOS
@@ -36,7 +37,8 @@ sem_t sem_hay_cpu_libre;
 t_log* loggerScheduler;
 t_config* configScheduler;
 int socketConexionMemory;
-uint32_t proximo_pid = 0;
+pthread_mutex_t mutex_socket_memory;
+uint32_t proximo_pid = 1;
 pthread_mutex_t mutex_pid;
 
 //Variables de scheduler.config
@@ -52,6 +54,23 @@ int socketSleep;
 int socketStdin;
 int socketStdout;
 
+// colas de gestion de IOs
+t_queue* cola_sleep;
+t_queue* cola_stdin;
+t_queue* cola_stdout;
+
+pthread_mutex_t mutex_cola_sleep;
+pthread_mutex_t mutex_cola_stdin;
+pthread_mutex_t mutex_cola_stdout;
+
+// semáforos de disponibilidad de IO 
+sem_t sem_sleep_disponible;
+sem_t sem_stdin_disponible;
+sem_t sem_stdout_disponible;
+sem_t sem_hay_proc_esperando_sleep;
+sem_t sem_hay_proc_esperando_stdin;
+sem_t sem_hay_proc_esperando_stdout;
+
 //funciones
 
 void *atender_cliente(void *arg);
@@ -60,6 +79,5 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger);
 
 void* planificador(void* arg);
 
-void* hilo_timer_quantum(void* arg);
 
 #endif

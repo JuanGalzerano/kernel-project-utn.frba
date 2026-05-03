@@ -7,7 +7,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
 //LEVANTAR CONEXION CON MEMORY
     socketConexionMemory = iniciar_conexion(IPMemory, puertoMemory);
     if(socketConexionMemory == EXIT_FAILURE){
-        log_info(loggerScheduler, "no se pudo conectar a Kernel Memory");
+        log_error(loggerScheduler, "no se pudo conectar a Kernel Memory");
         abort();
     }
     log_info(loggerScheduler, "Conectado a Kernel Memory");
@@ -23,10 +23,21 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
 
     crear_proceso(0, argv[2], 0); //por el momento asignamos random el de prioridad xq recien lo usamos para CMN, en este proceso debera ser siempre la maxima
 
+
+//GESTION DE PROCESOS
     pthread_t hiloPlanificador;
     pthread_create(&hiloPlanificador, NULL, planificador, NULL);
     pthread_detach(hiloPlanificador);
 
+//GESTION DE IOs
+/*
+    pthread_t hilo_sleep, hilo_stdin, hilo_stdout;
+    pthread_create(&hilo_sleep, NULL, hilo_io_sleep, NULL);
+    pthread_detach(hilo_sleep);
+    pthread_create(&hilo_stdin, NULL, hilo_io_stdin, NULL);
+    pthread_detach(hilo_stdin);
+    pthread_create(&hilo_stdout, NULL, hilo_io_stdout, NULL);
+    pthread_detach(hilo_stdout);*/
 
     while(1){
         int socketCliente = aceptar_cliente_scheduler(socketEscucha, loggerScheduler);
@@ -65,15 +76,19 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
         switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
             case MOTIVO_FIN_QUANTUM:
             //ME PARECE QUE LO QUE ME TIENE QUE MANDAR VIOTTI ES EL PID Y YO AHI BUSCO LA CPU EN LA QUE ESTA EJECUTANDO. REVISAR
-                t_cpu_exec* cpuFinQuantum = malloc(sizeof(t_cpu_exec));
+                
                 uint32_t pidInterrumpido;
                 buffer_read(paquete->buffer, &pidInterrumpido, sizeof(uint32_t));
 
-                cpuFinQuantum = encontrar_cpu_con_pid(pidInterrumpido);
+                pthread_mutex_lock(&exec_mutex);
+
+                t_cpu_exec* cpuFinQuantum = encontrar_cpu_con_pid(pidInterrumpido);
+
+               
 
                 log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
 
-                pthread_mutex_lock(&exec_mutex);
+                
                 t_pcb* pcb = cpuFinQuantum->pcb;
                 cpuFinQuantum->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
@@ -85,7 +100,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 sem_post(&sem_hay_cpu_libre);
                 sem_post(&sem_hay_proceso_ready);
 
-                free(cpuFinQuantum);
                 break;
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
@@ -146,7 +160,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case STDIN:
             
-                t_stdin* procesoStdin = deserializar_stdin(paquete->buffer);
+                t_stdin_stdout* procesoStdin = deserializar_stdin(paquete->buffer);//cuando viotti me lo mande, cadenaLeida=NULL
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid); 
@@ -160,7 +174,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 bloquear_proceso(pcbBlock);           
 
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdin->pid);
-
              
                 enviar_paquete(socketStdin,paquete); //la IO stdin ni bien se conecta, se queda esperando a recibir los bytes a leer
 
@@ -171,18 +184,65 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 break;
             case STDOUT:
+                t_stdin_stdout* procesoStdout = deserializar_stdin(paquete->buffer); //cuando viotti me lo mande, cadenaLeida=NULL
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpuUsadaStdout = encontrar_cpu_con_pid(procesoStdout->pid); 
+
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
+
+                t_pcb* pcbABlockear = cpuUsadaStdout->pcb;
+                cpuUsadaStdout->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex); 
+
+                bloquear_proceso(pcbABlockear);
+
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdout->pid);
+
+                procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->direccionLogica, procesoStdout->bytesALeer);
+
+                t_buffer* unBuffer = serializar_stdin(procesoStdout);
+
+                t_paquete* paqueteStdout = crear_paquete(STDOUT, unBuffer);
+                enviar_paquete(socketStdout, paqueteStdout);
+                free(unBuffer->stream);
+                free(unBuffer);
+                free(paqueteStdout);
+
+                //ver si hay que liberar paquete
+
+                sem_post(&sem_hay_cpu_libre);
+                free(procesoStdout->cadenaLeida);
+                free(procesoStdout);
+                              
 
                 break;
             case IO_TERMINADO: //esta es util para STDOUT y SLEEP, pero para STDIN necesito desp pedirle a KM que lo guarde en una dire
+                
+                uint32_t pidFinalizado;
+
+                buffer_read(paquete->buffer, &pidFinalizado, sizeof(uint32_t));
+
+                t_pcb* pcbADesbloquear = buscar_y_sacar_de_block(pidFinalizado);
+                
+                pthread_mutex_lock(&ready_mutex);
+                queue_push(ready_cola, pcbADesbloquear);
+                pthread_mutex_unlock(&ready_mutex);
+
+                log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
+                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
+                sem_post(&sem_hay_proceso_ready);
 
                 break;
             case FINALIZAR_STDIN:
                 //recibir pid, bytes, cadenaLeida y  del IO
                 
-                t_stdin* resultado = deserializar_stdin(paquete->buffer);
+                t_stdin_stdout* resultado = deserializar_stdin(paquete->buffer);
 
                 //pedirle al KM que escriba en memoria
-                enviar_paquete(socketConexionMemory, crear_paquete(ESCRIBIR_BYTES, paquete->buffer));
+                t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
+                enviar_paquete(socketConexionMemory, paqueteKM);
+                free(paqueteKM); // solo el paquete, no el buffer porque es del paquete original
 
                 //esperar OK del KM
                 int ok = recibir_ok_memory();
@@ -241,7 +301,7 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         recv(socketCliente, &sizeIdCpu, sizeof(int), MSG_WAITALL);
         idCPU = malloc(sizeIdCpu);
         recv(socketCliente, idCPU, sizeIdCpu,MSG_WAITALL);
-        log_info(logger, "CPU %s CONECTADA", idCPU);
+        log_info(logger, "## CPU %s CONECTADA", idCPU);
 
         //creo cpu
         t_cpu_exec* nueva_cpu = malloc(sizeof(t_cpu_exec));
@@ -296,25 +356,3 @@ void* planificador(void* arg) {
 
 
 
-void* hilo_timer_quantum(void* arg){
-    t_cpu_exec* cpu = (t_cpu_exec*) arg;
-    free(arg);
-    uint32_t pidCpuOriginal = cpu->pcb->pid;
-
-    usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
-
-    pthread_mutex_lock(&exec_mutex);
-    bool sigueEjecutando = (cpu->pcb != NULL && cpu->pcb->pid != pidCpuOriginal);
-    pthread_mutex_unlock(&exec_mutex);
-
-    if(sigueEjecutando){
-        //pedir a CPU que finalice por quantum
-        t_buffer* buffer = buffer_create(0);
-        buffer_add_uint32(buffer, cpu->pcb->pid);
-        t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
-        enviar_paquete(cpu->socketConexion, paquete);
-        //creo q hay destruir el paquete y buffer
-    }
-
-    return NULL;
-}
