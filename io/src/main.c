@@ -9,7 +9,7 @@ int main(int argc, char* argv[]) {
     //Creo el logger
     t_log* loggerIO=log_create("io.log", "main.c", true, LOG_LEVEL_INFO);
     //Creo el config
-    t_config* configIO = config_create(argv[1]);
+    t_config* configIO = config_create(argv[2]);
     //Defino las variables para conectarme al scheduler
     int socketConScheduler;
     char* ip=config_get_string_value(configIO,"IP_SCHEDULER");

@@ -5,22 +5,7 @@
 
 #include "gestor_scheduler.h"
 #include "inicializar_scheduler.h"
-
-//TYPESDEFS
-typedef struct {
-    uint32_t pid;
-    uint32_t prioridad;//esto va para CMN
-    //despues se van a agregar cosas de mutex creo
-} t_pcb;
-
-typedef struct {
-    int cpu_id;
-    int socketConexion;
-    t_pcb* pcb; // NULL si la CPU está libre
-} t_cpu_exec; 
-
-
-
+#include "utils_scheduler.h"
 
 
 //COLAS Y LISTAS DEL MODELO DE 7 ESTADOS
@@ -67,40 +52,14 @@ int socketSleep;
 int socketStdin;
 int socketStdout;
 
-
-
-
 //funciones
 
 void *atender_cliente(void *arg);
-
-t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad);
-
-void enviar_path_proceso_memory(uint32_t pid,char* path);
-
-int recibir_ok_memory();
 
 int aceptar_cliente_scheduler(int socketEscucha, t_log *logger);
 
 void* planificador(void* arg);
 
-t_cpu_exec* obtener_cpu_libre();
-
-void enviar_proceso_a_cpu(t_cpu_exec* cpu, t_pcb* pcb);
-
-void iniciar_timer_quantum(t_cpu_exec* cpu);
-
 void* hilo_timer_quantum(void* arg);
-
-uint32_t generar_pid();
-
-void enviar_fin_proceso_memory(uint32_t pid);
-
-t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid);
-
-void recibir_tipo_IO(int socketCliente);
-
-void bloquear_proceso(t_pcb* pcbBlock);
-
 
 #endif

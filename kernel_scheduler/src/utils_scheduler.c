@@ -1,0 +1,172 @@
+#include "utils_scheduler.h"
+
+
+t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
+    t_pcb* pcb = malloc(sizeof(t_pcb));
+    pcb->pid = pid;
+    pcb->prioridad = prioridad;
+
+    //Meterlo en NEW y loguear
+    pthread_mutex_lock(&new_mutex);
+    list_add(new_lista, pcb); 
+    pthread_mutex_unlock(&new_mutex);
+    log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
+
+    //Avisar al KM (mandar pid + path)
+    enviar_path_proceso_memory(pcb->pid, path);
+
+    //Esperar respuesta OK del KM
+    int ok = recibir_ok_memory();
+
+    //Mover a READY y loguear
+    if(ok == 0){
+        pthread_mutex_lock(&new_mutex);
+        list_remove_element(new_lista, pcb);
+        pthread_mutex_unlock(&new_mutex);
+        free(pcb);
+        log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
+        return NULL;
+    }
+    else{
+        pthread_mutex_lock(&ready_mutex);
+        queue_push(ready_cola, pcb);
+        pthread_mutex_unlock(&ready_mutex);
+        sem_post(&sem_hay_proceso_ready);
+        log_info(loggerScheduler, "## (%d) Pasa del estado NEW al estado READY", pcb->pid);
+
+        return pcb;
+    }
+    
+}
+
+
+int recibir_ok_memory(){
+    int resultado;
+    recv(socketConexionMemory, &resultado,sizeof(int),0);//el OK no me lo mandes por paquete juani, pq si o si es lo siguiente a recibir
+    if(!resultado){
+        return 0;
+    }
+    return 1;
+}
+
+t_cpu_exec* obtener_cpu_libre(){
+    pthread_mutex_lock(&exec_mutex);
+    t_cpu_exec* cpu = NULL;
+
+    for(int i = 0; i<list_size(exec_lista); i++){
+        t_cpu_exec* entrada = list_get(exec_lista, i);
+        if (entrada->pcb == NULL) {
+            cpu= entrada;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&exec_mutex);
+    return cpu;
+}
+
+
+void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
+    cpu->pcb = pcb;
+
+    //se le comunica a la CPU que debe correr este proceso
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, cpu->pcb->pid);
+    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
+    enviar_paquete(cpu->socketConexion, paquete);
+    //creo q hay destruir el paquete y buffer
+
+    //hacer log de que se pasa a running
+    log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado RUNNING", pcb->pid);
+}
+
+uint32_t generar_pid() {
+    pthread_mutex_lock(&mutex_pid);
+    uint32_t pid = proximo_pid++;
+    pthread_mutex_unlock(&mutex_pid);
+    return pid;
+}
+
+t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid){
+    t_cpu_exec* cpu = NULL;
+        for(int i = 0; i < list_size(exec_lista); i++){
+            t_cpu_exec* entrada = list_get(exec_lista, i);
+            if(entrada->pcb != NULL && entrada->pcb->pid == pid){
+                cpu = entrada;
+                break;
+            }
+        }
+
+    return cpu;
+}
+
+void recibir_tipo_IO(int socketCliente){
+    tipo_IO tipo;
+    recv(socketCliente, &tipo, sizeof(tipo_IO), MSG_WAITALL); // ni bien se conecta la IO, envia que tipo es
+
+    if(tipo == TIPO_SLEEP){
+        socketSleep = socketCliente;
+    }
+    if(tipo == TIPO_STDIN){
+        socketStdin = socketCliente;
+    }
+    if(tipo == TIPO_STDOUT){
+        socketStdout = socketCliente;
+    }
+
+    //no se usa mutex aunque sean globales xq solo se conectara 1 IO x cada tipo
+    //tampoco se contempla que una CPU solicite un tipo de IO que no esta corriendo, ya que se dijo que en caso de ser necesaria, esta estara corriendo
+
+}
+
+
+void bloquear_proceso(t_pcb* pcbBlock){
+    pthread_mutex_lock(&block_mutex);
+    list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
+    pthread_mutex_unlock(&block_mutex);
+}
+
+t_pcb* buscar_y_sacar_de_block(uint32_t pid){
+    pthread_mutex_lock(&block_mutex);
+    
+    t_pcb* pcb = NULL;
+    for(int i = 0; i < list_size(block_lista); i++){
+        t_pcb* entrada = list_get(block_lista, i);
+        if(entrada->pid == pid){
+            pcb = entrada;
+            list_remove(block_lista, i);
+            break;
+        }
+    }
+    
+    pthread_mutex_unlock(&block_mutex);
+    return pcb;
+}
+
+void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el de READY->EXIT Y BLOCK -> EXIT
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); //avisarle a juani que haga este case para  que libere todos los segmentos y estructuras asociadas a ese PID
+    enviar_paquete(socketConexionMemory, paquete);
+    //creo q hay destruir el paquete y buffer
+}
+
+void iniciar_timer_quantum(t_cpu_exec* cpu){
+    pthread_t hiloQuantum;
+    pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, cpu);
+    pthread_detach(hiloQuantum);
+}
+
+void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que esta va a haber que hacerla con paquete y eso xq sino solo funca para el proceso 0
+    uint32_t sizePath = strlen(path)+1;
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    buffer_add_uint32(buffer, sizePath);
+    buffer_add_string(buffer, sizePath, path);
+    t_paquete* paquete = crear_paquete(PATH_PROCESO, buffer);
+    enviar_paquete(socketConexionMemory, paquete);
+
+/*
+    send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
+    send(socketConexionMemory, &sizePath, sizeof(uint32_t),0);
+    send(socketConexionMemory, path, sizePath,0);*/
+}
