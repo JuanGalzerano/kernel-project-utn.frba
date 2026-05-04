@@ -154,7 +154,9 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, pid);
     t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); //avisarle a juani que haga este case para  que libere todos los segmentos y estructuras asociadas a ese PID
+    pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
+    pthread_mutex_lock(&mutex_socket_memory);
     //creo q hay destruir el paquete y buffer
     free(buffer->stream);
     free(buffer);
@@ -220,7 +222,9 @@ char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes){
     buffer_add_uint32(buffer, bytes);
 
     t_paquete* unPaquete = crear_paquete(LEER_BYTES, buffer);
-    
+
+
+    pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, unPaquete);
 
     free(buffer->stream);
@@ -232,6 +236,30 @@ char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes){
     char* cadena = malloc(bytes+1);
 
     recv(socketConexionMemory, cadena, bytes+1, MSG_WAITALL);
+    pthread_mutex_unlock(&mutex_socket_memory);
 
     return cadena;
+}
+
+void liberar_mutex_y_semaforos(){
+
+    pthread_mutex_destroy(&new_mutex);
+    pthread_mutex_destroy(&ready_mutex);
+    pthread_mutex_destroy(&block_mutex);
+    pthread_mutex_destroy(&exec_mutex);
+    pthread_mutex_destroy(&mutex_pid);
+    pthread_mutex_destroy(&mutex_socket_memory);
+    pthread_mutex_destroy(&mutex_cola_sleep);
+    pthread_mutex_destroy(&mutex_cola_stdin);
+    pthread_mutex_destroy(&mutex_cola_stdout);
+
+    
+    sem_destroy(&sem_hay_proceso_ready);
+    sem_destroy(&sem_hay_cpu_libre);
+    sem_destroy(&sem_sleep_disponible);
+    sem_destroy(&sem_stdin_disponible);
+    sem_destroy(&sem_stdout_disponible);
+    sem_destroy(&sem_hay_proc_esperando_sleep);
+    sem_destroy(&sem_hay_proc_esperando_stdin);
+    sem_destroy(&sem_hay_proc_esperando_stdout);
 }
