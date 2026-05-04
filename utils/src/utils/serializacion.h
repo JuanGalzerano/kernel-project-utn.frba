@@ -41,9 +41,6 @@ typedef struct{
     char* cadenaLeida;
 }t_stdin_stdout;
 
-
-
-
 //para la syscall STDOUT
 typedef struct 
 {
@@ -53,7 +50,24 @@ typedef struct
 
 }t_stdout;
 
+//para las syscalls de MUTEX
+typedef struct{
+    uint32_t pid;
+    char* nombreMutex;
+}t_mutex_syscall;
 
+//para la syscall MEM_ALLOC
+typedef struct{
+    uint32_t pid;
+    uint32_t segmentoId;
+    uint32_t tamanio;
+}t_mem_alloc;
+
+//para la syscall MEM_FREE
+typedef struct{
+    uint32_t pid;
+    uint32_t segmentoId;
+}t_mem_free;
 
 
 typedef struct {
@@ -144,5 +158,7 @@ t_sleep* deserializar_sleep(t_buffer* buf);
 t_buffer* serializar_stdin(t_stdin_stdout* ProcesoStdin);
 
 t_stdin_stdout* deserializar_stdin(t_buffer* buf);
+
+
 
 #endif // SERIALIZACION_H

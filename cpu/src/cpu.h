@@ -3,6 +3,7 @@
 
 #include "cpu_gestor.h"
 #include "inicializar_cpu.h"
+#include "instrucciones.h"
 
 //DEFINO VARIABLES GLOBALES
 t_log* loggerCpu;
@@ -16,36 +17,6 @@ extern char* IPMemory;
 extern char* puertoMemoryStick;
 extern char* IPMemoryStick;
 extern char* idCpu;
-
-//REGISTROS
-typedef struct {
-    uint32_t pc;
-    uint8_t  ax;
-    uint8_t  bx;
-    uint8_t  cx;
-    uint8_t  dx;
-    uint32_t eax;
-    uint32_t ebx;
-    uint32_t ecx;
-    uint32_t edx;
-    uint32_t si;   // dirección lógica de origen
-    uint32_t di;   // dirección lógica de destino
-} registros_cpu;
-
-typedef enum {
-    PC = 0,
-    AX = 1,
-    BX = 2,
-    CX = 3,
-    DX = 4,
-    EAX = 5,
-    EBX = 6,
-    ECX = 7,
-    EDX = 8,
-    SI = 9,
-    DI = 10
-} Codigo_registros_cpu;
-
 typedef struct {
     char *nombreDelRegistro;
     Codigo_registros_cpu codigo_registros_cpu;
@@ -71,31 +42,12 @@ Instruccion instrucciones[] = {
     {"STDIN", STDIN}, {"INIT_PROC", INIT_PROC}, {"EXIT", EXIT}
 };
 
-//Funciones
 uint32_t obtener_pid(int socketConexionScheduler);
 t_contexto_ejecucion* obtener_contexto(uint32_t pid, int socketConexionMemory);
-int ejecutar_ciclo_de_instruccion(t_contexto_ejecucion* ctx, int socketConexionMemory, t_log* loggerCpu);
+Registros_cpu actualizar_registros_cpu(t_contexto_ejecucion* ctx);
+int ejecutar_ciclo_de_instruccion(int socketConexionMemory, t_log* loggerCpu, int socketConexionScheduler, uint32_t pid);
 int obtener_instruccion_registro_valor(char **string);
-void decode(op_code tipoInstruccion, char **string);
-
-    //Por el momento asi
-void ejecutar_noop(void);
-void ejecutar_set(Codigo_registros_cpu tipoRegistro, int valor);
-void ejecutar_mov_in(Codigo_registros_cpu tipoRegistro);
-void ejecutar_mov_out(Codigo_registros_cpu tipoRegistro);
-void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
-void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
-void ejectar_jnz(Codigo_registros_cpu tipoRegistro, int instruccion);
-void ejecutar_copy_mem(int tamanio);
-void ejecutar_mutex_create(char *nombreMutex);
-void ejecutar_mutex_lock(char *nombreMutex);
-void ejecutar_mutex_unlock(char *nombreMutex);
-void ejecutar_mem_alloc(int segmentoId, int tamanio);
-void ejecutar_mem_free(int segmentoId);
-void ejecutar_sleep(int tiempo);
-void ejecutar_stdout(int registroDirLogica, int tamanio);
-void ejecutar_stdin(int registroDirLogica, int tamanio);
-void ejecutar_init_proc(char *pathArchivoInstrucciones, int prioridad);
-void ejecutar_exit(void);
+void obtener_nombre_mutex_o_path(char** string, char* nombreMutex);
+void decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, uint32_t pid);
 
 #endif

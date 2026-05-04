@@ -1,5 +1,7 @@
 #include <cpu.h>
-//pfidasfhidsuopahfaip
+
+Registros_cpu registros_cpu;
+
 int main(int argc, char* argv[]) {
 
     //Verifico haber recibido todos los argumentos
@@ -43,10 +45,11 @@ int main(int argc, char* argv[]) {
         // 2) Pedir Contexto a Juani
         t_contexto_ejecucion* ctx = obtener_contexto(pid, socketConexionMemory);
         log_info(loggerCpu, "CPU: Obtuve contexto de ejecucion");
+        registros_cpu = actualizar_registros_cpu(ctx); //Parece q no tiene sentido pero en realidad el contexto tiene mas cosas q no estan implementadas.
 
         // 3) Iniciar Ciclo de Instruccion
         while (true/*!hay_interrupcion()*/) {
-            int err = ejecutar_ciclo_de_instruccion(ctx, socketConexionMemory, loggerCpu);
+            int err = ejecutar_ciclo_de_instruccion(socketConexionMemory, loggerCpu, socketConexionScheduler, pid);
             if (err == EXIT_FAILURE) {
                 log_info(loggerCpu, "CPU: No se pudo ejecutar correctamente el ciclo de instruccion");
                 abort();
@@ -91,8 +94,22 @@ t_contexto_ejecucion* obtener_contexto(uint32_t pid, int socketConexionMemory) {
     return ctx;
 }
 
-int ejecutar_ciclo_de_instruccion(t_contexto_ejecucion* ctx, int socketConexionMemory, t_log* loggerCpu) {
-    uint32_t pc = ctx->pc;
+Registros_cpu actualizar_registros_cpu(t_contexto_ejecucion* ctx) {
+    registros_cpu.ax = ctx->ax;
+    registros_cpu.bx = ctx->bx;
+    registros_cpu.cx = ctx->cx;
+    registros_cpu.dx = ctx->dx;
+    registros_cpu.eax = ctx->eax;
+    registros_cpu.ebx = ctx->ebx;
+    registros_cpu.ecx = ctx->ecx;
+    registros_cpu.edx = ctx->edx;
+    registros_cpu.pc = ctx->pc;
+    registros_cpu.si = ctx->si;
+    registros_cpu.di = ctx->di;
+}
+
+int ejecutar_ciclo_de_instruccion(int socketConexionMemory, t_log* loggerCpu, int socketConexionScheduler, uint32_t pid) {
+    uint32_t pc = registros_cpu.pc;
     send(socketConexionMemory, OBTENER_INSTRUCCION, sizeof(op_code), 0);
     send(socketConexionMemory, &pc, sizeof(uint32_t), 0);
     t_paquete* paqueteConInstruccion = recibir_paquete(socketConexionMemory);
@@ -111,7 +128,7 @@ int ejecutar_ciclo_de_instruccion(t_contexto_ejecucion* ctx, int socketConexionM
     log_info(loggerCpu, "CPU: Se obtuvo el tipo instruccion");
 
     log_info(loggerCpu, "CPU: Iniciando decode...");
-    decode(tipoInstruccion, &cursor);
+    decode(tipoInstruccion, &cursor, socketConexionScheduler, pid);
     free(inicioInstruccionFormatoString);
     return EXIT_SUCCESS;
 }
@@ -156,45 +173,69 @@ int obtener_instruccion_registro_valor(char **string) {
     }
 
     if (resultado == EXIT_FAILURE) { //Si no era num ni instruccion, veo si era un registro
-            for (int k = 0; registros[k].nombreDelRegistro != NULL; k++) {
-                if (strcmp(bufferTemporal, registros[k].nombreDelRegistro) == 0) {
-                    resultado = registros[k].codigo_registros_cpu;
-                    break;
-                }
+        for (int k = 0; registros[k].nombreDelRegistro != NULL; k++) {
+            if (strcmp(bufferTemporal, registros[k].nombreDelRegistro) == 0) {
+                resultado = registros[k].codigo_registros_cpu;
+                break;
             }
+        }
     }
 
     free(bufferTemporal); // ya no lo necesitás, guardaste el resultado
     return resultado;
 }
+void obtener_nombre_mutex_o_path(char** string, char* nombreMutex) {
+    int i = 0;
 
-void decode(op_code tipoInstruccion, char **string) {
+    // Saltar espacios iniciales
+    while ((*string)[i] == ' ') i++;
+
+    int start = i;
+
+    // Copiar hasta espacio o fin
+    while ((*string)[i] != ' ' && (*string)[i] != '\0') {
+        nombreMutex[i - start] = (*string)[i];
+        i++;
+    }
+
+    nombreMutex[i - start] = '\0';
+
+    // Avanzar el puntero original
+    if ((*string)[i] == ' ') {
+        *string += i + 1;
+    } else {
+        *string += i;
+    }
+}
+
+void decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, uint32_t pid) {
     Codigo_registros_cpu tipoRegistro;
     Codigo_registros_cpu registroDestino;
     Codigo_registros_cpu registroOrigen;
     Codigo_registros_cpu registroDirLogica;
-    Codigo_registros_cpu tamanio;
-    char *nombreMutex;
-    int segmentoId;
-    int valor;
+    char nombreMutex[50];
+    char pathArchivoInstrucciones[100];
+    uint32_t segmentoId;
+    uint32_t valor;
+    uint32_t tamanio;
     switch (tipoInstruccion)
     {
         case NOOP:
             {
-                //ejecutar_noop();
+                //Creo q no tengo q hacer nada
                 break;
             }
         case SET:
             {
                 tipoRegistro = obtener_instruccion_registro_valor(string);
                 valor = obtener_instruccion_registro_valor(string);
-                //ejecutar_set(tipoRegistro, valor);
+                ejecutar_set(tipoRegistro, valor);
                 break;
             }
         case MOV_IN:
             {
                 tipoRegistro = obtener_instruccion_registro_valor(string);
-                //ejecutar_mov_in(tipoRegistro);
+                ejecutar_mov_in(tipoRegistro);
                 break;
             }
         case MOV_OUT:
@@ -207,90 +248,90 @@ void decode(op_code tipoInstruccion, char **string) {
            {
                 registroDestino = obtener_instruccion_registro_valor(string);
                 registroOrigen = obtener_instruccion_registro_valor(string);
-                //ejecutar_sum(registroDestino, registroOrigen);
+                ejecutar_sum(registroDestino, registroOrigen);
                 break;
             }
         case SUB:
             {
                 registroDestino = obtener_instruccion_registro_valor(string);
                 registroOrigen = obtener_instruccion_registro_valor(string);
-                //ejecutar_sub(registroDestino, registroOrigen);
+                ejecutar_sub(registroDestino, registroOrigen);
                 break;
             }
         case JNZ:
             {
                 tipoRegistro = obtener_instruccion_registro_valor(string);
-                int instruccion = obtener_instruccion_registro_valor(string);
-                //ejectar_jnz(tipoRegistro, instruccion);
+                uint32_t instruccion = obtener_instruccion_registro_valor(string);
+                ejectar_jnz(tipoRegistro, instruccion);
                 break;
             }
         case COPY_MEM:
             {           
-                valor = obtener_instruccion_registro_valor(string);
-                //ejecutar_copy_mem(tamanio);
+                tipoRegistro = obtener_instruccion_registro_valor(string);
+                //ejecutar_copy_mem(tipoRegistro);
                 break;
             }
         case MUTEX_CREATE:
             {
-                //nombreMutex = obtener_nombre_mutex(string);
-                //ejecutar_mutex_create(nombreMutex);
+                obtener_nombre_mutex_o_path(string, nombreMutex);
+                solicitar_mutex_create(nombreMutex, socketConexionScheduler, pid);
                 break;
             }
         case MUTEX_LOCK:
             {
-                //nombreMutex = obtener_nombre_mutex(string);
-                //ejecutar_mutex_lock(nombreMutex);
+                obtener_nombre_mutex_o_path(string, nombreMutex);
+                solicitar_mutex_lock(nombreMutex, socketConexionScheduler, pid);
                 break;
             }
         case MUTEX_UNLOCK:
             {
-                //nombreMutex = obtener_nombre_mutex(string);
-                //ejecutar_mutex_unlock(nombreMutex);
+                obtener_nombre_mutex_o_path(string, nombreMutex);
+                solicitar_mutex_unlock(nombreMutex, socketConexionScheduler, pid);
                 break;
             }
         case MEM_ALLOC:
             {
                 segmentoId = obtener_instruccion_registro_valor(string);
                 int tamanio = obtener_instruccion_registro_valor(string);
-                //ejecutar_mem_alloc(segmentoId, tamanio);
+                solicitar_mem_alloc(segmentoId, tamanio, socketConexionScheduler, pid);
                 break;
             }
         case MEM_FREE:
             {
                 segmentoId = obtener_instruccion_registro_valor(string);
-                //ejecutar_mem_free(segmentoId);
+                solicitar_mem_free(segmentoId, socketConexionScheduler, pid);
                 break;
             }
         case SLEEP:
             {
-                int tiempo = obtener_instruccion_registro_valor(string);
-                //ejecutar_sleep(tiempo);
+                uint32_t tiempo = obtener_instruccion_registro_valor(string);
+                solicitar_sleep(tiempo, socketConexionScheduler, pid);
                 break;
             }
         case STDOUT:
             {
                 registroDirLogica = obtener_instruccion_registro_valor(string);
                 tamanio = obtener_instruccion_registro_valor(string);
-                //ejecutar_stdout(registroDirLogica, tamanio);
+                solicitar_stdout(registroDirLogica, tamanio, socketConexionScheduler, pid);
                 break;
             }
         case STDIN:
             {
                 registroDirLogica = obtener_instruccion_registro_valor(string);
                 tamanio = obtener_instruccion_registro_valor(string);
-                //ejecutar_stdin(registroDirLogica, tamanio);
+                solicitar_stdin(registroDirLogica, tamanio, socketConexionScheduler, pid);
                 break;
             }
         case INIT_PROC:
             {
-                //char *pathArchivoInstrucciones = obtener_archivo_instrucciones(string);
+                obtener_nombre_mutex_o_path(string, pathArchivoInstrucciones);
                 int prioridad = obtener_instruccion_registro_valor(string);
-                //ejecutar_init_proc(pathArchivoInstrucciones, prioridad);
+                solicitar_init_proc(pathArchivoInstrucciones, prioridad, socketConexionScheduler);
                 break;
             }
         case EXIT:
             {
-                //ejecutar_exit();
+                solicitar_exit(socketConexionScheduler);
                 break;
             }
         default:
@@ -301,12 +342,7 @@ void decode(op_code tipoInstruccion, char **string) {
     }
 }
 
-/*char *obtener_nombre_mutex(char *string) {
 
-}
-char *obtener_archivo_instrucciones(char *string) {
-
-}*/
 
 bool hay_interrupcion(void) {
     return true;

@@ -217,3 +217,51 @@ t_stdin_stdout* deserializar_stdin(t_buffer* buf){
     ProcesoStdin->cadenaLeida = buffer_read_string(buf, tamanioActualCadena);
     return ProcesoStdin;
 }
+
+//Mutex
+t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct){
+    t_buffer* buf = buffer_create(0);
+    uint32_t tamanioChar = strlen(mutex_struct->nombreMutex);
+    buffer_add_uint32(buf, mutex_struct->pid);
+    buffer_add_string(buf,tamanioChar, mutex_struct->nombreMutex);
+    buffer_add_uint32(buf, tamanioChar);
+    return buf;
+}
+t_mutex_syscall* deserializar_mutex(t_buffer* buf){
+    t_mutex_syscall* mutex_struct;
+    uint32_t tamanioChar = buffer_read_uint32(buf);
+    mutex_struct->nombreMutex = malloc(sizeof(tamanioChar));
+    mutex_struct->nombreMutex = buffer_read_string(buf, tamanioChar);
+    mutex_struct->pid = buffer_read_uint32(buf);
+    return mutex_struct;
+}
+
+//Memo alloc
+t_buffer* serializar_mem_alloc(t_mem_alloc* mem_alloc_struct){
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, mem_alloc_struct->pid);
+    buffer_add_uint32(buf, mem_alloc_struct->segmentoId);
+    buffer_add_uint32(buf, mem_alloc_struct->tamanio);
+    return buf;
+}
+t_mem_alloc* deserializar_mem_alloc(t_buffer* buf){
+    t_mem_alloc* mem_alloc_struct = malloc(sizeof(t_mem_alloc));
+    mem_alloc_struct->tamanio = buffer_read_uint32(buf);
+    mem_alloc_struct->segmentoId = buffer_read_uint32(buf);
+    mem_alloc_struct->pid = buffer_read_uint32(buf);
+    return mem_alloc_struct;
+}
+
+//Mem free
+t_buffer* serializar_mem_free(t_mem_free* mem_free_struct){
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, mem_free_struct->pid);
+    buffer_add_uint32(buf, mem_free_struct->segmentoId);
+    return buf;
+}
+t_mem_free* deserializar_mem_free(t_buffer* buf){
+    t_mem_free* mem_free_struct = malloc(sizeof(t_mem_free));
+    mem_free_struct->segmentoId = buffer_read_uint32(buf);
+    mem_free_struct->pid = buffer_read_uint32(buf);
+    return mem_free_struct;
+}
