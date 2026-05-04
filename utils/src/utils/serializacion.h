@@ -91,10 +91,11 @@ typedef enum {
     MUTEX_UNLOCK = 25,
     MEM_ALLOC = 26,
     MEM_FREE = 27,
-    IO_TERMINADO = 28, //esto manda IO a scheduler
-    FINALIZAR_STDIN = 29, //esto tmb (solo para stdin)
-    ESCRIBIR_BYTES = 30,
-    LEER_BYTES = 31,
+    FINALIZAR_STDIN = 28, //esto tmb (solo para stdin)
+    ESCRIBIR_BYTES = 29,
+    LEER_BYTES = 30,
+    FINALIZAR_SLEEP = 31,
+    FINALIZAR_STDOUT = 32,
 } op_code;
  
 typedef struct {

@@ -3,6 +3,10 @@
 
 #include "gestor_scheduler.h"
 
+void* hilo_io_sleep(void* arg);
 
+void* hilo_io_stdout(void* arg);
+
+void* hilo_io_stdin(void* arg);
 
 #endif

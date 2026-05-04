@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
         t_sleep* sl;
         sl = deserializar_sleep(paquete->buffer);
         SLEEP(sl->tiempoADormir,sl->pid,loggerIO);
-        send(socketConScheduler,IO_TERMINADO,sizeof(op_code),0)
+        send(socketConScheduler,FINALIZAR_SLEEP,sizeof(op_code),0)
         break;
     case TIPO_STDIN:
         t_stdin_stdout* in;
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
         t_stdout out;
         //out = deserializar_out(paquete->buffer)
         STDOUT();
-        send(socketConScheduler,IO_TERMINADO,sizeof(op_code),0)
+        send(socketConScheduler,FINALIZAR_STDOUT,sizeof(op_code),0)
         break;
     default:
        

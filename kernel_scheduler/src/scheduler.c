@@ -30,14 +30,13 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     pthread_detach(hiloPlanificador);
 
 //GESTION DE IOs
-/*
     pthread_t hilo_sleep, hilo_stdin, hilo_stdout;
     pthread_create(&hilo_sleep, NULL, hilo_io_sleep, NULL);
     pthread_detach(hilo_sleep);
     pthread_create(&hilo_stdin, NULL, hilo_io_stdin, NULL);
     pthread_detach(hilo_stdin);
     pthread_create(&hilo_stdout, NULL, hilo_io_stdout, NULL);
-    pthread_detach(hilo_stdout);*/
+    pthread_detach(hilo_stdout);
 
     while(1){
         int socketCliente = aceptar_cliente_scheduler(socketEscucha, loggerScheduler);
@@ -56,6 +55,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     config_destroy(configScheduler);
     log_destroy(loggerScheduler);
     //LIBERAR RECURSOS DE SEMAFOROS Y MUTEX
+    liberar_mutex_y_semaforos();
 
     return 0;
 }
@@ -104,6 +104,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
 
+                //CREO QIUE TENGO QUE HACER EL LOG DE SOLICITO SYSCALL
+
                 uint32_t nuevoPid = generar_pid();
 
                 crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
@@ -115,6 +117,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             //despues ver los casos en los que se pasa de READY-> EXIT Y BLOCK->EXIT 
                 uint32_t pid;
                 buffer_read(paquete->buffer, &pid, sizeof(uint32_t));
+
+                //CREO QIUE TENGO QUE HACER EL LOG DE SOLICITO SYSCALL
 
                 // encontrar el pcb en exec_lista y liberarlo
                 pthread_mutex_lock(&exec_mutex);
@@ -152,11 +156,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", sleep->pid);
 
-                //entiendo que aca se manda a el IO el paquete y que despues cuando termine me avise con un op_code tipo IO_TERMINADO y yo lo mando a ready
-                enviar_paquete(socketSleep, paquete);
+                pthread_mutex_lock(&mutex_cola_sleep);
+                queue_push(cola_sleep, sleep);
+                pthread_mutex_unlock(&mutex_cola_sleep);
 
+                sem_post(&sem_hay_proc_esperando_sleep);
                 sem_post(&sem_hay_cpu_libre);
-                free(sleep);
+              
                 break;
             case STDIN:
             
@@ -175,13 +181,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdin->pid);
              
-                enviar_paquete(socketStdin,paquete); //la IO stdin ni bien se conecta, se queda esperando a recibir los bytes a leer
+                pthread_mutex_lock(&mutex_cola_stdin);
+                queue_push(cola_stdin, procesoStdin);
+                pthread_mutex_unlock(&mutex_cola_stdin);
 
-                //ver si hay que eliminar paquete aca                
+                sem_post(&sem_hay_proc_esperando_stdin);
 
                 sem_post(&sem_hay_cpu_libre);
-                free(procesoStdin);
-
                 break;
             case STDOUT:
                 t_stdin_stdout* procesoStdout = deserializar_stdin(paquete->buffer); //cuando viotti me lo mande, cadenaLeida=NULL
@@ -201,36 +207,48 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->direccionLogica, procesoStdout->bytesALeer);
 
-                t_buffer* unBuffer = serializar_stdin(procesoStdout);
+                pthread_mutex_lock(&mutex_cola_stdout);
+                queue_push(cola_stdout, procesoStdout);
+                pthread_mutex_unlock(&mutex_cola_stdout);
 
-                t_paquete* paqueteStdout = crear_paquete(STDOUT, unBuffer);
-                enviar_paquete(socketStdout, paqueteStdout);
-                free(unBuffer->stream);
-                free(unBuffer);
-                free(paqueteStdout);
-
-                //ver si hay que liberar paquete
+                sem_post(&sem_hay_proc_esperando_stdout);
 
                 sem_post(&sem_hay_cpu_libre);
-                free(procesoStdout->cadenaLeida);
-                free(procesoStdout);
-                              
-
-                break;
-            case IO_TERMINADO: //esta es util para STDOUT y SLEEP, pero para STDIN necesito desp pedirle a KM que lo guarde en una dire
                 
-                uint32_t pidFinalizado;
+                break;
+            case FINALIZAR_SLEEP: 
+                
+                uint32_t pidTerminado;
 
-                buffer_read(paquete->buffer, &pidFinalizado, sizeof(uint32_t));
+                buffer_read(paquete->buffer, &pidTerminado, sizeof(uint32_t));
 
-                t_pcb* pcbADesbloquear = buscar_y_sacar_de_block(pidFinalizado);
+                t_pcb* pcbADesbloquear = buscar_y_sacar_de_block(pidTerminado);
                 
                 pthread_mutex_lock(&ready_mutex);
                 queue_push(ready_cola, pcbADesbloquear);
                 pthread_mutex_unlock(&ready_mutex);
 
+                log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidTerminado);
+                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidTerminado);
+                sem_post(&sem_sleep_disponible);
+                sem_post(&sem_hay_proceso_ready);
+
+                break;
+            case FINALIZAR_STDOUT: 
+                
+                uint32_t pidFinalizado;
+
+                buffer_read(paquete->buffer, &pidFinalizado, sizeof(uint32_t));
+
+                t_pcb* pcbParaDesbloquear = buscar_y_sacar_de_block(pidFinalizado);
+                
+                pthread_mutex_lock(&ready_mutex);
+                queue_push(ready_cola, pcbParaDesbloquear);
+                pthread_mutex_unlock(&ready_mutex);
+
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
+                sem_post(&sem_stdout_disponible);
                 sem_post(&sem_hay_proceso_ready);
 
                 break;
@@ -240,12 +258,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_stdin_stdout* resultado = deserializar_stdin(paquete->buffer);
 
                 //pedirle al KM que escriba en memoria
+                pthread_mutex_lock(&mutex_socket_memory);
                 t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
                 enviar_paquete(socketConexionMemory, paqueteKM);
                 free(paqueteKM); // solo el paquete, no el buffer porque es del paquete original
 
                 //esperar OK del KM
                 int ok = recibir_ok_memory();
+                pthread_mutex_unlock(&mutex_socket_memory);
 
                 if(!ok){
                     //loguear error al escrribir en memoria
@@ -264,6 +284,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
+                sem_post(&sem_stdin_disponible);
                 sem_post(&sem_hay_proceso_ready);
 
                 free(resultado->cadenaLeida);
