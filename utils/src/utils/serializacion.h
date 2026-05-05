@@ -147,7 +147,7 @@ void       eliminar_paquete(t_paquete* paquete);
 t_buffer*             serializar_contexto_ctx(t_contexto_ejecucion* ctx);
 t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf);
 
-// ----- Serializacion INIT_PROC -----
+// ----- Serializacion SYSCALLS -----
 t_buffer* serializar_init_proc(t_init_proc* proc);
 
 t_init_proc* deserializar_init_proc(t_buffer* buf);
@@ -160,6 +160,16 @@ t_buffer* serializar_stdin(t_stdin_stdout* ProcesoStdin);
 
 t_stdin_stdout* deserializar_stdin(t_buffer* buf);
 
+t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct);
 
+t_mutex_syscall* deserializar_mutex(t_buffer* buf);
+
+t_buffer* serializar_mem_alloc(t_mem_alloc* mem_alloc_struct);
+
+t_mem_alloc* deserializar_mem_alloc(t_buffer* buf);
+
+t_buffer* serializar_mem_free(t_mem_free* mem_free_struct);
+
+t_mem_free* deserializar_mem_free(t_buffer* buf);
 
 #endif // SERIALIZACION_H

@@ -1,5 +1,8 @@
 #include "inicializar_cpu.h"
 
+t_log* loggerCpu;
+t_config* configCpu;
+
 char* puertoKernel;
 char* IPKernel;
 char* puertoMemory;
