@@ -1,25 +1,20 @@
-#ifndef INSTRUCCIONES_H_
+#ifndef INSTRUCCIONES_H_  
 #define INSTRUCCIONES_H_
 
-#include <utils/serializacion.h>
-
-//REGISTROS
+#include <utils/serializacion.h>  
 typedef struct {
     uint32_t pc;
-    uint8_t  ax;
-    uint8_t  bx;
-    uint8_t  cx;
-    uint8_t  dx;
+    uint8_t ax;
+    uint8_t bx;
+    uint8_t cx;
+    uint8_t dx;
     uint32_t eax;
     uint32_t ebx;
     uint32_t ecx;
     uint32_t edx;
-    uint32_t si;   // dirección lógica de origen
-    uint32_t di;   // dirección lógica de destino
+    uint32_t si;
+    uint32_t di;
 } Registros_cpu;
-
-//Declaro la variable global de mis registro
-extern Registros_cpu registros_cpu;
 
 typedef enum {
     PC = 0,
@@ -35,25 +30,28 @@ typedef enum {
     DI = 10
 } Codigo_registros_cpu;
 
+//STRUCT PARA CONVERTIR LOS STRINGS EN REGISTROS
+typedef struct {
+    char* nombreDelRegistro;
+    Codigo_registros_cpu codigo_registros_cpu;
+} Registro;
+//STRUCT PARA CONVERTIR LAS INSTRUCCIONES EN REGISTROS
+typedef struct {
+    char* nombreDeLaInstruccion;
+    op_code instruccion_codigo;
+} Instruccion;
+
+//VARIABLES GLOBALES
+extern Registros_cpu registros_cpu;
+extern Registro registros[];
+extern Instruccion instrucciones[];
+
 void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor);
 void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
-void ejecutar_mov_in(Codigo_registros_cpu tipoRegistro);
-void ejecutar_mov_out(Codigo_registros_cpu tipoRegistro);
 void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
 void ejectar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion);
-void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint32_t pid);
-void solicitar_mutex_lock(char *nombreMutex, int socketConexionScheduler, uint32_t pid);
-void solicitar_mutex_unlock(char *nombreMutex, int socketConexionScheduler, uint32_t pid);
-void solicitar_mem_alloc(uint32_t segmentoId, uint32_t tamanio, int socketConexionScheduler, uint32_t pid);
-void solicitar_mem_free(uint32_t segmentoId, int socketConexionScheduler, uint32_t pid);
-void solicitar_sleep(uint32_t tiempo, int socketConexionScheduler, uint32_t pid);
-void solicitar_stdout(Codigo_registros_cpu registroDirLogica, Codigo_registros_cpu registroTamanio, int socketConexionScheduler, uint32_t pid);
-void solicitar_stdin(Codigo_registros_cpu registroDirLogica, Codigo_registros_cpu registroTamanio, int socketConexionScheduler, uint32_t pid);
-void solicitar_init_proc(char* pathArchivoInstrucciones, uint32_t prioridad, int socketConexionScheduler);
-void solicitar_exit(int socketConexionScheduler);
-
-//AUXILIARES
 void escribir_valor_en_registro(Codigo_registros_cpu tipoRegistro, int valor);
 int leer_valor_en_registro(Codigo_registros_cpu tipoRegistro);
+const char* registro_a_string(Codigo_registros_cpu tipoRegistro);
 
 #endif

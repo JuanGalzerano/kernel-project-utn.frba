@@ -4,9 +4,7 @@
 
 #include <utils/utils.h>
 
-
 //DECLARO VARIABLES GLOBALES
-
 extern t_log* loggerCpu;
 extern t_config* configCpu;
 
