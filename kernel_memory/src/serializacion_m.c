@@ -15,23 +15,21 @@ void enviar_contexto_cpu(int socket, uint32_t pid) {
     eliminar_paquete(paquete); // libera buffer y paquete
 }
 
-// CPU → KM: recibe el contexto actualizado y lo guarda en el proceso
-void recibir_contexto_cpu(int socket, uint32_t pid) {
+// CPU → KM: recibe el contexto actualizado y lo guarda en el proceso.
+// El buffer ya fue extraido del paquete recibido en atender_cpu (pid ya leido).
+void recibir_contexto_cpu(uint32_t pid, t_buffer* buffer) {
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) {
         log_error(loggerMemory, "PID %d no encontrado al recibir contexto", pid);
         return;
     }
 
-    t_paquete* paquete = recibir_paquete(socket);
-    t_contexto_ejecucion* ctx_nuevo = deserializar_contexto_ctx(paquete->buffer);
+    t_contexto_ejecucion* ctx_nuevo = deserializar_contexto_ctx(buffer);
 
     pthread_mutex_lock(&procesos_mutex);
     free(proceso->contexto);
     proceso->contexto = ctx_nuevo;
     pthread_mutex_unlock(&procesos_mutex);
-
-    eliminar_paquete(paquete); // libera buffer y paquete
 }
 
 // KM → CPU: lee la instruccion en el PC actual y la manda como paquete ENVIAR_INSTRUCCION.

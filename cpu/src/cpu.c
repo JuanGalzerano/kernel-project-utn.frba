@@ -91,10 +91,10 @@ int main(int argc, char *argv[])
             }
         }
         if (errorCiclo == 1) {
-            actualizar_contexto(ctx, socketConexionMemory);
+            actualizar_contexto(ctx, socketConexionMemory, pid);
         }
         else {
-            actualizar_contexto(ctx, socketConexionMemory);
+            actualizar_contexto(ctx, socketConexionMemory, pid);
             enviar_pid_y_motivo(pid, motivo_interrupcion, socketConexionScheduler);
         }
     }
@@ -126,9 +126,11 @@ uint32_t obtener_pid(int socketConexionScheduler)
 
 t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory)
 {
-    op_code opCode = OBTENER_CONTEXTO;
-    send(socketConexionMemory, &opCode, sizeof(op_code), 0);
-    send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, pid);
+    t_paquete* req = crear_paquete(OBTENER_CONTEXTO, buf);
+    enviar_paquete(socketConexionMemory, req);
+    eliminar_paquete(req);
     t_paquete *paqueteConContexto = recibir_paquete(socketConexionMemory);
     t_buffer *buffer = paqueteConContexto->buffer;
     t_contexto_ejecucion *ctx = deserializar_contexto_ctx(buffer);
@@ -136,7 +138,7 @@ t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory)
     return ctx;
 }
 
-void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory) {
+void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory, uint32_t pid) {
     ctx->ax = registros_cpu.ax;
     ctx->bx = registros_cpu.bx;
     ctx->cx = registros_cpu.cx;
@@ -149,8 +151,12 @@ void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory) {
     ctx->si = registros_cpu.si;
     ctx->di = registros_cpu.di;
     //Asumo q tendre q actualizar algo de segmentos
-    t_buffer* buffer_con_contexto = serializar_contexto_ctx(ctx);
-    t_paquete* paquete_con_contexto = crear_paquete(ACTUALIZAR_CONTEXTO, buffer_con_contexto);
+    t_buffer* ctx_buf = serializar_contexto_ctx(ctx);
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, pid);
+    buffer_add(buf, ctx_buf->stream, ctx_buf->size);
+    buffer_destroy(ctx_buf);
+    t_paquete* paquete_con_contexto = crear_paquete(ACTUALIZAR_CONTEXTO, buf);
     enviar_paquete(socketConexionMemory, paquete_con_contexto);
     eliminar_paquete(paquete_con_contexto);
     free(ctx);
@@ -183,9 +189,11 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, t_log *loggerCpu, in
 {
     uint32_t pc = registros_cpu.pc;
     log_info(loggerCpu, "## PID: %d - FETCH - Program Counter: %d", pid, pc);
-    op_code opCode = OBTENER_INSTRUCCION;
-    send(socketConexionMemory, &opCode, sizeof(op_code), 0);
-    send(socketConexionMemory, &pc, sizeof(uint32_t), 0);
+    t_buffer* buf_instr = buffer_create(0);
+    buffer_add_uint32(buf_instr, pid);
+    t_paquete* req_instr = crear_paquete(OBTENER_INSTRUCCION, buf_instr);
+    enviar_paquete(socketConexionMemory, req_instr);
+    eliminar_paquete(req_instr);
     t_paquete *paqueteConInstruccion = recibir_paquete(socketConexionMemory);
     t_buffer *buffer = paqueteConInstruccion->buffer;
     uint32_t longitudInstruccion = paqueteConInstruccion->buffer->size;

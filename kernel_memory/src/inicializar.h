@@ -21,4 +21,8 @@ int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño);
 int eliminar_segmento(uint32_t pid, uint32_t id_segmento);
 t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento);
 
+// Traducción de dirección lógica a física
+// Retorna la dirección física, o UINT32_MAX si la dirección es inválida
+uint32_t traducir_direccion_logica(uint32_t pid, uint32_t direccion_logica);
+
 #endif

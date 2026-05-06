@@ -135,6 +135,44 @@ void* atender_scheduler(void* arg) {
                 finalizar_proceso(pid);
                 break;
             }
+            case ESCRIBIR_BYTES: {
+                t_stdin_stdout* req = deserializar_stdin(paquete->buffer);
+                eliminar_paquete(paquete);
+                uint32_t dir_fisica_w = traducir_direccion_logica(req->pid, req->direccionLogica);
+                //mock
+                int ok = 1;
+                free(req->cadenaLeida);
+                free(req);
+                send(socket, &ok, sizeof(int), 0);
+                break;
+            }
+            case LEER_BYTES: {
+                uint32_t dir_logica = buffer_read_uint32(paquete->buffer);
+                uint32_t bytes = buffer_read_uint32(paquete->buffer);
+                eliminar_paquete(paquete);
+                uint32_t dir_fisica_r = traducir_direccion_logica(0, dir_logica);
+                //mock te estoy mandando los bytes con putos 0s creo, o nose que pasa si te mando algo vacio
+                char* respuesta = calloc(bytes + 1, 1);
+                send(socket, respuesta, bytes + 1, 0);
+                free(respuesta);
+                break;
+            }
+            case MEM_ALLOC: {
+                t_mem_alloc* req = deserializar_mem_alloc(paquete->buffer);
+                eliminar_paquete(paquete);
+                int ok = crear_segmento(req->pid, req->segmentoId, req->tamanio);
+                free(req);
+                send(socket, &ok, sizeof(int), 0); //es el mock que me piden en el check 2
+                break;
+            }
+            case MEM_FREE: {
+                t_mem_free* req = deserializar_mem_free(paquete->buffer);
+                eliminar_paquete(paquete);
+                int ok = eliminar_segmento(req->pid, req->segmentoId);
+                free(req);
+                send(socket, &ok, sizeof(int), 0); //es el mock que me piden en el check 2
+                break;
+            }
             default:
                 log_warning(loggerMemory, "Opcode desconocido del Scheduler: %d", paquete->codigo_operacion);
                 eliminar_paquete(paquete);
@@ -146,31 +184,32 @@ void* atender_scheduler(void* arg) {
     return NULL;
 }
 
-// Loop que atiende a un CPU:
-// OBTENER_CONTEXTO    → KM responde con paquete
-// ACTUALIZAR_CONTEXTO → CPU envia ademas un paquete completo con el contexto
+// Loop que atiende a un CPU: todos los mensajes llegan como paquete con pid en el buffer.
 void* atender_cpu(void* arg) {
     int socket = *(int*)arg;
     free(arg);
 
-    op_code opcode;
-    uint32_t pid;
-
-    while (recv(socket, &opcode, sizeof(op_code), MSG_WAITALL) > 0) {
-        if (recv(socket, &pid, sizeof(uint32_t), MSG_WAITALL) <= 0) break;
+    t_paquete* paquete;
+    while ((paquete = recibir_paquete(socket)) != NULL) {
+        op_code opcode = paquete->codigo_operacion;
+        uint32_t pid   = buffer_read_uint32(paquete->buffer);
 
         switch (opcode) {
             case OBTENER_CONTEXTO:
                 enviar_contexto_cpu(socket, pid);
+                eliminar_paquete(paquete);
                 break;
             case ACTUALIZAR_CONTEXTO:
-                recibir_contexto_cpu(socket, pid);
+                recibir_contexto_cpu(pid, paquete->buffer);
+                eliminar_paquete(paquete);
                 break;
             case OBTENER_INSTRUCCION:
                 enviar_instruccion_cpu(socket, pid);
+                eliminar_paquete(paquete);
                 break;
             default:
                 log_warning(loggerMemory, "Opcode desconocido del CPU: %d", opcode);
+                eliminar_paquete(paquete);
                 break;
         }
     }
