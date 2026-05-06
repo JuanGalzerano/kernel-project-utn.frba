@@ -1,7 +1,7 @@
 #ifndef INSTRUCCIONES_H_
 #define INSTRUCCIONES_H_
 
-#include "/home/utnso/tp-2026-1c-Los-Reyes-De-La-Compilaci-n/utils/src/utils/serializacion.h"
+#include <utils/serializacion.h>
 
 //REGISTROS
 typedef struct {
@@ -37,6 +37,8 @@ typedef enum {
 
 void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor);
 void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
+void ejecutar_mov_in(Codigo_registros_cpu tipoRegistro);
+void ejecutar_mov_out(Codigo_registros_cpu tipoRegistro);
 void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
 void ejectar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion);
 void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint32_t pid);

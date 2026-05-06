@@ -14,6 +14,10 @@ Instruccion instrucciones[] = {
     {"STDIN", STDIN}, {"INIT_PROC", INIT_PROC}, {"EXIT", EXIT}
 };
 
+sem_t sem_interrupcion;
+uint32_t pid_interrupcion = 0;
+uint32_t motivo_interrupcion = -1;
+
 int main(int argc, char *argv[])
 {
 
@@ -26,6 +30,8 @@ int main(int argc, char *argv[])
 
     // inicializo log y config
     inicializar_log_y_config(argv[1], argv[2]);
+
+    sem_init(&sem_interrupcion, 0, 0);
 
     uint32_t sizeIdCpu = strlen(idCpu) + 1;
     // Establezco conexiones
@@ -52,6 +58,12 @@ int main(int argc, char *argv[])
     handshake_cliente_id(socketConexionScheduler, loggerCpu, CPU);
     send(socketConexionScheduler, &sizeIdCpu, sizeof(int), 0);
     send(socketConexionScheduler, idCpu, sizeIdCpu, 0);
+
+//ESCUCHO INTERRUPCIONES
+    pthread_t hiloInterrupciones;
+    pthread_create(&hiloInterrupciones, NULL, interrupciones, &socketConexionScheduler);
+    pthread_detach(hiloInterrupciones);
+
     // Espero PID
     while (1)
     {
@@ -65,27 +77,26 @@ int main(int argc, char *argv[])
         actualizar_registros_cpu(ctx); // Parece q no tiene sentido pero en realidad el contexto tiene mas cosas q no estan implementadas.
         log_info(loggerCpu, "CPU: Contexto cargado, iniciando ciclo");
         // 3) Iniciar Ciclo de Instruccion
-        while (true /*!hay_interrupcion()*/)
+        int errorCiclo;
+        while (!hay_interrupcion(pid))
         {
-            int errorCiclo = ejecutar_ciclo_de_instruccion(socketConexionMemory, loggerCpu, socketConexionScheduler, pid);
-            if (errorCiclo == EXIT_FAILURE)
-            {
+            errorCiclo = ejecutar_ciclo_de_instruccion(socketConexionMemory, loggerCpu, socketConexionScheduler, pid);
+            if (errorCiclo == EXIT_FAILURE) {
                 log_info(loggerCpu, "CPU: No se pudo ejecutar correctamente el ciclo de instruccion");
                 abort();
             }
-            if (errorCiclo == 1)
-            {
+            if (errorCiclo == 1) {
                 log_info(loggerCpu, "CPU: Syscall ejecutada");
-                actualizar_contexto(ctx, socketConexionMemory);
-                free(ctx);
                 break;
             }
-
-            // 4) Check Interrupt
         }
-        actualizar_contexto(ctx, socketConexionMemory);
-        enviar_pid_y_motivo();
-        free(ctx);
+        if (errorCiclo == 1) {
+            actualizar_contexto(ctx, socketConexionMemory);
+        }
+        else {
+            actualizar_contexto(ctx, socketConexionMemory);
+            enviar_pid_y_motivo(pid, motivo_interrupcion, socketConexionScheduler);
+        }
     }
 
     /*
@@ -115,7 +126,8 @@ uint32_t obtener_pid(int socketConexionScheduler)
 
 t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory)
 {
-    send(socketConexionMemory, OBTENER_CONTEXTO, sizeof(op_code), 0);
+    op_code opCode = OBTENER_CONTEXTO;
+    send(socketConexionMemory, &opCode, sizeof(op_code), 0);
     send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
     t_paquete *paqueteConContexto = recibir_paquete(socketConexionMemory);
     t_buffer *buffer = paqueteConContexto->buffer;
@@ -125,12 +137,23 @@ t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory)
 }
 
 void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory) {
-    actualizar_registros_cpu(ctx);
+    ctx->ax = registros_cpu.ax;
+    ctx->bx = registros_cpu.bx;
+    ctx->cx = registros_cpu.cx;
+    ctx->dx = registros_cpu.dx;
+    ctx->eax = registros_cpu.eax;
+    ctx->ebx = registros_cpu.ebx;
+    ctx->ecx = registros_cpu.ecx;
+    ctx->edx = registros_cpu.edx;
+    ctx->pc = registros_cpu.pc;
+    ctx->si = registros_cpu.si;
+    ctx->di = registros_cpu.di;
     //Asumo q tendre q actualizar algo de segmentos
     t_buffer* buffer_con_contexto = serializar_contexto_ctx(ctx);
     t_paquete* paquete_con_contexto = crear_paquete(ACTUALIZAR_CONTEXTO, buffer_con_contexto);
     enviar_paquete(socketConexionMemory, paquete_con_contexto);
     eliminar_paquete(paquete_con_contexto);
+    free(ctx);
 }
 
 void actualizar_registros_cpu(t_contexto_ejecucion *ctx)
@@ -148,11 +171,20 @@ void actualizar_registros_cpu(t_contexto_ejecucion *ctx)
     registros_cpu.di = ctx->di;
 }
 
+void enviar_pid_y_motivo(uint32_t pid, uint32_t motivo_interrupcion, int socketConexionScheduler) {
+    t_buffer* buffer_interrupcion = buffer_create(0);
+    buffer_add_uint32(buffer_interrupcion, pid);
+    t_paquete* paquete_interrupcion = crear_paquete(motivo_interrupcion, buffer_interrupcion);
+    enviar_paquete(socketConexionScheduler, paquete_interrupcion);
+    eliminar_paquete(paquete_interrupcion);
+}
+
 int ejecutar_ciclo_de_instruccion(int socketConexionMemory, t_log *loggerCpu, int socketConexionScheduler, uint32_t pid)
 {
-    log_info(loggerCpu, "CPU: Solicito Proxima Instruccion");
     uint32_t pc = registros_cpu.pc;
-    send(socketConexionMemory, OBTENER_INSTRUCCION, sizeof(op_code), 0);
+    log_info(loggerCpu, "## PID: %d - FETCH - Program Counter: %d", pid, pc);
+    op_code opCode = OBTENER_INSTRUCCION;
+    send(socketConexionMemory, &opCode, sizeof(op_code), 0);
     send(socketConexionMemory, &pc, sizeof(uint32_t), 0);
     t_paquete *paqueteConInstruccion = recibir_paquete(socketConexionMemory);
     t_buffer *buffer = paqueteConInstruccion->buffer;
@@ -163,15 +195,16 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, t_log *loggerCpu, in
     log_info(loggerCpu, "CPU: Instruccion Obtenida");
 
     op_code tipoInstruccion = obtener_instruccion_registro_valor(&cursor); // Esto me modifica mi instruccionFormatoString
-    if (tipoInstruccion == EXIT_FAILURE)
+    if (tipoInstruccion < 0)
     {
+        free(inicioInstruccionFormatoString);
         return EXIT_FAILURE;
     }
     log_info(loggerCpu, "CPU: Se obtuvo el tipo instruccion");
 
     log_info(loggerCpu, "CPU: Iniciando decode...");
     uint32_t pc_antes = registros_cpu.pc;
-    int errorDecode = decode(tipoInstruccion, &cursor, socketConexionScheduler, pid);
+    int errorDecode = decode(tipoInstruccion, &cursor, socketConexionScheduler, pid, loggerCpu);
     if (errorDecode == 1)
     {
         free(inicioInstruccionFormatoString);
@@ -179,11 +212,14 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, t_log *loggerCpu, in
     }
     if (errorDecode == 0)
     {
+        if (registros_cpu.pc == pc_antes) {
+            registros_cpu.pc++;
+        }
         free(inicioInstruccionFormatoString);
         return EXIT_SUCCESS;
     }
     free(inicioInstruccionFormatoString);
-    return EXIT_FAILURE
+    return EXIT_FAILURE;
 }
 
 int obtener_instruccion_registro_valor(char **string)
@@ -283,7 +319,7 @@ char* obtener_nombre_mutex_o_path(char** string)
     return resultado;
 }
 
-int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, uint32_t pid)
+int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, uint32_t pid, t_log *loggerCpu)
 {
     Codigo_registros_cpu tipoRegistro;
     Codigo_registros_cpu registroDestino;
@@ -297,24 +333,28 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     case NOOP:
     {
         // Creo q no tengo q hacer nada
+        log_info(loggerCpu, "## PID: %d - Ejecutando: NOOP", pid);
         break;
     }
     case SET:
     {
         tipoRegistro = obtener_instruccion_registro_valor(string);
         valor = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: SET - %s %d", pid, registro_a_string(tipoRegistro), valor);
         ejecutar_set(tipoRegistro, valor);
         break;
     }
     case MOV_IN:
     {
         tipoRegistro = obtener_instruccion_registro_valor(string);
-        ejecutar_mov_in(tipoRegistro);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MOV_IN - %s", pid, registro_a_string(tipoRegistro));
+        // ejecutar_mov_in(tipoRegistro);
         break;
     }
     case MOV_OUT:
     {
         tipoRegistro = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MOV_OUT - %s", pid, registro_a_string(tipoRegistro));
         // ejecutar_mov_out(tipoRegistro);
         break;
     }
@@ -322,6 +362,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         registroDestino = obtener_instruccion_registro_valor(string);
         registroOrigen = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: SUM - %s %s", pid, registro_a_string(registroDestino), registro_a_string(registroOrigen));
         ejecutar_sum(registroDestino, registroOrigen);
         break;
     }
@@ -329,6 +370,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         registroDestino = obtener_instruccion_registro_valor(string);
         registroOrigen = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: SUB - %s %s", pid, registro_a_string(registroDestino), registro_a_string(registroOrigen));
         ejecutar_sub(registroDestino, registroOrigen);
         break;
     }
@@ -336,18 +378,21 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         tipoRegistro = obtener_instruccion_registro_valor(string);
         uint32_t instruccion = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: JNZ - %s %d", pid, registro_a_string(tipoRegistro), instruccion);
         ejectar_jnz(tipoRegistro, instruccion);
         break;
     }
     case COPY_MEM:
     {
         tipoRegistro = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: COPY_MEM - %s", pid, registro_a_string(tipoRegistro));
         // ejecutar_copy_mem(tipoRegistro);
         break;
     }
     case MUTEX_CREATE:
     {
         char* nombreMutex = obtener_nombre_mutex_o_path(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MUTEX_CREATE - %s", pid, nombreMutex);
         solicitar_mutex_create(nombreMutex, socketConexionScheduler, pid);
         free(nombreMutex);
         return 1;
@@ -355,6 +400,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     case MUTEX_LOCK:
     {
         char* nombreMutex = obtener_nombre_mutex_o_path(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MUTEX_LOCK - %s", pid, nombreMutex);
         solicitar_mutex_lock(nombreMutex, socketConexionScheduler, pid);
         free(nombreMutex);
         return 1;
@@ -362,6 +408,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     case MUTEX_UNLOCK:
     {
         char* nombreMutex = obtener_nombre_mutex_o_path(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MUTEX_UNLOCK - %s", pid, nombreMutex);
         solicitar_mutex_unlock(nombreMutex, socketConexionScheduler, pid);
         free(nombreMutex);
         return 1;
@@ -370,18 +417,21 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         segmentoId = obtener_instruccion_registro_valor(string);
         uint32_t tamanio = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MEM_ALLOC - %d %d", pid, segmentoId, tamanio);
         solicitar_mem_alloc(segmentoId, tamanio, socketConexionScheduler, pid);
         return 1;
     }
     case MEM_FREE:
     {
         segmentoId = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: MEM_FREE - %d", pid, segmentoId);
         solicitar_mem_free(segmentoId, socketConexionScheduler, pid);
         return 1;
     }
     case SLEEP:
     {
         uint32_t tiempo = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: SLEEP - %d", pid, tiempo);
         solicitar_sleep(tiempo, socketConexionScheduler, pid);
         return 1;
     }
@@ -389,6 +439,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         registroDirLogica = obtener_instruccion_registro_valor(string);
         registroTamanio = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: STDOUT - %s %s", pid, registro_a_string(registroDirLogica), registro_a_string(registroTamanio));
         solicitar_stdout(registroDirLogica, registroTamanio, socketConexionScheduler, pid);
         return 1;
     }
@@ -396,6 +447,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         registroDirLogica = obtener_instruccion_registro_valor(string);
         registroTamanio = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: STDIN - %s %s", pid, registro_a_string(registroDirLogica), registro_a_string(registroTamanio));
         solicitar_stdin(registroDirLogica, registroTamanio, socketConexionScheduler, pid);
         return 1;
     }
@@ -403,17 +455,20 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     {
         char* pathArchivoInstrucciones = obtener_nombre_mutex_o_path(string);
         int prioridad = obtener_instruccion_registro_valor(string);
+        log_info(loggerCpu, "## PID: %d - Ejecutando: INIT_PROC - %s %d", pid, pathArchivoInstrucciones, prioridad);
         solicitar_init_proc(pathArchivoInstrucciones, prioridad, socketConexionScheduler);
         free(pathArchivoInstrucciones);
         return 1;
     }
     case EXIT:
     {
+        log_info(loggerCpu, "## PID: %d - Ejecutando: EXIT", pid);
         solicitar_exit(socketConexionScheduler);
         return 1;
     }
     default:
     {
+        log_info(loggerCpu, "## PID: %d - Instruccion NO RECONOCIDA", pid);
         return -1;
         // Cuando agregue validacion para cada funcion ejecutar veo de hacer return EXIT_FAILURE;
     }
@@ -421,7 +476,54 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     return 0;
 }
 
-bool hay_interrupcion(void)
-{
-    return true;
+bool hay_interrupcion(uint32_t pidActual) {
+    // Si el semaforo > 0 lo decrementa y retorna 0
+    // Si el semaforo == 0 no lo modifica y retorna -1
+    bool hayInterrupcion = sem_trywait(&sem_interrupcion) == 0;
+    if(hayInterrupcion) {
+        if (pidActual == pid_interrupcion) {
+            return hayInterrupcion;
+        }
+        else {
+            sem_post(&sem_interrupcion); //como le reste 1, le vuelvo a sumar 1
+            return false;
+        }
+    }
+    else {
+        return false;
+    }
+}
+
+void* interrupciones(void* arg) {
+    int socketConexionScheduler = *(int*) arg;
+    while (1) {
+        t_paquete *paqueteConInterrupcion = recibir_paquete(socketConexionScheduler);
+        if (paqueteConInterrupcion->codigo_operacion == FINALIZAR_POR_QUANTUM) {
+            pid_interrupcion = buffer_read_uint32(paqueteConInterrupcion->buffer);
+            motivo_interrupcion = FINALIZAR_POR_QUANTUM;
+            sem_post(&sem_interrupcion);
+            log_info(loggerCpu, "## Interrupción recibida");
+        }
+        eliminar_paquete(paqueteConInterrupcion);
+    }
+    return NULL;
+}
+
+
+//FUNCION EXTRA PARA LOGS SOLO
+const char* registro_a_string (Codigo_registros_cpu tipoRegistro) {
+    switch (tipoRegistro) {
+        case PC: return "PC";
+        case AX: return "AX";
+        case BX: return "BX";
+        case CX: return "CX";
+        case DX: return "DX";
+        case EAX: return "EAX";
+        case EBX: return "EBX";
+        case ECX: return "ECX";
+        case EDX: return "EDX";
+        case SI: return "SI";
+        case DI: return "DI";
+        default: return "tipoDesconocido";
+    }
 }

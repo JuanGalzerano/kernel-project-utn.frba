@@ -51,6 +51,7 @@ void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint
     t_paquete* paquete_mutex_create = crear_paquete(MUTEX_CREATE, buffer);
     enviar_paquete(socketConexionScheduler, paquete_mutex_create);
     eliminar_paquete(paquete_mutex_create);
+    free(mutexCreate);
 }
 void solicitar_mutex_lock(char *nombreMutex, int socketConexionScheduler, uint32_t pid) {
     t_mutex_syscall* mutexLock = malloc(sizeof(t_mutex_syscall));
@@ -60,6 +61,7 @@ void solicitar_mutex_lock(char *nombreMutex, int socketConexionScheduler, uint32
     t_paquete* paquete_mutex_lock = crear_paquete(MUTEX_LOCK, buffer);
     enviar_paquete(socketConexionScheduler, paquete_mutex_lock); 
     eliminar_paquete(paquete_mutex_lock);
+    free(mutexLock);
 }
 void solicitar_mutex_unlock(char *nombreMutex, int socketConexionScheduler, uint32_t pid) {
     t_mutex_syscall* mutexUnlock = malloc(sizeof(t_mutex_syscall));
@@ -69,6 +71,7 @@ void solicitar_mutex_unlock(char *nombreMutex, int socketConexionScheduler, uint
     t_paquete* paquete_mutex_unlock = crear_paquete(MUTEX_UNLOCK, buffer);
     enviar_paquete(socketConexionScheduler, paquete_mutex_unlock); 
     eliminar_paquete(paquete_mutex_unlock);
+    free(mutexUnlock);
 }
 void solicitar_mem_alloc(uint32_t segmentoId, uint32_t tamanio, int socketConexionScheduler, uint32_t pid) {
     t_mem_alloc* mem_alloc_struct = malloc(sizeof(t_mem_alloc));
@@ -79,6 +82,7 @@ void solicitar_mem_alloc(uint32_t segmentoId, uint32_t tamanio, int socketConexi
     t_paquete* paquete_mem_alloc = crear_paquete(MEM_ALLOC, buffer);
     enviar_paquete(socketConexionScheduler, paquete_mem_alloc); 
     eliminar_paquete(paquete_mem_alloc);
+    free(mem_alloc_struct);
 }
 void solicitar_mem_free(uint32_t segmentoId, int socketConexionScheduler, uint32_t pid) {
     t_mem_free* mem_free_struct = malloc(sizeof(t_mem_free));
@@ -88,6 +92,7 @@ void solicitar_mem_free(uint32_t segmentoId, int socketConexionScheduler, uint32
     t_paquete* paquete_mem_free = crear_paquete(MEM_FREE, buffer);
     enviar_paquete(socketConexionScheduler, paquete_mem_free);
     eliminar_paquete(paquete_mem_free);
+    free(mem_free_struct);
 }
 void solicitar_sleep(uint32_t tiempo, int socketConexionScheduler, uint32_t pid) {
     t_sleep* sleep_struct = malloc(sizeof(t_sleep));
@@ -96,6 +101,7 @@ void solicitar_sleep(uint32_t tiempo, int socketConexionScheduler, uint32_t pid)
     t_buffer* buffer = serializar_sleep(sleep_struct);
     t_paquete* paquete_sleep = crear_paquete(SLEEP, buffer);
     enviar_paquete(socketConexionScheduler, paquete_sleep); 
+    free(sleep_struct);
 }
 void solicitar_stdout(Codigo_registros_cpu registroDirLogica, Codigo_registros_cpu registroTamanio, int socketConexionScheduler, uint32_t pid) {
     t_stdin_stdout* stdout_struct = malloc(sizeof(t_stdin_stdout));
@@ -109,6 +115,7 @@ void solicitar_stdout(Codigo_registros_cpu registroDirLogica, Codigo_registros_c
     t_paquete* paquete_stdout = crear_paquete(STDOUT, buffer);
     enviar_paquete(socketConexionScheduler, paquete_stdout);
     eliminar_paquete(paquete_stdout);
+    free(stdout_struct);
 }
 void solicitar_stdin(Codigo_registros_cpu registroDirLogica, Codigo_registros_cpu registroTamanio, int socketConexionScheduler, uint32_t pid) {
     t_stdin_stdout* stdin_struct = malloc(sizeof(t_stdin_stdout));
@@ -120,7 +127,8 @@ void solicitar_stdin(Codigo_registros_cpu registroDirLogica, Codigo_registros_cp
     stdin_struct->direccionLogica = direccionLogica;
     t_buffer* buffer = serializar_stdin(stdin_struct);
     t_paquete* paquete_stdin = crear_paquete(STDIN, buffer);
-    enviar_paquete(socketConexionScheduler, paquete_stdin); 
+    enviar_paquete(socketConexionScheduler, paquete_stdin);
+    free(stdin_struct);
 }
 void solicitar_init_proc(char* pathArchivoInstrucciones, uint32_t prioridad, int socketConexionScheduler) {
     t_init_proc* init_proc_struct = malloc(sizeof(t_init_proc));
@@ -128,7 +136,8 @@ void solicitar_init_proc(char* pathArchivoInstrucciones, uint32_t prioridad, int
     init_proc_struct->pathArchivoInstrucciones = pathArchivoInstrucciones;
     t_buffer* buffer = serializar_init_proc(init_proc_struct);
     t_paquete* paquete_init_proc = crear_paquete(INIT_PROC, buffer);
-    enviar_paquete(socketConexionScheduler, paquete_init_proc); 
+    enviar_paquete(socketConexionScheduler, paquete_init_proc);
+    free(init_proc_struct);
 }
 void solicitar_exit(int socketConexionScheduler) {
     t_buffer* buffer = buffer_create(0);
@@ -254,6 +263,7 @@ int leer_valor_en_registro(Codigo_registros_cpu tipoRegistro) {
             break;
         }
         default: {
+            valor = 0;
             break;
         }
     }

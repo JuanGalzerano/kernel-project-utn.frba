@@ -219,6 +219,7 @@ t_stdin_stdout* deserializar_stdin(t_buffer* buf){
 }
 
 //Mutex
+//Esto esta medio jugado, pq la variable queda libre. Supuestamente como al toque q queda libre se reserva aca no pasa nada
 t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct){
     t_buffer* buf = buffer_create(0);
     uint32_t tamanioChar = strlen(mutex_struct->nombreMutex);
