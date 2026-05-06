@@ -50,10 +50,10 @@ char* leer_instruccion(t_proceso_memory* proceso) {
         return NULL;
     }
 
-    char*    linea       = NULL;
+    char* linea = NULL;
     size_t   capacidad   = 0;
     uint32_t linea_actual = 0;
-    uint32_t pc           = proceso->contexto->pc;
+    uint32_t pc = proceso->contexto->pc;
 
     while (getline(&linea, &capacidad, f) != -1) {
         if (linea_actual == pc) {
@@ -74,18 +74,19 @@ char* leer_instruccion(t_proceso_memory* proceso) {
 
 void agregar_memory_stick(int socket, uint32_t size) {
     t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
-    stick->socket      = socket;
-    stick->size        = size;
-    stick->base_fisica = memoria_total_size; // se pega al final del espacio ya existente
+    stick->socket = socket;
+    stick->size   = size;
 
     pthread_mutex_lock(&memoria_mutex);
+
+    stick->base_fisica = memoria_total_size; // se pega al final del espacio ya existente
 
     list_add(lista_memory_sticks, stick);
 
     // Todo el espacio del nuevo stick es un hueco libre al final
-    t_hueco* nuevo_hueco   = malloc(sizeof(t_hueco));
-    nuevo_hueco->base      = memoria_total_size;
-    nuevo_hueco->limite    = size;
+    t_hueco* nuevo_hueco = malloc(sizeof(t_hueco));
+    nuevo_hueco->base = memoria_total_size;
+    nuevo_hueco->limite  = size;
     list_add(lista_huecos, nuevo_hueco); // la lista ya está ordenada por base; esto va al final
 
     memoria_total_size += size;
@@ -173,10 +174,10 @@ void finalizar_proceso(uint32_t pid) {
     // Devolver todos los segmentos como huecos libres
     pthread_mutex_lock(&memoria_mutex);
     while (list_size(proceso->tabla_segmentos) > 0) {
-        t_segmento* seg   = list_remove(proceso->tabla_segmentos, 0);
+        t_segmento* seg = list_remove(proceso->tabla_segmentos, 0);
         t_hueco*    hueco = malloc(sizeof(t_hueco));
-        hueco->base       = seg->base;
-        hueco->limite     = seg->limite;
+        hueco->base = seg->base;
+        hueco->limite = seg->limite;
         free(seg);
         insertar_hueco_y_fusionar(hueco);
     }
@@ -208,6 +209,11 @@ int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
         return -1;
     }
 
+    if (tamaño > segment_max_size) {
+        log_error(loggerMemory, "PID %d: segmento %d excede tamaño máximo (%d > %d)", pid, id_segmento, tamaño, segment_max_size);
+        return -1;
+    }
+
     pthread_mutex_lock(&memoria_mutex);
 
     t_hueco* hueco = encontrar_hueco(tamaño);
@@ -218,8 +224,8 @@ int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
 
     t_segmento* seg  = malloc(sizeof(t_segmento));
     seg->id_segmento = id_segmento;
-    seg->base        = hueco->base;
-    seg->limite      = tamaño;
+    seg->base  = hueco->base;
+    seg->limite = tamaño;
     list_add(proceso->tabla_segmentos, seg);
 
     // Recortar el hueco desde el principio
@@ -250,8 +256,8 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
     }
 
     t_hueco* hueco_liberado  = malloc(sizeof(t_hueco));
-    hueco_liberado->base     = seg->base;
-    hueco_liberado->limite   = seg->limite;
+    hueco_liberado->base  = seg->base;
+    hueco_liberado->limite = seg->limite;
 
     list_remove_element(proceso->tabla_segmentos, seg);
     free(seg);
@@ -261,4 +267,12 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
 
     pthread_mutex_unlock(&memoria_mutex);
     return 1;
+}
+
+uint32_t traducir_direccion_logica(uint32_t pid, uint32_t direccion_logica) {
+    // TODO: decodificar id_segmento y offset de direccion_logica,
+    //       buscar el segmento en la tabla del proceso y retornar base + offset
+    (void)pid;
+    (void)direccion_logica;
+    return 0;
 }
