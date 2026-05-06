@@ -156,7 +156,7 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
     t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); //avisarle a juani que haga este case para  que libere todos los segmentos y estructuras asociadas a ese PID
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
-    pthread_mutex_lock(&mutex_socket_memory);
+    pthread_mutex_unlock(&mutex_socket_memory);
     //creo q hay destruir el paquete y buffer
     free(buffer->stream);
     free(buffer);

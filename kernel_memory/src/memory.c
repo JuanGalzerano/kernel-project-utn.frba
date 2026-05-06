@@ -22,6 +22,9 @@ int main(int argc, char* argv[]) {
     pthread_mutex_init(&memoria_mutex, NULL);
     pthread_mutex_init(&procesos_mutex, NULL);
 
+    // MOCK: simular memory stick de 4096 bytes mientras no haya Memory Stick real
+    agregar_memory_stick(-1, 4096);
+
     int socketEscucha = iniciar_servidor(puertoEscucha);
     if (socketEscucha == EXIT_FAILURE) {
         log_error(loggerMemory, "No se pudo iniciar el servidor");
