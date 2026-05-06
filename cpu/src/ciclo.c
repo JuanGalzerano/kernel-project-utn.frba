@@ -10,9 +10,11 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionSc
     uint32_t pc = registros_cpu.pc;
     log_info(loggerCpu, "## PID: %d - FETCH - Program Counter: %d", pid, pc);
 
-    op_code opCode = OBTENER_INSTRUCCION;
-    send(socketConexionMemory, &opCode, sizeof(op_code), 0);
-    send(socketConexionMemory, &pc, sizeof(uint32_t), 0);
+    t_buffer* buf_instr = buffer_create(0);
+    buffer_add_uint32(buf_instr, pid);
+    t_paquete* req_instr = crear_paquete(OBTENER_INSTRUCCION, buf_instr);
+    enviar_paquete(socketConexionMemory, req_instr);
+    eliminar_paquete(req_instr);
 
     t_paquete *paquete = recibir_paquete(socketConexionMemory);
     uint32_t longitud = paquete->buffer->size;

@@ -9,16 +9,19 @@ uint32_t obtener_pid(int socketConexionScheduler) {
 }
 
 t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory) {
-    op_code opCode = OBTENER_CONTEXTO;
-    send(socketConexionMemory, &opCode, sizeof(op_code), 0);
-    send(socketConexionMemory, &pid, sizeof(uint32_t), 0);
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    t_paquete* paqueteConContexto = crear_paquete(OBTENER_CONTEXTO, buffer);
+    enviar_paquete(socketConexionMemory, paqueteConContexto);
+    eliminar_paquete(paqueteConContexto);
+
     t_paquete *paquete = recibir_paquete(socketConexionMemory);
     t_contexto_ejecucion *ctx = deserializar_contexto_ctx(paquete->buffer);
     eliminar_paquete(paquete);
     return ctx;
 }
 
-void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory) {  
+void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory, uint32_t pid) {  
     ctx->pc = registros_cpu.pc;
     ctx->ax = registros_cpu.ax;
     ctx->bx = registros_cpu.bx;
@@ -30,10 +33,14 @@ void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory) {
     ctx->edx = registros_cpu.edx;
     ctx->si = registros_cpu.si;
     ctx->di = registros_cpu.di;
-    t_buffer *buffer = serializar_contexto_ctx(ctx);
-    t_paquete *paquete = crear_paquete(ACTUALIZAR_CONTEXTO, buffer);
-    enviar_paquete(socketConexionMemory, paquete);
-    eliminar_paquete(paquete);  
+    t_buffer* ctx_buf = serializar_contexto_ctx(ctx);
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, pid);
+    buffer_add(buf, ctx_buf->stream, ctx_buf->size);
+    buffer_destroy(ctx_buf);
+    t_paquete* paquete_con_contexto = crear_paquete(ACTUALIZAR_CONTEXTO, buf);
+    enviar_paquete(socketConexionMemory, paquete_con_contexto);
+    eliminar_paquete(paquete_con_contexto);  
     free(ctx);
 }
 

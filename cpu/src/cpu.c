@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
-        actualizar_contexto(ctx, socketConexionMemory);
+        actualizar_contexto(ctx, socketConexionMemory, pid);
         if (errorCiclo != 1) { //Si es distinto de 1 es pq sali por interrupcion
             enviar_pid_y_motivo(pid, motivo_interrupcion, socketConexionScheduler);
         }
