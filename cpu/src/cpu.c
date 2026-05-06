@@ -1,4 +1,4 @@
-#include "cpu.h"  
+#include "cpu.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -10,7 +10,6 @@ int main(int argc, char *argv[]) {
     }
 
     inicializar_log_y_config(argv[1], argv[2]);
-    sem_init(&sem_interrupcion, 0, 0);
 
     uint32_t sizeIdCpu = strlen(idCpu) + 1;
 //1) CONECTARME
@@ -34,13 +33,9 @@ int main(int argc, char *argv[]) {
     send(socketConexionScheduler, &sizeIdCpu, sizeof(int), 0);
     send(socketConexionScheduler, idCpu, sizeIdCpu, 0);
 
-    pthread_t hiloInterrupciones;
-    pthread_create(&hiloInterrupciones, NULL, interrupciones, &socketConexionScheduler);
-    pthread_detach(hiloInterrupciones);
-
 //2) LUEGO DE CONECTARME, CUMPLO LA FUNCION DE CPU REAL
     while (1) {
-        //1) SOLICITO PID
+        //1) SOLICITO PID (bloquea hasta recibir EJECUTAR_PROCESO)
         uint32_t pid = obtener_pid(socketConexionScheduler);
         log_info(loggerCpu, "CPU: Obtuve PID: %d", pid);
 
@@ -50,9 +45,10 @@ int main(int argc, char *argv[]) {
         actualizar_registros_cpu(ctx);
         log_info(loggerCpu, "CPU: Contexto cargado, iniciando ciclo");
 
-        //3)MIENTRAS NO HAYA INTERRUPCION, EJECUTO CICLO
+        //3) MIENTRAS NO HAYA INTERRUPCION, EJECUTO CICLO
+        // hay_interrupcion se llama entre instrucciones (select con timeout 0)
         int errorCiclo = 0;
-        while (!hay_interrupcion(pid)) {
+        while (!hay_interrupcion(pid, socketConexionScheduler)) {
             errorCiclo = ejecutar_ciclo_de_instruccion(socketConexionMemory, socketConexionScheduler, pid);
             if (errorCiclo < 0) {
                 log_info(loggerCpu, "CPU: Error en el ciclo de instruccion");

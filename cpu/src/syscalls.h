@@ -12,6 +12,6 @@ void solicitar_sleep(uint32_t tiempo, int socketConexionScheduler, uint32_t pid)
 void solicitar_stdout(Codigo_registros_cpu registroDirLogica, Codigo_registros_cpu registroTamanio, int socketConexionScheduler, uint32_t pid);
 void solicitar_stdin(Codigo_registros_cpu registroDirLogica, Codigo_registros_cpu registroTamanio, int socketConexionScheduler, uint32_t pid);
 void solicitar_init_proc(char *pathArchivoInstrucciones, uint32_t prioridad, int socketConexionScheduler);
-void solicitar_exit(int socketConexionScheduler);
+void solicitar_exit(int socketConexionScheduler, uint32_t pid);
 
 #endif

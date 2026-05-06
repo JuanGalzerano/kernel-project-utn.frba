@@ -206,10 +206,12 @@ void* atender_cpu(void* arg) {
                 recibir_contexto_cpu(pid, paquete->buffer);
                 eliminar_paquete(paquete);
                 break;
-            case OBTENER_INSTRUCCION:
-                enviar_instruccion_cpu(socket, pid);
+            case OBTENER_INSTRUCCION: {
+                uint32_t pc = buffer_read_uint32(paquete->buffer);
+                enviar_instruccion_cpu(socket, pid, pc);
                 eliminar_paquete(paquete);
                 break;
+            }
             default:
                 log_warning(loggerMemory, "Opcode desconocido del CPU: %d", opcode);
                 eliminar_paquete(paquete);

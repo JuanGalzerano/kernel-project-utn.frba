@@ -12,6 +12,7 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionSc
 
     t_buffer* buf_instr = buffer_create(0);
     buffer_add_uint32(buf_instr, pid);
+    buffer_add_uint32(buf_instr, registros_cpu.pc);
     t_paquete* req_instr = crear_paquete(OBTENER_INSTRUCCION, buf_instr);
     enviar_paquete(socketConexionMemory, req_instr);
     eliminar_paquete(req_instr);
@@ -203,7 +204,7 @@ int decode(op_code tipoInstruccion, char **string, int socketConexionScheduler, 
     }
     case EXIT:
         log_info(loggerCpu, "## PID: %d - Ejecutando: EXIT", pid);
-        solicitar_exit(socketConexionScheduler);
+        solicitar_exit(socketConexionScheduler, pid);
         return 1;
     default:
         log_info(loggerCpu, "## PID: %d - Instruccion NO RECONOCIDA", pid);

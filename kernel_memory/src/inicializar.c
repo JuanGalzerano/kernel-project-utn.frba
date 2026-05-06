@@ -43,7 +43,7 @@ t_proceso_memory* buscar_proceso(uint32_t pid) {
     return resultado;
 }
 
-char* leer_instruccion(t_proceso_memory* proceso) {
+char* leer_instruccion(t_proceso_memory* proceso, uint32_t pc) {
     FILE* f = fopen(proceso->path_pseudocodigo, "r");
     if (!f) {
         log_error(loggerMemory, "PID %d: no se pudo abrir %s", proceso->pid, proceso->path_pseudocodigo);
@@ -53,7 +53,6 @@ char* leer_instruccion(t_proceso_memory* proceso) {
     char* linea = NULL;
     size_t   capacidad   = 0;
     uint32_t linea_actual = 0;
-    uint32_t pc = proceso->contexto->pc;
 
     while (getline(&linea, &capacidad, f) != -1) {
         if (linea_actual == pc) {

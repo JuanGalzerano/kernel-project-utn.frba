@@ -1,5 +1,5 @@
 #include "contexto.h"
-#include "instrucciones.h"  
+#include "instrucciones.h"
 
 uint32_t obtener_pid(int socketConexionScheduler) {
     t_paquete *paquete = recibir_paquete(socketConexionScheduler);

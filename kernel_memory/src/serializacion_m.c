@@ -35,18 +35,18 @@ void recibir_contexto_cpu(uint32_t pid, t_buffer* buffer) {
 // KM → CPU: lee la instruccion en el PC actual y la manda como paquete ENVIAR_INSTRUCCION.
 // El CPU sabe por el opcode que el payload es el string de la instruccion,
 // y sabe el tamaño por el campo size del header del paquete.
-void enviar_instruccion_cpu(int socket, uint32_t pid) {
+void enviar_instruccion_cpu(int socket, uint32_t pid, uint32_t pc) {
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) {
         log_error(loggerMemory, "PID %d no encontrado al enviar instruccion", pid);
         return;
     }
 
-    char* instruccion = leer_instruccion(proceso);
+    char* instruccion = leer_instruccion(proceso, pc);
     if (!instruccion) return;
 
     log_info(loggerMemory, "## PID: %d - Obtener instrucción: %d - Instrucción: %s",
-             pid, proceso->contexto->pc, instruccion);
+             pid, pc, instruccion);
 
     t_buffer* buffer = buffer_create(0);
     buffer_add_string(buffer, strlen(instruccion), instruccion);

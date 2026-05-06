@@ -8,6 +8,6 @@ void enviar_contexto_cpu(int socket, uint32_t pid);
 void recibir_contexto_cpu(uint32_t pid, t_buffer* buffer);
 
 // Envia la instruccion en el PC actual del proceso al CPU
-void enviar_instruccion_cpu(int socket, uint32_t pid);
+void enviar_instruccion_cpu(int socket, uint32_t pid, uint32_t pc);
 
 #endif

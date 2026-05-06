@@ -96,8 +96,9 @@ void solicitar_init_proc(char *pathArchivoInstrucciones, uint32_t prioridad, int
     eliminar_paquete(paquete);
     free(init_proc_struct);
 }
-void solicitar_exit(int socketConexionScheduler) {
+void solicitar_exit(int socketConexionScheduler, uint32_t pid) {
     t_buffer *buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
     t_paquete *paquete = crear_paquete(EXIT, buffer);
     enviar_paquete(socketConexionScheduler, paquete);
     eliminar_paquete(paquete);
