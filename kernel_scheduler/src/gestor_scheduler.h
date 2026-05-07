@@ -29,6 +29,12 @@ typedef enum {
     CMN
 } t_planification_algorithm;
 
+typedef struct {
+    t_cpu_exec* cpu;
+    uint32_t    pid_original;
+} t_timer_args; //este  atruct lo usamos para que antes de correr el hilo timer de quantum, podamos guardar el pid, evitando que el de la CPU se ponga en NULL 
+//xq el proceso termino de ejecutar antes y ya dejo en NULL cpu->pcb 
+
 //VARIABLES GLOBALES
 
 extern t_log* loggerScheduler;

@@ -8,6 +8,8 @@
 #include "utils_scheduler.h"
 #include "gestion_IO_scheduler.h"
 
+//TYPEDEFS
+
 
 //COLAS Y LISTAS DEL MODELO DE 7 ESTADOS
 t_list* new_lista;

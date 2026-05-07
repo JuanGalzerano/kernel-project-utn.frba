@@ -113,12 +113,15 @@ void recibir_tipo_IO(int socketCliente){
 
     if(tipo == TIPO_SLEEP){
         socketSleep = socketCliente;
+        sem_post(&sem_sleep_disponible);
     }
     if(tipo == TIPO_STDIN){
         socketStdin = socketCliente;
+        sem_post(&sem_stdin_disponible);
     }
     if(tipo == TIPO_STDOUT){
         socketStdout = socketCliente;
+        sem_post(&sem_stdout_disponible);
     }
 
     //no se usa mutex aunque sean globales xq solo se conectara 1 IO x cada tipo
@@ -164,9 +167,11 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
 }
 
 void* hilo_timer_quantum(void* arg){
-    t_cpu_exec* cpu = (t_cpu_exec*) arg;
+    t_timer_args* argumento = (t_timer_args*) arg;
 
-    uint32_t pidCpuOriginal = cpu->pcb->pid;
+    uint32_t pidCpuOriginal = argumento->pid_original;
+    t_cpu_exec* cpu = argumento->cpu;
+    free(argumento);
 
     usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
 
@@ -177,7 +182,7 @@ void* hilo_timer_quantum(void* arg){
     if(sigueEjecutando){
         //pedir a CPU que finalice por quantum
         t_buffer* buffer = buffer_create(0);
-        buffer_add_uint32(buffer, cpu->pcb->pid);
+        buffer_add_uint32(buffer, pidCpuOriginal);
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
         enviar_paquete(cpu->socketConexion, paquete);
         //creo q hay destruir el paquete y buffer
@@ -191,8 +196,12 @@ void* hilo_timer_quantum(void* arg){
 
 
 void iniciar_timer_quantum(t_cpu_exec* cpu){
+    t_timer_args* args = malloc(sizeof(t_timer_args));
+    args->cpu = cpu;
+    args->pid_original=cpu->pcb->pid;
+
     pthread_t hiloQuantum;
-    pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, cpu);
+    pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, args);
     pthread_detach(hiloQuantum);
 }
 
