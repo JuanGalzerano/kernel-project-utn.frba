@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <commons/collections/queue.h>
 
 typedef struct {
     uint32_t pc;
@@ -54,6 +55,7 @@ typedef struct
 typedef struct{
     uint32_t pid;
     char* nombreMutex;
+    t_queue* colaEspera;
 }t_mutex_syscall;
 
 //para la syscall MEM_ALLOC

@@ -121,7 +121,7 @@ void recibir_tipo_IO(int socketCliente){
     }
     if(tipo == TIPO_STDOUT){
         socketStdout = socketCliente;
-        sem_post(&sem_stdout_disponible);
+        sem_post(&sem_stdout_disponible); 
     }
 
     //no se usa mutex aunque sean globales xq solo se conectara 1 IO x cada tipo
@@ -271,4 +271,29 @@ void liberar_mutex_y_semaforos(){
     sem_destroy(&sem_hay_proc_esperando_sleep);
     sem_destroy(&sem_hay_proc_esperando_stdin);
     sem_destroy(&sem_hay_proc_esperando_stdout);
+}
+
+uint32_t validar_existencia_mutex(t_mutex_syscall* mutexNuevo){
+
+    for(int i = 0; i<list_size(lista_mutex);i++){
+        t_mutex_syscall* otroMutex = list_get(lista_mutex,i);
+        if(strcmp(otroMutex->nombreMutex, mutexNuevo->nombreMutex)){
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+t_mutex_syscall* buscar_mutex(char* nombreMutex){
+    t_mutex_syscall* mutex = NULL;
+
+    for(int i = 0; i<list_size(lista_mutex);i++){
+        t_mutex_syscall* otroMutex = list_get(lista_mutex,i);
+        if(strcmp(otroMutex->nombreMutex, nombreMutex)){
+            mutex = otroMutex;
+            return mutex;
+        }
+    }
+    return NULL;
 }

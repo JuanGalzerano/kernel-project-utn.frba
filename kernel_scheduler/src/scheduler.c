@@ -292,6 +292,57 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 //ver si hay que eliminar paquete aca
                 break;
+            /*case MUTEX_CREATE:
+                t_mutex_syscall* mutexNuevo = deserializar_mutex(paquete->buffer);
+
+
+                pthread_mutex_lock(&lista_mutex);
+                uint32_t existe = validar_existencia_mutex(mutexNuevo);
+                if(existe == 1){
+                    //mostrar error
+                }
+                else{
+                    mutexNuevo->pid = NULL;
+                    list_add(lista_mutex, mutexNuevo);
+                }
+                pthread_mutex_unlock(&lista_mutex);
+                send(socketCliente, &existe, sizeof(uint32_t), 0);//se le avisa a CPU si se pudo crear (1 si no se pudo, 0 si se pudo)
+                break;
+            case MUTEX_LOCK:
+                t_mutex_syscall* mutexABloquear = deserializar_mutex(paquete->buffer);
+
+                pthread_mutex_lock(&lista_mutex);
+                t_mutex_syscall* mutexABloquearEnLista = buscar_mutex(mutexABloquear->nombreMutex);
+
+                if(mutexABloquearEnLista->pid != NULL){
+                    queue_push(mutexABloquearEnLista->colaEspera, mutexABloquear->pid);
+                    //nose si hay que bloquearlo
+                }
+                else{
+                    mutexABloquearEnLista->pid = mutexABloquear->pid;
+                    uint32_t bloqueado = 0;
+                    send(socketCliente, &bloqueado, sizeof(uint32_t), 0);//mediante un 0 se avisa que ya fue tomado el recurso
+                }
+
+                pthread_mutex_unlock(&lista_mutex);
+
+
+                break;
+            case MUTEX_UNLOCK:
+                t_mutex_syscall* mutexADesbloquear = deserializar_mutex(paquete->buffer);
+
+                pthread_mutex_lock(&lista_mutex);
+                t_mutex_syscall* mutexADesbloquearEnLista = buscar_mutex(mutexADesbloquear->nombreMutex);
+
+                if(mutexADesbloquearEnLista->colaEspera != NULL){
+
+                }
+
+                pthread_mutex_unlock(&lista_mutex);
+
+                break;*/
+
+            //agregar caso que no coincida con nada
             
         }
 

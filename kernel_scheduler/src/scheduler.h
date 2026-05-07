@@ -61,6 +61,11 @@ t_queue* cola_sleep;
 t_queue* cola_stdin;
 t_queue* cola_stdout;
 
+// lista gestion de MUTEX
+t_list* lista_mutex;
+pthread_mutex_t mutex_lista_mutex;
+
+
 pthread_mutex_t mutex_cola_sleep;
 pthread_mutex_t mutex_cola_stdin;
 pthread_mutex_t mutex_cola_stdout;

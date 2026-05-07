@@ -66,4 +66,7 @@ void inicializar_listas(){
     cola_stdout = queue_create();
     pthread_mutex_init(&mutex_cola_stdout, NULL);
     pthread_mutex_init(&mutex_pid,         NULL);
+
+    lista_mutex = list_create();
+    pthread_mutex_init(&mutex_lista_mutex, NULL);
 }

@@ -226,6 +226,9 @@ t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct){
     buffer_add_uint32(buf, mutex_struct->pid);
     buffer_add_string(buf,tamanioChar, mutex_struct->nombreMutex);
     buffer_add_uint32(buf, tamanioChar);
+    uint32_t tamanioCola = queue_size(mutex_struct->colaEspera);
+    buffer_add_uint32(buf, tamanioCola);
+    buffer_add(buf, mutex_struct->colaEspera, tamanioCola);
     return buf;
 }
 t_mutex_syscall* deserializar_mutex(t_buffer* buf){
@@ -234,6 +237,8 @@ t_mutex_syscall* deserializar_mutex(t_buffer* buf){
     mutex_struct->nombreMutex = malloc(sizeof(tamanioChar));
     mutex_struct->nombreMutex = buffer_read_string(buf, tamanioChar);
     mutex_struct->pid = buffer_read_uint32(buf);
+    uint32_t tamanioCola = buffer_read_uint32(buf);
+    buffer_read(buf, mutex_struct->colaEspera, tamanioCola); //desp ver si funca esto
     return mutex_struct;
 }
 
