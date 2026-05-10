@@ -145,16 +145,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuSleep = encontrar_cpu_con_pid(sleep->pid); 
-
-                log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
-
-                t_pcb* pcbBlockeado = cpuSleep->pcb;
-                cpuSleep->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
-
-                bloquear_proceso(pcbBlockeado);
-
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", sleep->pid);
+                
+                bloquear_proceso(cpuSleep->pcb);
 
                 pthread_mutex_lock(&mutex_cola_sleep);
                 queue_push(cola_sleep, sleep);
@@ -170,16 +163,11 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid); 
+                pthread_mutex_unlock(&exec_mutex);  
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDIN", procesoStdin->pid);
-
-                t_pcb* pcbBlock = cpuUsada->pcb;
-                cpuUsada->pcb = NULL;
-                pthread_mutex_unlock(&exec_mutex);     
-
-                bloquear_proceso(pcbBlock);           
-
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdin->pid);
+                   
+                bloquear_proceso(cpuUsada->pcb);           
              
                 pthread_mutex_lock(&mutex_cola_stdin);
                 queue_push(cola_stdin, procesoStdin);
@@ -197,13 +185,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
 
-                t_pcb* pcbABlockear = cpuUsadaStdout->pcb;
-                cpuUsadaStdout->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex); 
 
-                bloquear_proceso(pcbABlockear);
-
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", procesoStdout->pid);
+                bloquear_proceso(cpuUsadaStdout->pcb);
 
                 procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->direccionLogica, procesoStdout->bytesALeer);
 
@@ -292,41 +276,65 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 //ver si hay que eliminar paquete aca
                 break;
-            /*case MUTEX_CREATE:
+            case MUTEX_CREATE:
                 t_mutex_syscall* mutexNuevo = deserializar_mutex(paquete->buffer);
 
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: MUTEX_CREATE", mutexNuevo->pid);
 
-                pthread_mutex_lock(&lista_mutex);
-                uint32_t existe = validar_existencia_mutex(mutexNuevo);
-                if(existe == 1){
-                    //mostrar error
+                pthread_mutex_lock(&mutex_lista_mutex);
+
+                t_mutex_syscall* otroMutex = buscar_mutex(mutexNuevo->nombreMutex);
+
+                if(otroMutex == NULL){
+                    t_mutex_syscall* mutexParaLista = malloc(sizeof(t_mutex_syscall));
+                    mutexParaLista->colaEspera=queue_create();
+                    mutexParaLista->nombreMutex=strdup(mutexNuevo->nombreMutex);
+                    mutexParaLista->pid = UINT32_MAX;//significa LIBRE, xq no podemos usar -1 y tampoco podemos usar NULL. Desp ver si esta bien
+                    list_add(lista_mutex, mutexParaLista);
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+                    
+                }else{
+                    //ya esxiste =>
+                    pthread_mutex_unlock(&mutex_lista_mutex);
                 }
-                else{
-                    mutexNuevo->pid = NULL;
-                    list_add(lista_mutex, mutexNuevo);
-                }
-                pthread_mutex_unlock(&lista_mutex);
-                send(socketCliente, &existe, sizeof(uint32_t), 0);//se le avisa a CPU si se pudo crear (1 si no se pudo, 0 si se pudo)
+                
+                uint32_t existe=1;
+                send(socketCliente, &existe, sizeof(uint32_t), 0);//decirle a viotti y ver si es necesario
+                free(mutexNuevo->nombreMutex);
+                free(mutexNuevo);
                 break;
+            /*
             case MUTEX_LOCK:
                 t_mutex_syscall* mutexABloquear = deserializar_mutex(paquete->buffer);
 
-                pthread_mutex_lock(&lista_mutex);
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: MUTEX_LOCK", mutexABloquear->pid);
+
+                pthread_mutex_lock(&mutex_lista_mutex);
                 t_mutex_syscall* mutexABloquearEnLista = buscar_mutex(mutexABloquear->nombreMutex);
 
-                if(mutexABloquearEnLista->pid != NULL){
-                    queue_push(mutexABloquearEnLista->colaEspera, mutexABloquear->pid);
-                    //nose si hay que bloquearlo
+                if(mutexABloquearEnLista->pid != UINT32_MAX){
+                    //esta tomado
+                    t_cpu_exec* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
+
+                    queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
+
+                    bloquear_proceso(cpuALiberar->pcb);
+
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+
+                    sem_post(&sem_hay_cpu_libre);
                 }
                 else{
+                    //no esta tomado
                     mutexABloquearEnLista->pid = mutexABloquear->pid;
-                    uint32_t bloqueado = 0;
-                    send(socketCliente, &bloqueado, sizeof(uint32_t), 0);//mediante un 0 se avisa que ya fue tomado el recurso
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+
+                    uint32_t ok = 1;
+                    send(socketCliente, &ok, sizeof(uint32_t), 0);//mediante un 0 se avisa que ya fue tomado el recurso
                 }
 
-                pthread_mutex_unlock(&lista_mutex);
-
-
+                free(mutexABloquear->nombreMutex);
+                free(mutexABloquear);
                 break;
             case MUTEX_UNLOCK:
                 t_mutex_syscall* mutexADesbloquear = deserializar_mutex(paquete->buffer);

@@ -55,7 +55,7 @@ typedef struct
 typedef struct{
     uint32_t pid;
     char* nombreMutex;
-    t_queue* colaEspera;
+    t_queue* colaEspera;//esta cola es de PCBs en el scheduler, en la CPU, siempre NULL
 }t_mutex_syscall;
 
 //para la syscall MEM_ALLOC

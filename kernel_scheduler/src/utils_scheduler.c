@@ -130,10 +130,17 @@ void recibir_tipo_IO(int socketCliente){
 }
 
 
-void bloquear_proceso(t_pcb* pcbBlock){
+void bloquear_proceso(t_pcb* pcbBlock){//VER SI FUNCIONA BIEN
+    pthread_mutex_lock(&exec_mutex);
+    t_cpu_exec* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
+    
+    t_pcb* pcbBlockeado = cpu->pcb;
+    cpu->pcb = NULL;
+    pthread_mutex_unlock(&exec_mutex);
     pthread_mutex_lock(&block_mutex);
     list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
+    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
 }
 
 t_pcb* buscar_y_sacar_de_block(uint32_t pid){
@@ -273,17 +280,6 @@ void liberar_mutex_y_semaforos(){
     sem_destroy(&sem_hay_proc_esperando_stdout);
 }
 
-uint32_t validar_existencia_mutex(t_mutex_syscall* mutexNuevo){
-
-    for(int i = 0; i<list_size(lista_mutex);i++){
-        t_mutex_syscall* otroMutex = list_get(lista_mutex,i);
-        if(strcmp(otroMutex->nombreMutex, mutexNuevo->nombreMutex)){
-            return 1;
-        }
-    }
-    
-    return 0;
-}
 
 t_mutex_syscall* buscar_mutex(char* nombreMutex){
     t_mutex_syscall* mutex = NULL;

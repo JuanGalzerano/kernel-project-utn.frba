@@ -35,8 +35,6 @@ char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes);
 
 void liberar_mutex_y_semaforos();
 
-uint32_t validar_existencia_mutex(t_mutex_syscall* mutexNuevo);
-
 t_mutex_syscall* buscar_mutex(char* nombreMutex);
 
 #endif
