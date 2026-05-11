@@ -130,11 +130,11 @@ void recibir_tipo_IO(int socketCliente){
 }
 
 
-void bloquear_proceso(t_pcb* pcbBlock){//VER SI FUNCIONA BIEN
+void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
     t_cpu_exec* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
     
-    t_pcb* pcbBlockeado = cpu->pcb;
+    //t_pcb* pcbBlockeado = cpu->pcb; comentado pq por ahora creo que no se usa, creo qie en el list add es lo mismo cual use.
     cpu->pcb = NULL;
     pthread_mutex_unlock(&exec_mutex);
     pthread_mutex_lock(&block_mutex);

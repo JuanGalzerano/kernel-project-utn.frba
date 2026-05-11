@@ -84,8 +84,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 t_cpu_exec* cpuFinQuantum = encontrar_cpu_con_pid(pidInterrumpido);
 
-               
-
                 log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
 
                 
@@ -298,13 +296,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&mutex_lista_mutex);
                 }
                 
-                uint32_t existe=1;
-                send(socketCliente, &existe, sizeof(uint32_t), 0);//decirle a viotti y ver si es necesario
+                //uint32_t existe=1;
+                //send(socketCliente, &existe, sizeof(uint32_t), 0);decidimos que no es necesario avisarle, ya que si ya esta creado, no realizamos nada y listo
                 free(mutexNuevo->nombreMutex);
                 free(mutexNuevo);
                 break;
-            /*
-            case MUTEX_LOCK:
+            
+            case MUTEX_LOCK://creeeo que esta bien
                 t_mutex_syscall* mutexABloquear = deserializar_mutex(paquete->buffer);
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: MUTEX_LOCK", mutexABloquear->pid);
@@ -328,27 +326,48 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     //no esta tomado
                     mutexABloquearEnLista->pid = mutexABloquear->pid;
                     pthread_mutex_unlock(&mutex_lista_mutex);
+                    log_info(loggerScheduler, "## (%d) Toma el Mutex %s", mutexABloquear->pid, mutexABloquear->nombreMutex);
 
-                    uint32_t ok = 1;
-                    send(socketCliente, &ok, sizeof(uint32_t), 0);//mediante un 0 se avisa que ya fue tomado el recurso
                 }
 
                 free(mutexABloquear->nombreMutex);
                 free(mutexABloquear);
                 break;
+                
             case MUTEX_UNLOCK:
-                t_mutex_syscall* mutexADesbloquear = deserializar_mutex(paquete->buffer);
+                t_mutex_syscall* mutexALiberar = deserializar_mutex(paquete->buffer);
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: MUTEX_UNLOCK", mutexALiberar->pid);
 
-                pthread_mutex_lock(&lista_mutex);
-                t_mutex_syscall* mutexADesbloquearEnLista = buscar_mutex(mutexADesbloquear->nombreMutex);
+                pthread_mutex_lock(&mutex_lista_mutex);
+                t_mutex_syscall* mutexALiberarEnLista = buscar_mutex(mutexALiberar->nombreMutex);
 
-                if(mutexADesbloquearEnLista->colaEspera != NULL){
+                log_info(loggerScheduler, "## (%d) Libera el Mutex %s", mutexALiberar->pid, mutexALiberar->nombreMutex);
 
+                if(queue_is_empty(mutexALiberarEnLista->colaEspera)) {
+                    // nadie esperando, queda libre
+                    mutexALiberarEnLista->pid = UINT32_MAX;
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+                } else {
+                    // hay alguien esperando, le damos el mutex
+                    t_pcb* siguiente = queue_pop(mutexALiberarEnLista->colaEspera);
+                    mutexALiberarEnLista->pid = siguiente->pid;
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+
+                    log_info(loggerScheduler, "## (%d) Toma el Mutex %s", siguiente->pid, mutexALiberar->nombreMutex);
+
+                    // mover de BLOCK → READY
+                    buscar_y_sacar_de_block(siguiente->pid);
+                    pthread_mutex_lock(&ready_mutex);
+                    queue_push(ready_cola, siguiente);
+                    pthread_mutex_unlock(&ready_mutex);
+
+                    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
+                    sem_post(&sem_hay_proceso_ready);
                 }
 
-                pthread_mutex_unlock(&lista_mutex);
-
-                break;*/
+                free(mutexALiberar->nombreMutex);
+                free(mutexALiberar);
+                break;
 
             //agregar caso que no coincida con nada
             
