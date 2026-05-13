@@ -5,10 +5,11 @@ int main(int argc, char* argv[]) {
     t_log* loggerMemoryStick = log_create("MemoryStick.log","main.c",true,LOG_LEVEL_INFO);
     t_config* configMemoryStick = config_create(argv[1]);
 
-    //traigo 
+    //traigo
     char* puertoMemory = config_get_string_value(configMemoryStick,"PUERTO_MEMORY");
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
     char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
+    uint32_t tamanio = (uint32_t)atoi(argv[2]);
 
     //Inicio Conexion con la memory
     int socketconexionKernelMemory = iniciar_conexion(ipMemory,puertoMemory);
@@ -19,6 +20,7 @@ int main(int argc, char* argv[]) {
         }
     log_info(loggerMemoryStick,"Memory stick conectado a Kernel Memory");
     handshake_cliente_id(socketconexionKernelMemory, loggerMemoryStick, MEMORY_STICK);
+    send(socketconexionKernelMemory, &tamanio, sizeof(uint32_t), 0);
     
   
 

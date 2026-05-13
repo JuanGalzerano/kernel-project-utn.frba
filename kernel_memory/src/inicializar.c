@@ -92,8 +92,6 @@ void agregar_memory_stick(int socket, uint32_t size) {
 
     pthread_mutex_unlock(&memoria_mutex);
 
-    log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", size);
-
     // TODO: notificar al Kernel Scheduler que hay más memoria disponible.
     // Requiere un nuevo op_code NUEVA_MEMORIA en utils y que socketScheduler esté listo.
 }
