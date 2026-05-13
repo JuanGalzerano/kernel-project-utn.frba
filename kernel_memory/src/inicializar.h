@@ -28,10 +28,7 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento);
 t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento);
 
 // Traducción de dirección lógica a física.
-// traducir_direccion_logica: retorna dirección física global, o UINT32_MAX si inválida.
-// traducir_y_verificar: además chequea que offset+tamanio no exceda el límite del segmento.
-//   Retorna 1=ok (dir_fisica_out cargada), -1=seg_fault.
-uint32_t traducir_direccion_logica(uint32_t pid, uint32_t direccion_logica);
-int      traducir_y_verificar(uint32_t pid, uint32_t dir_logica, uint32_t tamanio, uint32_t* dir_fisica_out);
+// Retorna 1=ok (dir_fisica_out cargada), -1=seg_fault.
+int traducir_y_verificar(uint32_t pid, uint32_t dir_logica, uint32_t tamanio, uint32_t* dir_fisica_out);
 
 #endif

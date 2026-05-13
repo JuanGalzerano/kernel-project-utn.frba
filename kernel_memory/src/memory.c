@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     lista_memory_sticks = list_create();
     lista_huecos = list_create();
     memoria_total_size  = 0;
-    socketScheduler     = -1;
+    socketScheduler = -1;
     pthread_mutex_init(&memoria_mutex, NULL);
     pthread_mutex_init(&procesos_mutex, NULL);
 
@@ -117,7 +117,7 @@ void* monitorear_memory_stick(void* arg) {
     free(arg);
 
     char buf[1];
-    while (recv(socket, buf, 1, MSG_WAITALL) > 0);//esto no es que espera un send de memory stick, sino que si un memory stick muere por protocolo se manda un msj que puedo yo receptar
+    while (recv(socket, buf, 1, MSG_WAITALL) > 0);//esto no es que espera un send de memory stick, sino que si un memory stick muere por protocolo se manda un msj que puedo yo receptar (un 0)
 
     log_warning(loggerMemory, "Memory Stick desconectado (FD %d) - memoria corrupta", socket);
 
@@ -138,7 +138,7 @@ void* monitorear_memory_stick(void* arg) {
 
 // Loop que atiende al scheduler.
 // PATH_PROCESO → inicializar proceso, responde int ok
-// FIN_PROCESO  → liberar proceso, sin respuesta
+// FIN_PROCESO → liberar proceso, sin respuesta
 void* atender_scheduler(void* arg) {
     int socket = *(int*)arg;
     free(arg);
