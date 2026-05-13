@@ -23,9 +23,12 @@ uint32_t  memoria_total_size;
 pthread_mutex_t memoria_mutex;
 pthread_mutex_t procesos_mutex;
 
+int socketScheduler;
+
 // FUNCIONES
 int   aceptar_cliente_memory(int socketEscucha, modulo* quien_out);
 void* atender_scheduler(void* arg);
 void* atender_cpu(void* arg);
+void* monitorear_memory_stick(void* arg);
 
 #endif

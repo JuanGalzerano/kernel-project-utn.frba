@@ -31,7 +31,7 @@ void iniciar_timer_quantum(t_cpu_exec* cpu);
 
 void enviar_path_proceso_memory(uint32_t pid,char* path);
 
-char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes);
+char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t bytes);
 
 void liberar_mutex_y_semaforos();
 

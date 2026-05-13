@@ -230,11 +230,11 @@ void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que 
     send(socketConexionMemory, path, sizePath,0);*/
 }
 
-char* solicitar_cadena_a_memory(uint32_t direccionLogica, uint32_t bytes){
+char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t bytes){
     t_buffer* buffer = buffer_create(0);
 
+    buffer_add_uint32(buffer, pid);
     buffer_add_uint32(buffer, direccionLogica);
-
     buffer_add_uint32(buffer, bytes);
 
     t_paquete* unPaquete = crear_paquete(LEER_BYTES, buffer);

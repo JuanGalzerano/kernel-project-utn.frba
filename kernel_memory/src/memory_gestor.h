@@ -51,4 +51,6 @@ extern uint32_t  memoria_total_size;   //suma de tamaños de todos los sticks co
 extern pthread_mutex_t memoria_mutex;   //protege lista_huecos, lista_memory_sticks y tablas de segmentos
 extern pthread_mutex_t procesos_mutex;  //protege lista_procesos y proceso->contexto
 
+extern int socketScheduler;
+
 #endif

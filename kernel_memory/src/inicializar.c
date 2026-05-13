@@ -93,6 +93,59 @@ void agregar_memory_stick(int socket, uint32_t size) {
     pthread_mutex_unlock(&memoria_mutex);
 
     log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", size);
+
+    // TODO: notificar al Kernel Scheduler que hay más memoria disponible.
+    // Requiere un nuevo op_code NUEVA_MEMORIA en utils y que socketScheduler esté listo.
+}
+
+t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {
+    for (int i = 0; i < list_size(lista_memory_sticks); i++) {
+        t_memory_stick_info* stick = list_get(lista_memory_sticks, i);
+        if (dir_fisica >= stick->base_fisica && dir_fisica < stick->base_fisica + stick->size)
+            return stick;
+    }
+    return NULL;
+}
+
+int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out) {
+    pthread_mutex_lock(&memoria_mutex);
+    t_memory_stick_info* stick = encontrar_stick_por_dir_fisica(dir_fisica);
+    pthread_mutex_unlock(&memoria_mutex);
+
+    if (!stick) {
+        log_error(loggerMemory, "No se encontró Memory Stick para dir_fisica %d", dir_fisica);
+        return -1;
+    }
+
+    // La dirección física dentro del stick empieza en 0, así que hay que restarle su base global
+    uint32_t dir_en_stick = dir_fisica - stick->base_fisica;
+
+    //tema SOCKET: enviar al stick un paquete de lectura con (dir_en_stick, tamanio)
+    //usando stick->socket, y recibir los bytes leídos en buffer_out
+    //El protocolo de lectura/escritura del Memory Stick va acá lo hare otro dia cuando arce hagaalgo
+    (void)dir_en_stick;
+    memset(buffer_out, 0, tamanio);
+    return 1;
+}
+
+int escribir_en_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* datos) {
+    pthread_mutex_lock(&memoria_mutex);
+    t_memory_stick_info* stick = encontrar_stick_por_dir_fisica(dir_fisica);
+    pthread_mutex_unlock(&memoria_mutex);
+
+    if (!stick) {
+        log_error(loggerMemory, "No se encontró Memory Stick para dir_fisica %d", dir_fisica);
+        return -1;
+    }
+
+    uint32_t dir_en_stick = dir_fisica - stick->base_fisica;
+
+    // TODO SOCKET: enviar al stick un paquete de escritura con (dir_en_stick, tamanio, datos)
+    //              usando stick->socket, y recibir la confirmación de escritura exitosa.
+    //              El protocolo de lectura/escritura del Memory Stick va acá.
+    (void)dir_en_stick;
+    (void)datos;
+    return 1;
 }
 
 // Gestión de huecos (lo pongo en static porque solo se usa dentro de este .c) 
@@ -269,9 +322,30 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
 }
 
 uint32_t traducir_direccion_logica(uint32_t pid, uint32_t direccion_logica) {
-    // TODO: decodificar id_segmento y offset de direccion_logica,
-    //       buscar el segmento en la tabla del proceso y retornar base + offset
-    (void)pid;
-    (void)direccion_logica;
-    return 0;
+    uint32_t id_segmento = direccion_logica / segment_max_size;
+    uint32_t offset      = direccion_logica % segment_max_size;
+
+    t_proceso_memory* proceso = buscar_proceso(pid);
+    if (!proceso) return UINT32_MAX;
+
+    t_segmento* seg = buscar_segmento(proceso, id_segmento);
+    if (!seg) return UINT32_MAX;
+
+    return seg->base + offset;
+}
+
+int traducir_y_verificar(uint32_t pid, uint32_t dir_logica, uint32_t tamanio, uint32_t* dir_fisica_out) {
+    uint32_t id_segmento = dir_logica / segment_max_size;
+    uint32_t offset      = dir_logica % segment_max_size;
+
+    t_proceso_memory* proceso = buscar_proceso(pid);
+    if (!proceso) return -1;
+
+    t_segmento* seg = buscar_segmento(proceso, id_segmento);
+    if (!seg) return -1;
+
+    if (offset + tamanio > seg->limite) return -1; 
+
+    *dir_fisica_out = seg->base + offset;
+    return 1;
 }

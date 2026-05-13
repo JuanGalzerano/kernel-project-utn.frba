@@ -187,7 +187,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 bloquear_proceso(cpuUsadaStdout->pcb);
 
-                procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->direccionLogica, procesoStdout->bytesALeer);
+                procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->pid, procesoStdout->direccionLogica, procesoStdout->bytesALeer);
 
                 pthread_mutex_lock(&mutex_cola_stdout);
                 queue_push(cola_stdout, procesoStdout);
