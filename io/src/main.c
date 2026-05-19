@@ -13,6 +13,7 @@ int main(int argc, char* argv[]) {
     t_config* configIO = config_create(argv[1]);
     //Defino las variables para conectarme al scheduler
     int socketConScheduler;
+    int pid;
     char* ip=config_get_string_value(configIO,"IP_SCHEDULER");
     char* puerto= config_get_string_value(configIO,"PUERTO_SCHEDULER");
     tipo = reconocer_io(argv[2]);
@@ -39,35 +40,38 @@ int main(int argc, char* argv[]) {
     case TIPO_SLEEP:
         t_sleep* sl;
         sl = deserializar_sleep(paquete->buffer);
-        log_info(loggerIO, "## PID: %d - Inicio de IO",sl->pid);
+        pid=sl->pid;
+        log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
         sleep_func(sl->tiempoADormir,sl->pid,loggerIO);
         paquete->buffer=serializar_sleep(sl);
         paquete->codigo_operacion=FINALIZAR_SLEEP;
         enviar_paquete(socketConScheduler,paquete);
-        log_info(loggerIO, "## PID: %d - Fin de IO",sl->pid);
+        log_info(loggerIO, "## PID: %d - Fin de IO",pid);
         break;
     case TIPO_STDIN:
         t_stdin_stdout* in;
         in = deserializar_stdin(paquete->buffer);
-        log_info(loggerIO, "## PID: %d - Inicio de IO",in->pid);
+        pid=in->pid;
+        log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
         in->cadenaLeida=stdin_func(in->bytesALeer,in->pid,loggerIO);
         paquete->buffer=serializar_stdin(in);
         paquete->codigo_operacion=FINALIZAR_STDIN;
         enviar_paquete(socketConScheduler,paquete);
         free(in->cadenaLeida);
         free(in);
-        log_info(loggerIO, "## PID: %d - Fin de IO",in->pid);
+        log_info(loggerIO, "## PID: %d - Fin de IO",pid);
         break;
     case TIPO_STDOUT:
        
         t_stdin_stdout* out;
         out = deserializar_stdin(paquete->buffer);
-        log_info(loggerIO, "## PID: %d - Inicio de IO",out->pid);
+        pid=sl->pid;
+        log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
         stdout_func(out->cadenaLeida,out->bytesALeer,out->pid,loggerIO);
         paquete->buffer=serializar_stdin(out);
         paquete->codigo_operacion=FINALIZAR_STDOUT;
         enviar_paquete(socketConScheduler,paquete);
-        log_info(loggerIO, "## PID: %d - Fin de IO",out->pid);
+        log_info(loggerIO, "## PID: %d - Fin de IO",pid);
         break;
     default:
        
