@@ -1,7 +1,7 @@
-#include <utils/utils.h>
+#include <src/utils/utils.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-#include <io.h>
+#include <src/io.h>
 
 tipo_IO tipo;
 
@@ -32,54 +32,65 @@ int main(int argc, char* argv[]) {
     //recibir paquete
     t_paquete* paquete;
     paquete = recibir_paquete(socketConScheduler);
-    //aca tendria que deserializarlo pero ni idea como, lo veo mas adelatne
-    log_info(loggerIO, "## PID: <PID> - Inicio de IO");
+    
+    
     switch (tipo)
     {
     case TIPO_SLEEP:
         t_sleep* sl;
         sl = deserializar_sleep(paquete->buffer);
+        log_info(loggerIO, "## PID: %d - Inicio de IO",sl->pid);
         sleep_func(sl->tiempoADormir,sl->pid,loggerIO);
-        send(socketConScheduler,FINALIZAR_SLEEP,sizeof(op_code),0);// tenes que mandarme el PID en un paquete
+        paquete->buffer=serializar_sleep(sl);
+        paquete->codigo_operacion=FINALIZAR_SLEEP;
+        enviar_paquete(socketConScheduler,paquete);
+        log_info(loggerIO, "## PID: %d - Fin de IO",sl->pid);
         break;
     case TIPO_STDIN:
         t_stdin_stdout* in;
         in = deserializar_stdin(paquete->buffer);
+        log_info(loggerIO, "## PID: %d - Inicio de IO",in->pid);
         in->cadenaLeida=stdin_func(in->bytesALeer,in->pid,loggerIO);
         paquete->buffer=serializar_stdin(in);
+        paquete->codigo_operacion=FINALIZAR_STDIN;
         enviar_paquete(socketConScheduler,paquete);
         free(in->cadenaLeida);
         free(in);
+        log_info(loggerIO, "## PID: %d - Fin de IO",in->pid);
         break;
     case TIPO_STDOUT:
        
-        t_stdout out;
-        //out = deserializar_out(paquete->buffer)
-        //stdout_func();//faltan argumentos
-        send(socketConScheduler,FINALIZAR_STDOUT,sizeof(op_code),0);// tenes que mandarme el PID en un paquete
+        t_stdin_stdout* out;
+        out = deserializar_stdin(paquete->buffer);
+        log_info(loggerIO, "## PID: %d - Inicio de IO",out->pid);
+        stdout_func(out->cadenaLeida,out->bytesALeer,out->pid,loggerIO);
+        paquete->buffer=serializar_stdin(out);
+        paquete->codigo_operacion=FINALIZAR_STDOUT;
+        enviar_paquete(socketConScheduler,paquete);
+        log_info(loggerIO, "## PID: %d - Fin de IO",out->pid);
         break;
     default:
        
         break;
     }
-    log_info(loggerIO, "## PID: <PID> - Fin de IO");//falta poner que pid termino
+   
     return 0;
 }
-/*
-void stdin_func(int cantBytes,int pid, t_log* logIO){
+
+char* stdin_func(uint32_t cantBytes, uint32_t pid,t_log*logIO){
     char* mensaje;
     log_info(logIO, "## PID: %d - Ingrese %d caracteres:", pid, cantBytes);
     mensaje = leer_stdin(cantBytes);
 }
-void stdout_func(char* mensaje,int pid ,int cantBytes,t_log* logIO){
+void stdout_func(char* mensaje,uint32_t pid ,uint32_t cantBytes,t_log* logIO){
     // Crear buffer temporal con '\0' al final para el log
-    char* buffer_log = malloc(out->bytesAEscribir + 1);
+    char* buffer_log = malloc(cantBytes);
     memcpy(buffer_log, mensaje, cantBytes);
     fwrite(mensaje, sizeof(char), cantBytes, stdout);
     printf("\n"); // salto de línea al final
     log_info(logIO, "## PID: %d - %s",pid, buffer_log);
 
-}*/
+}
 
 void sleep_func(uint32_t cantTiempoMicro,uint32_t pid,t_log* logIO){
     usleep(cantTiempoMicro*1000);
@@ -100,36 +111,25 @@ tipo_IO reconocer_io(char* tipo){
     return io;
 }
 
-char* leer_stdin(int cantidad_bytes) {
-    char* buffer = malloc(cantidad_bytes + 1); // +1 para el '\0' de fgets
+char* leer_stdin(uint32_t cantidad_bytes) {
+   char* buffer = malloc(cantidad_bytes + 1);
     if (buffer == NULL) return NULL;
 
     // Inicializar todo en '\0'
     memset(buffer, '\0', cantidad_bytes + 1);
 
-    // Leer línea completa (fgets incluye el '\n' si hay espacio)
-    char* linea = malloc(4096 + 1); // buffer temporal grande para capturar todo el input
-    if (linea == NULL) {
-        free(buffer);
-        return NULL;
-    }
-    memset(linea, '\0', 4097);
+    int c;
+    uint32_t i = 0;
 
-    fgets(linea, 4097, stdin); // lee hasta Enter o 4096 chars
-
-    // Sacar el '\n' del final si está
-    int len = strlen(linea);
-    if (len > 0 && linea[len - 1] == '\n') {
-        linea[len - 1] = '\0';
-        len--;
+    while ((c = getchar()) != '\n' && c != EOF) {
+        if (i < cantidad_bytes) {
+            buffer[i] = (char)c;
+            i++;
+        }
+        // Si i >= cantidad_bytes seguimos leyendo hasta '\n'
+        // pero no guardamos (descartamos el exceso)
     }
 
-    // Caso 1: input mayor al tamaño → cortar
-    // Caso 2: input menor al tamaño → el memset ya llenó de '\0'
-    // Caso 3: input igual → copia exacta
-    int copiar = len < cantidad_bytes ? len : cantidad_bytes;
-    memcpy(buffer, linea, copiar);
-
-    free(linea);
-    return buffer; // el caller debe hacer free()
+    // buffer ya tiene '\0' en las posiciones no escritas por el memset
+    return buffer;
 }
