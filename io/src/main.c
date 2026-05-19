@@ -1,6 +1,7 @@
 #include <utils/utils.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include <io.h>
 
 tipo_IO tipo;
 
@@ -21,7 +22,7 @@ int main(int argc, char* argv[]) {
     socketConScheduler = iniciar_conexion(ip,puerto);
     if(socketConScheduler == EXIT_FAILURE){
         log_info(loggerIO, "no se pudo conectar a Kernel Scheduler");
-        //ver si hay que abortar
+        abort();
     }
 
     log_info(loggerIO, "conexion establecida con Kernel Scheduler");
@@ -38,13 +39,13 @@ int main(int argc, char* argv[]) {
     case TIPO_SLEEP:
         t_sleep* sl;
         sl = deserializar_sleep(paquete->buffer);
-        SLEEP(sl->tiempoADormir,sl->pid,loggerIO);
-        send(socketConScheduler,FINALIZAR_SLEEP,sizeof(op_code),0)
+        sleep_func(sl->tiempoADormir,sl->pid,loggerIO);
+        send(socketConScheduler,FINALIZAR_SLEEP,sizeof(op_code),0);// tenes que mandarme el PID en un paquete
         break;
     case TIPO_STDIN:
         t_stdin_stdout* in;
         in = deserializar_stdin(paquete->buffer);
-        in->cadenaLeida=STDIN(in->bytesALeer,in->pid,loggerIO);
+        in->cadenaLeida=stdin_func(in->bytesALeer,in->pid,loggerIO);
         paquete->buffer=serializar_stdin(in);
         enviar_paquete(socketConScheduler,paquete);
         free(in->cadenaLeida);
@@ -54,23 +55,23 @@ int main(int argc, char* argv[]) {
        
         t_stdout out;
         //out = deserializar_out(paquete->buffer)
-        STDOUT();
-        send(socketConScheduler,FINALIZAR_STDOUT,sizeof(op_code),0)
+        //stdout_func();//faltan argumentos
+        send(socketConScheduler,FINALIZAR_STDOUT,sizeof(op_code),0);// tenes que mandarme el PID en un paquete
         break;
     default:
        
         break;
     }
-    log_info(loggerIO, "## PID: <PID> - Fin de IO");
+    log_info(loggerIO, "## PID: <PID> - Fin de IO");//falta poner que pid termino
     return 0;
 }
-
-void STDIN(int cantBytes,int pid, t_log* logIO){
+/*
+void stdin_func(int cantBytes,int pid, t_log* logIO){
     char* mensaje;
     log_info(logIO, "## PID: %d - Ingrese %d caracteres:", pid, cantBytes);
     mensaje = leer_stdin(cantBytes);
 }
-void STDOUT(char* mensaje,int pid ,int cantBytes,t_log* logIO){
+void stdout_func(char* mensaje,int pid ,int cantBytes,t_log* logIO){
     // Crear buffer temporal con '\0' al final para el log
     char* buffer_log = malloc(out->bytesAEscribir + 1);
     memcpy(buffer_log, mensaje, cantBytes);
@@ -78,9 +79,9 @@ void STDOUT(char* mensaje,int pid ,int cantBytes,t_log* logIO){
     printf("\n"); // salto de línea al final
     log_info(logIO, "## PID: %d - %s",pid, buffer_log);
 
-}
+}*/
 
-void SLEEP(int cantTiempoMicro,int pid,t_log* logIO){
+void sleep_func(uint32_t cantTiempoMicro,uint32_t pid,t_log* logIO){
     usleep(cantTiempoMicro*1000);
     log_info(logIO, "## PID: %d - Haciendo sleep por %d milisegundos.", pid, cantTiempoMicro);
 }
