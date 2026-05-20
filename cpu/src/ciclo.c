@@ -33,7 +33,10 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionSc
     int errorDecode = decode(tipoInstruccion, &cursor, socketConexionScheduler, pid);
     free(inicioInstruccion);
 
-    if (errorDecode == 1) return 1;
+    if (errorDecode == 1) {
+        registros_cpu.pc++;//agregado por marotti pq si venia una syscall no se incrementaba el PC
+        return 1;
+    }
     if (errorDecode == 0) {
         if (registros_cpu.pc == pc_antes) registros_cpu.pc++;
         return 0;

@@ -137,10 +137,22 @@ void bloquear_proceso(t_pcb* pcbBlock){
     //t_pcb* pcbBlockeado = cpu->pcb; comentado pq por ahora creo que no se usa, creo qie en el list add es lo mismo cual use.
     cpu->pcb = NULL;
     pthread_mutex_unlock(&exec_mutex);
+
+    //le avisamos a la cpu que se bloqueo el proceso
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, pcbBlock->pid);
+    t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buf);
+    enviar_paquete(cpu->socketConexion, unPaquete);//cuidado con la race condition del cpu->socketConexion
+
     pthread_mutex_lock(&block_mutex);
     list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
+    
     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
+
+    free(buf->stream);
+    free(buf);
+    free(unPaquete);
 }
 
 t_pcb* buscar_y_sacar_de_block(uint32_t pid){

@@ -2,6 +2,8 @@
 #define SYSCALLS_H_
 
 #include "instrucciones.h"
+#include <commons/log.h>
+#include "inicializar_cpu.h"
 
 void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint32_t pid);
 void solicitar_mutex_lock(char *nombreMutex, int socketConexionScheduler, uint32_t pid);

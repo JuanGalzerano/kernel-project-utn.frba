@@ -112,6 +112,7 @@ typedef enum {
     LEER_BYTES = 30,
     FINALIZAR_SLEEP = 31,
     FINALIZAR_STDOUT = 32,
+    PROCESO_BLOQUEADO = 33,
 } op_code;
  
 typedef struct {

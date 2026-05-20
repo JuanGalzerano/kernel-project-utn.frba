@@ -102,12 +102,17 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
 
-                //CREO QIUE TENGO QUE HACER EL LOG DE SOLICITO SYSCALL
+                //CREO QIUE TENGO QUE HACER EL LOG DE SOLICITO SYSCALL, EL TEMA ES QUE ME FALTA EL PID DE LA CPU QUE LO SOLICITA, ASI QUE VOY A TENER QUE HACER ALGO
 
                 uint32_t nuevoPid = generar_pid();
 
-                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+                t_pcb* error = crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
 
+                if(error!=NULL){
+                    //confirmale que se creo
+                    uint32_t=1;
+                    send(socketCliente, &ok, sizeof(uint32_t),0);
+                }
                 free(proc->pathArchivoInstrucciones);
                 free(proc);
                 break;
@@ -144,6 +149,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuSleep = encontrar_cpu_con_pid(sleep->pid); 
                 pthread_mutex_unlock(&exec_mutex);
+
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
                 
                 bloquear_proceso(cpuSleep->pcb);
 

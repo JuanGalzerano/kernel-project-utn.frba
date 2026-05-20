@@ -1,7 +1,7 @@
-#include <src/utils/utils.h>
+#include <utils/utils.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-#include <src/io.h>
+#include <io.h>
 
 tipo_IO tipo;
 
@@ -30,52 +30,55 @@ int main(int argc, char* argv[]) {
     handshake_cliente_id(socketConScheduler, loggerIO, IO);
     send(socketConScheduler, &tipo, sizeof(tipo_IO), 0);
 
-    //recibir paquete
-    t_paquete* paquete;
-    paquete = recibir_paquete(socketConScheduler);
-    
-    
-    switch (tipo)
-    {
-    case TIPO_SLEEP:
-        t_sleep* sl;
-        sl = deserializar_sleep(paquete->buffer);
-        pid=sl->pid;
-        log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
-        sleep_func(sl->tiempoADormir,sl->pid,loggerIO);
-        paquete->buffer=serializar_sleep(sl);
-        paquete->codigo_operacion=FINALIZAR_SLEEP;
-        enviar_paquete(socketConScheduler,paquete);
-        log_info(loggerIO, "## PID: %d - Fin de IO",pid);
-        break;
-    case TIPO_STDIN:
-        t_stdin_stdout* in;
-        in = deserializar_stdin(paquete->buffer);
-        pid=in->pid;
-        log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
-        in->cadenaLeida=stdin_func(in->bytesALeer,in->pid,loggerIO);
-        paquete->buffer=serializar_stdin(in);
-        paquete->codigo_operacion=FINALIZAR_STDIN;
-        enviar_paquete(socketConScheduler,paquete);
-        free(in->cadenaLeida);
-        free(in);
-        log_info(loggerIO, "## PID: %d - Fin de IO",pid);
-        break;
-    case TIPO_STDOUT:
-       
-        t_stdin_stdout* out;
-        out = deserializar_stdin(paquete->buffer);
-        pid=sl->pid;
-        log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
-        stdout_func(out->cadenaLeida,out->bytesALeer,out->pid,loggerIO);
-        paquete->buffer=serializar_stdin(out);
-        paquete->codigo_operacion=FINALIZAR_STDOUT;
-        enviar_paquete(socketConScheduler,paquete);
-        log_info(loggerIO, "## PID: %d - Fin de IO",pid);
-        break;
-    default:
-       
-        break;
+
+    while(1){//agregue el while(1) para que constantemente atienda
+        //recibir paquete
+        t_paquete* paquete;
+        paquete = recibir_paquete(socketConScheduler);
+        
+        
+        switch (tipo)
+        {
+        case TIPO_SLEEP:
+            t_sleep* sl;
+            sl = deserializar_sleep(paquete->buffer);
+            pid=sl->pid;
+            log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
+            sleep_func(sl->tiempoADormir,sl->pid,loggerIO);
+            paquete->buffer=serializar_sleep(sl);
+            paquete->codigo_operacion=FINALIZAR_SLEEP;
+            enviar_paquete(socketConScheduler,paquete);
+            log_info(loggerIO, "## PID: %d - Fin de IO",pid);
+            break;
+        case TIPO_STDIN:
+            t_stdin_stdout* in;
+            in = deserializar_stdin(paquete->buffer);
+            pid=in->pid;
+            log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
+            in->cadenaLeida=stdin_func(in->bytesALeer,in->pid,loggerIO);
+            paquete->buffer=serializar_stdin(in);
+            paquete->codigo_operacion=FINALIZAR_STDIN;
+            enviar_paquete(socketConScheduler,paquete);
+            free(in->cadenaLeida);
+            free(in);
+            log_info(loggerIO, "## PID: %d - Fin de IO",pid);
+            break;
+        case TIPO_STDOUT:
+        
+            t_stdin_stdout* out;
+            out = deserializar_stdin(paquete->buffer);
+            pid=sl->pid;
+            log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
+            stdout_func(out->cadenaLeida,out->bytesALeer,out->pid,loggerIO);
+            paquete->buffer=serializar_stdin(out);
+            paquete->codigo_operacion=FINALIZAR_STDOUT;
+            enviar_paquete(socketConScheduler,paquete);
+            log_info(loggerIO, "## PID: %d - Fin de IO",pid);
+            break;
+        default:
+        
+            break;
+        }
     }
    
     return 0;
@@ -86,14 +89,16 @@ char* stdin_func(uint32_t cantBytes, uint32_t pid,t_log*logIO){
     log_info(logIO, "## PID: %d - Ingrese %d caracteres:", pid, cantBytes);
     mensaje = leer_stdin(cantBytes);
 }
-void stdout_func(char* mensaje,uint32_t pid ,uint32_t cantBytes,t_log* logIO){
-    // Crear buffer temporal con '\0' al final para el log
-    char* buffer_log = malloc(cantBytes);
-    memcpy(buffer_log, mensaje, cantBytes);
+void stdout_func(char* mensaje, uint32_t pid, uint32_t cantBytes, t_log* logIO){
     fwrite(mensaje, sizeof(char), cantBytes, stdout);
-    printf("\n"); // salto de línea al final
-    log_info(logIO, "## PID: %d - %s",pid, buffer_log);
+    printf("\n");
 
+    char* buffer_log = malloc(cantBytes + 1); // +1 para el '\0'
+    memcpy(buffer_log, mensaje, cantBytes);
+    buffer_log[cantBytes] = '\0';             // terminador explícito
+    
+    log_info(logIO, "## PID: %d - %s", pid, buffer_log);
+    free(buffer_log);                         // también falta liberar
 }
 
 void sleep_func(uint32_t cantTiempoMicro,uint32_t pid,t_log* logIO){
