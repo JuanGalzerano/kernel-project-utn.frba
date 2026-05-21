@@ -8,9 +8,9 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
 
     //Meterlo en NEW y loguear
     //DESPUES VER POR QUE ESTA LISTA ES BASTANTE INNECESARIA
-    pthread_mutex_lock(&new_mutex);
+    /*pthread_mutex_lock(&new_mutex);
     list_add(new_lista, pcb); 
-    pthread_mutex_unlock(&new_mutex);
+    pthread_mutex_unlock(&new_mutex);*/
     log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
 
     //Avisar al KM (mandar pid + path)
@@ -23,10 +23,10 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
     pthread_mutex_unlock(&mutex_socket_memory);
 
     //Mover a READY y loguear
-    if(ok == 0){
+    if(ok == 0){/*
         pthread_mutex_lock(&new_mutex);
         list_remove_element(new_lista, pcb);
-        pthread_mutex_unlock(&new_mutex);
+        pthread_mutex_unlock(&new_mutex);*/
         free(pcb);
         log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
         return NULL;
@@ -179,7 +179,6 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
     pthread_mutex_unlock(&mutex_socket_memory);
-    //creo q hay destruir el paquete y buffer
     free(buffer->stream);
     free(buffer);
     free(paquete);
@@ -271,7 +270,7 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
 
 void liberar_mutex_y_semaforos(){
 
-    pthread_mutex_destroy(&new_mutex);
+    //pthread_mutex_destroy(&new_mutex);
     pthread_mutex_destroy(&ready_mutex);
     pthread_mutex_destroy(&block_mutex);
     pthread_mutex_destroy(&exec_mutex);

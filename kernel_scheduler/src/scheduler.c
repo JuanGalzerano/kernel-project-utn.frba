@@ -56,6 +56,12 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     log_destroy(loggerScheduler);
     //LIBERAR RECURSOS DE SEMAFOROS Y MUTEX
     liberar_mutex_y_semaforos();
+    //cerrar conexiones de IOs
+    close(socketSleep);
+    close(socketStdin);
+    close(socketStdout);
+
+    //ver si aca tendria que cerrar las conexiones con las CPUs que quedarin conectadas
 
     return 0;
 }
@@ -110,7 +116,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 if(error!=NULL){
                     //confirmale que se creo
-                    uint32_t=1;
+                    uint32_t ok=1;
                     send(socketCliente, &ok, sizeof(uint32_t),0);
                 }
                 free(proc->pathArchivoInstrucciones);
@@ -375,7 +381,39 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
                 break;
+            case MEM_ALLOC:
+                //por lo que entiendo aca solo funciono como intermediario para loguear que se solicito la syscall
+                t_mem_alloc* infoMemAlloc = deserializar_mem_alloc(paquete->buffer);
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: MEM_ALLOC", infoMemAlloc->pid);
 
+
+                //sollicitar segmento a KM
+
+                    //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU
+
+                    //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso) 
+
+                    //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
+
+                break;
+            case MEM_FREE:
+                t_mem_free* infoMemFree = deserializar_mem_free(paquete->buffer);
+
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: MEM_FREE", infoMemFree->pid);
+
+                //avisarle a KM que libere el segmento
+                t_paquete* paqueteFree = crear_paquete(MEM_FREE, paquete->buffer);
+                pthread_mutex_lock(&mutex_socket_memory);
+                enviar_paquete(socketConexionMemory, paqueteFree);
+                pthread_mutex_unlock(&mutex_socket_memory);
+                //No espero el OK de memory pq se puede liberar sin restriccion.
+                //confirmarle a CPU que se libero (no hay restriccion para liberar)
+                uint32_t okFree = 1;
+                send(socketCliente, &okFree,sizeof(uint32_t),0);
+
+                free(paqueteFree);//no libero el buffer pq es del otro paquete
+                free(infoMemFree);
+                break;
             //agregar caso que no coincida con nada
             
         }

@@ -54,8 +54,8 @@ extern t_planification_algorithm algoritmo;
 extern int quantum;
 
 //listas de los 7 estados
-extern t_list* new_lista;
-extern pthread_mutex_t new_mutex;
+//extern t_list* new_lista;
+//extern pthread_mutex_t new_mutex;
 extern t_queue* ready_cola;
 extern pthread_mutex_t ready_mutex;
 //extern t_queue** ready_colas_multinivel; implemnetar para el 3er check

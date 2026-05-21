@@ -52,6 +52,12 @@ void solicitar_mem_free(uint32_t segmentoId, int socketConexionScheduler, uint32
     t_buffer *buffer = serializar_mem_free(mem_free_struct);
     t_paquete *paquete = crear_paquete(MEM_FREE, buffer);
     enviar_paquete(socketConexionScheduler, paquete);
+    //agregado por marotti->
+    uint32_t ok;
+    recv(socketConexionScheduler, &ok, sizeof(uint32_t),MSG_WAITALL);
+    if(ok!=1){
+        log_error(loggerCpu, "no se pudo hacer el MEM_FREE");
+    }
     eliminar_paquete(paquete);
     free(mem_free_struct);
 }

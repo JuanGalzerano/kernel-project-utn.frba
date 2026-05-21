@@ -12,8 +12,8 @@
 
 
 //COLAS Y LISTAS DEL MODELO DE 7 ESTADOS
-t_list* new_lista;
-pthread_mutex_t new_mutex;
+//t_list* new_lista;
+//pthread_mutex_t new_mutex;
 t_queue* ready_cola;
 pthread_mutex_t ready_mutex;
 //t_queue** ready_colas_multinivel; implemnetar para el 3er check

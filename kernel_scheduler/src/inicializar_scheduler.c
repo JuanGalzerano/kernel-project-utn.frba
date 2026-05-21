@@ -8,7 +8,7 @@ void inicializar(char* path){
     
     inicializar_semaforos();
 
-    loggerScheduler = log_create("kernel.log", "main.c", true, LOG_LEVEL_INFO); //acordarse de cambiar el 2do parametro si cambi el nombre del archivo//Ver si va LOG_LEVEL_INFO o hay que usar lo de las config
+    loggerScheduler = log_create("kernel.log", "kernel_scheduler", true, log_level_from_string(config_get_string_value(configScheduler, "LOG_LEVEL"))); 
 
     inicializar_listas(); 
 
@@ -48,8 +48,8 @@ void inicializar_semaforos(){
 }
 
 void inicializar_listas(){
-    new_lista    = list_create();
-    pthread_mutex_init(&new_mutex, NULL);
+    //new_lista    = list_create();
+    //pthread_mutex_init(&new_mutex, NULL);
     ready_cola   = queue_create();
     pthread_mutex_init(&ready_mutex, NULL);
     block_lista    = list_create();
