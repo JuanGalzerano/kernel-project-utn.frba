@@ -49,7 +49,7 @@ extern Instruccion instrucciones[];
 void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor);
 void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
 void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
-void ejectar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion);
+void ejecutar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion);
 void escribir_valor_en_registro(Codigo_registros_cpu tipoRegistro, int valor);
 int leer_valor_en_registro(Codigo_registros_cpu tipoRegistro);
 const char* registro_a_string(Codigo_registros_cpu tipoRegistro);

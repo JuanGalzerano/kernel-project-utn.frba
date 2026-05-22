@@ -32,7 +32,7 @@ void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu reg
     uint32_t valorOrigen = leer_valor_en_registro(registroOrigen);
     escribir_valor_en_registro(registroDestino, valorDestino - valorOrigen);
 }
-void ejectar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion) {
+void ejecutar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion) {
     if (leer_valor_en_registro(tipoRegistro) != 0) {
         escribir_valor_en_registro(PC, instruccion);
     }
