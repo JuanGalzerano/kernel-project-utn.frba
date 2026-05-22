@@ -25,6 +25,8 @@ t_pcb* buscar_y_sacar_de_block(uint32_t pid);
 
 void enviar_fin_proceso_memory(uint32_t pid);
 
+void enviar_fin_proceso_a_cpu(uint32_t pid, int socketCPU);
+
 void* hilo_timer_quantum(void* arg);
 
 void iniciar_timer_quantum(t_cpu_exec* cpu);

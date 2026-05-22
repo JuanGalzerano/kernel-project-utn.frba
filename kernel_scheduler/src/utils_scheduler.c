@@ -184,6 +184,18 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
     free(paquete);
 }
 
+void enviar_fin_proceso_a_cpu(uint32_t pid, int socketCPU){ 
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); 
+    //pthread_mutex_lock(&exec_mutex); desp ver si se genera race condition aca
+    enviar_paquete(socketCPU, paquete);
+    //pthread_mutex_unlock(&exec_mutex);
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
+}
+
 void* hilo_timer_quantum(void* arg){
     t_timer_args* argumento = (t_timer_args*) arg;
 

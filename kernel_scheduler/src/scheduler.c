@@ -107,18 +107,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
-
-                //CREO QIUE TENGO QUE HACER EL LOG DE SOLICITO SYSCALL, EL TEMA ES QUE ME FALTA EL PID DE LA CPU QUE LO SOLICITA, ASI QUE VOY A TENER QUE HACER ALGO
-
                 uint32_t nuevoPid = generar_pid();
-
-                t_pcb* error = crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
-
-                if(error!=NULL){
-                    //confirmale que se creo
-                    uint32_t ok=1;
-                    send(socketCliente, &ok, sizeof(uint32_t),0);
-                }
+                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+                
+                // siempre mandar OK, la CPU no puede quedarse bloqueada
+                //uint32_t okCreacion = 1;
+                //send(socketCliente, &okCreacion, sizeof(uint32_t), 0);
+                
                 free(proc->pathArchivoInstrucciones);
                 free(proc);
                 break;
@@ -139,6 +134,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 // notificar al KM que libere los recursos del proceso
                 enviar_fin_proceso_memory(pid);
+
+                //
+                enviar_fin_proceso_a_cpu(pid, socketCliente);
 
                 // 3. loguear y liberar el PCB
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
@@ -481,8 +479,7 @@ void* planificador(void* arg) {
         //hasta que no tengamos cpu disponible ni proceso, no continuamos
         sem_wait(&sem_hay_proceso_ready); 
         sem_wait(&sem_hay_cpu_libre);     
-
-        //mutex funciona como candado para que solo uno pueda modificar en un cierto momento
+        
         pthread_mutex_lock(&ready_mutex);
         t_pcb* pcb = queue_pop(ready_cola);
         pthread_mutex_unlock(&ready_mutex);
