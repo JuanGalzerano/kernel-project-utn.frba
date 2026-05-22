@@ -113,6 +113,8 @@ typedef enum {
     FINALIZAR_SLEEP = 31,
     FINALIZAR_STDOUT = 32,
     PROCESO_BLOQUEADO = 33,
+    COMPACTACION = 34,
+    DESALOJO = 35
 } op_code;
  
 typedef struct {
