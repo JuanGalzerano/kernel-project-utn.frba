@@ -59,7 +59,8 @@ void buffer_add_string(t_buffer *buffer, uint32_t length, char *string){
 
 char *buffer_read_string(t_buffer *buffer, uint32_t length){
     char *cadena = malloc(length + 1);
-    buffer_read(buffer, cadena, length+1);
+    buffer_read(buffer, cadena, length);
+    cadena[length] = '\0';
     return cadena;
     //hacer el free en donde se usa la func
 }
