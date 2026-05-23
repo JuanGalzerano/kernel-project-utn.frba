@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     log_info(loggerMemoryStick,"Memory stick conectado a Kernel Memory");
     handshake_cliente_id(socketconexionKernelMemory, loggerMemoryStick, MEMORY_STICK);
     
-    //Le envio a la memory el tamaño del stick y a cpu
+    //Le envio a la memory el tamaño del stick
     send(socketconexionKernelMemory,&tamano,sizeof(uint32_t),0);
 
     //hilo para atender escritura y lectura de la memory
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
 
     //aceptar cpus
     while(1){
-        int socketParaCpu = aceptar_cliente(socketEscucha, loggerMemoryStick);
+        int socketParaCpu = aceptar_cliente(socketEscucha, loggerMemoryStick); //MAL creo
         if (socketParaCpu== EXIT_FAILURE)
         {
         log_info(loggerMemoryStick, "Error al aceptar conexion con la cpu");
@@ -143,7 +143,6 @@ void* atender_cliente(void* arg){
         }
         eliminar_paquete(paquete);
     }
-    eliminar_paquete(paquete);
     log_info(loggerMemoryStick, "Cliente desconectado");
     close(fd);
     return NULL;

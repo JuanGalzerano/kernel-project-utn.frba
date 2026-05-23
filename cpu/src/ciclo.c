@@ -93,10 +93,12 @@ int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid) {
     case MOV_IN:
         tipoRegistro = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: MOV_IN - %s", pid, registro_a_string(tipoRegistro));
+        //ejecutar_mov_in(tipoRegistro);
         break;
     case MOV_OUT:
         tipoRegistro = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: MOV_OUT - %s", pid, registro_a_string(tipoRegistro));
+        //ejecutar_mov_out(tipoRegistro);
         break;
     case SUM:  
         registroDestino = interpretar_token(strtok_r(NULL, " ", &cursor));

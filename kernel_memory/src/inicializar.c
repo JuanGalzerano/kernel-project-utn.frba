@@ -78,15 +78,9 @@ void agregar_memory_stick(int socket, uint32_t size) {
 
     pthread_mutex_lock(&memoria_mutex);
 
-    stick->base_fisica = memoria_total_size; // se pega al final del espacio ya existente
+    stick->base_acumulada = memoria_total_size; // se pega al final del espacio ya existente
 
     list_add(lista_memory_sticks, stick);
-
-    // Todo el espacio del nuevo stick es un hueco libre al final
-    t_hueco* nuevo_hueco = malloc(sizeof(t_hueco));
-    nuevo_hueco->base = memoria_total_size;
-    nuevo_hueco->limite  = size;
-    list_add(lista_huecos, nuevo_hueco); // la lista ya está ordenada por base; esto va al final
 
     memoria_total_size += size;
 
@@ -99,7 +93,7 @@ void agregar_memory_stick(int socket, uint32_t size) {
 t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {
     for (int i = 0; i < list_size(lista_memory_sticks); i++) {
         t_memory_stick_info* stick = list_get(lista_memory_sticks, i);
-        if (dir_fisica >= stick->base_fisica && dir_fisica < stick->base_fisica + stick->size)
+        if (dir_fisica >= stick->base_acumulada && dir_fisica < stick->base_acumulada + stick->size)
             return stick;
     }
     return NULL;
@@ -116,7 +110,7 @@ int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out
     }
 
     // La dirección física dentro del stick empieza en 0, así que hay que restarle su base global
-    uint32_t dir_en_stick = dir_fisica - stick->base_fisica;
+    uint32_t dir_en_stick = dir_fisica - stick->base_acumulada;
 
 /*
 
@@ -139,7 +133,7 @@ int escribir_en_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* datos)
         return -1;
     }
 
-    uint32_t dir_en_stick = dir_fisica - stick->base_fisica;
+    uint32_t dir_en_stick = dir_fisica - stick->base_acumulada;
 
 /*
 

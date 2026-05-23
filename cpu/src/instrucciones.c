@@ -22,6 +22,20 @@ Instruccion instrucciones[] = { //EXISTE PARA OBTENER INSTRUCCION A PARTIR DE ST
 void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor) {
     escribir_valor_en_registro(tipoRegistro, valor);
 }
+/*ejecutar_mov_in(tipoRegistro) {
+    uint32_t direccion_logica = leer_valor_en_registro(SI);
+    direccion_fisica = traducir_logica_a_fisica(direccion_logica);
+    if (tipoRegistro > 3) {
+        char* valor = leer_memoria(direccion_fisica, uint32_t);
+    }
+    else {
+        char* valor = leer_memoria(direccion_fisica, uint8_t);
+    }
+    escribir_valor_en_registro(tipoRegistro, valor);
+}*/
+/*ejecutar_mov_out(tipoRegistro) {
+
+}*/
 void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen) {
     uint32_t valorDestino = leer_valor_en_registro(registroDestino);
     uint32_t valorOrigen = leer_valor_en_registro(registroOrigen);

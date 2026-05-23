@@ -3,11 +3,11 @@
 
 #include <utils/serializacion.h>  
 typedef struct {
-    uint32_t pc;
     uint8_t ax;
     uint8_t bx;
     uint8_t cx;
     uint8_t dx;
+    uint32_t pc;
     uint32_t eax;
     uint32_t ebx;
     uint32_t ecx;
