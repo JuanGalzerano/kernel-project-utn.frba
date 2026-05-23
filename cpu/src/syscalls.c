@@ -4,7 +4,7 @@
 void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint32_t pid) {
     t_mutex_syscall *mutex_struct = malloc(sizeof(t_mutex_syscall));
     mutex_struct->pid = pid;
-    mutex_struct->colaEspera=NULL;
+//    mutex_struct->colaEspera=queue_create();
     mutex_struct->nombreMutex = nombreMutex;
     t_buffer *buffer = serializar_mutex(mutex_struct);
     t_paquete *paquete = crear_paquete(MUTEX_CREATE, buffer);
@@ -15,7 +15,6 @@ void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint
 void solicitar_mutex_lock(char *nombreMutex, int socketConexionScheduler, uint32_t pid) {
     t_mutex_syscall *mutex_struct = malloc(sizeof(t_mutex_syscall));
     mutex_struct->pid = pid;
-    mutex_struct->colaEspera=NULL;
     mutex_struct->nombreMutex = nombreMutex;
     t_buffer *buffer = serializar_mutex(mutex_struct);
     t_paquete *paquete = crear_paquete(MUTEX_LOCK, buffer);
@@ -26,7 +25,6 @@ void solicitar_mutex_lock(char *nombreMutex, int socketConexionScheduler, uint32
 void solicitar_mutex_unlock(char *nombreMutex, int socketConexionScheduler, uint32_t pid) {
     t_mutex_syscall *mutex_struct = malloc(sizeof(t_mutex_syscall));
     mutex_struct->pid = pid;
-    mutex_struct->colaEspera=NULL;
     mutex_struct->nombreMutex = nombreMutex;
     t_buffer *buffer = serializar_mutex(mutex_struct);
     t_paquete *paquete = crear_paquete(MUTEX_UNLOCK, buffer);

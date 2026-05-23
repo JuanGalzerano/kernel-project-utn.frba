@@ -1,3 +1,2 @@
-NOOP
-INIT_PROC hola.txt 0
+SLEEP 7500
 EXIT

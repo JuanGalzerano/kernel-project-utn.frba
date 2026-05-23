@@ -54,7 +54,7 @@ uint8_t buffer_read_uint8(t_buffer *buffer){
 }
 
 void buffer_add_string(t_buffer *buffer, uint32_t length, char *string){
-    buffer_add(buffer, string, length +1);
+    buffer_add(buffer, string, length);
 }
 
 char *buffer_read_string(t_buffer *buffer, uint32_t length){
@@ -201,7 +201,7 @@ t_buffer* serializar_stdin(t_stdin_stdout* ProcesoStdin){
     buffer_add_uint32(buf, ProcesoStdin->pid);
     buffer_add_uint32(buf, ProcesoStdin->bytesALeer);
     buffer_add_uint32(buf, ProcesoStdin->direccionLogica);
-    uint32_t tamanioActualCadena = sizeof(ProcesoStdin->cadenaLeida)+1; // lo hacemos asi xq no sabemos si es el momento en que la cadena ya fue "rellenada" o es cuando se la estamos pasando a IO para que la llene
+    uint32_t tamanioActualCadena = strlen(ProcesoStdin->cadenaLeida)+1; // lo hacemos asi xq no sabemos si es el momento en que la cadena ya fue "rellenada" o es cuando se la estamos pasando a IO para que la llene
     buffer_add_uint32(buf, tamanioActualCadena);
     buffer_add_string(buf, tamanioActualCadena, ProcesoStdin->cadenaLeida);
 
@@ -222,23 +222,24 @@ t_stdin_stdout* deserializar_stdin(t_buffer* buf){
 //Esto esta medio jugado, pq la variable queda libre. Supuestamente como al toque q queda libre se reserva aca no pasa nada
 t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct){
     t_buffer* buf = buffer_create(0);
-    uint32_t tamanioChar = strlen(mutex_struct->nombreMutex);
+    uint32_t tamanioChar = strlen(mutex_struct->nombreMutex)+1;
     buffer_add_uint32(buf, mutex_struct->pid);
-    buffer_add_string(buf,tamanioChar, mutex_struct->nombreMutex);
     buffer_add_uint32(buf, tamanioChar);
-    uint32_t tamanioCola = queue_size(mutex_struct->colaEspera);
-    buffer_add_uint32(buf, tamanioCola);
-    buffer_add(buf, mutex_struct->colaEspera, tamanioCola);
+    buffer_add_string(buf,tamanioChar, mutex_struct->nombreMutex);
+    
+    //uint32_t tamanioCola = queue_size(mutex_struct->colaEspera);
+    //buffer_add_uint32(buf, tamanioCola);
+    //buffer_add(buf, mutex_struct->colaEspera, tamanioCola);
     return buf;
 }
 t_mutex_syscall* deserializar_mutex(t_buffer* buf){
-    t_mutex_syscall* mutex_struct;
-    uint32_t tamanioChar = buffer_read_uint32(buf);
-    mutex_struct->nombreMutex = malloc(sizeof(tamanioChar));
-    mutex_struct->nombreMutex = buffer_read_string(buf, tamanioChar);
+    t_mutex_syscall* mutex_struct = malloc(sizeof(t_mutex_syscall));
     mutex_struct->pid = buffer_read_uint32(buf);
-    uint32_t tamanioCola = buffer_read_uint32(buf);
-    buffer_read(buf, mutex_struct->colaEspera, tamanioCola); //desp ver si funca esto
+    uint32_t tamanioChar = buffer_read_uint32(buf);
+    mutex_struct->nombreMutex = buffer_read_string(buf, tamanioChar);
+    
+    //uint32_t tamanioCola = buffer_read_uint32(buf);
+    //buffer_read(buf, mutex_struct->colaEspera, tamanioCola); //desp ver si funca esto
     return mutex_struct;
 }
 
@@ -252,9 +253,9 @@ t_buffer* serializar_mem_alloc(t_mem_alloc* mem_alloc_struct){
 }
 t_mem_alloc* deserializar_mem_alloc(t_buffer* buf){
     t_mem_alloc* mem_alloc_struct = malloc(sizeof(t_mem_alloc));
-    mem_alloc_struct->tamanio = buffer_read_uint32(buf);
-    mem_alloc_struct->segmentoId = buffer_read_uint32(buf);
     mem_alloc_struct->pid = buffer_read_uint32(buf);
+    mem_alloc_struct->segmentoId = buffer_read_uint32(buf);
+    mem_alloc_struct->tamanio = buffer_read_uint32(buf);
     return mem_alloc_struct;
 }
 
@@ -267,7 +268,7 @@ t_buffer* serializar_mem_free(t_mem_free* mem_free_struct){
 }
 t_mem_free* deserializar_mem_free(t_buffer* buf){
     t_mem_free* mem_free_struct = malloc(sizeof(t_mem_free));
-    mem_free_struct->segmentoId = buffer_read_uint32(buf);
     mem_free_struct->pid = buffer_read_uint32(buf);
+    mem_free_struct->segmentoId = buffer_read_uint32(buf);
     return mem_free_struct;
 }
