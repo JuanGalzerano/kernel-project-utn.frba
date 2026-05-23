@@ -40,7 +40,10 @@ void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory, ui
     buffer_destroy(ctx_buf);
     t_paquete* paquete_con_contexto = crear_paquete(ACTUALIZAR_CONTEXTO, buf);
     enviar_paquete(socketConexionMemory, paquete_con_contexto);
-    eliminar_paquete(paquete_con_contexto);  
+    eliminar_paquete(paquete_con_contexto);
+    if (ctx->tabla_segmentos != NULL) {
+        list_destroy_and_destroy_elements(ctx->tabla_segmentos, free);
+    }
     free(ctx);
 }
 

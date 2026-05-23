@@ -27,6 +27,8 @@ void recibir_contexto_cpu(uint32_t pid, t_buffer* buffer) {
     t_contexto_ejecucion* ctx_nuevo = deserializar_contexto_ctx(buffer);
 
     pthread_mutex_lock(&procesos_mutex);
+    list_destroy_and_destroy_elements(ctx_nuevo->tabla_segmentos, free);
+    ctx_nuevo->tabla_segmentos = proceso->contexto->tabla_segmentos;
     free(proceso->contexto);
     proceso->contexto = ctx_nuevo;
     pthread_mutex_unlock(&procesos_mutex);

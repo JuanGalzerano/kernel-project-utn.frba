@@ -22,7 +22,7 @@ int inicializar_proceso(uint32_t pid, char* path) {
     proceso->path_pseudocodigo = full_path;
     proceso->contexto = malloc(sizeof(t_contexto_ejecucion));
     memset(proceso->contexto, 0, sizeof(t_contexto_ejecucion));
-    proceso->tabla_segmentos = list_create();
+    proceso->contexto->tabla_segmentos = list_create();
 
     pthread_mutex_lock(&procesos_mutex);
     list_add(lista_procesos, proceso);
@@ -229,8 +229,8 @@ void finalizar_proceso(uint32_t pid) {
 
     // Devolver todos los segmentos como huecos libres
     pthread_mutex_lock(&memoria_mutex);
-    while (list_size(proceso->tabla_segmentos) > 0) {
-        t_segmento* seg = list_remove(proceso->tabla_segmentos, 0);
+    while (list_size(proceso->contexto->tabla_segmentos) > 0) {
+        t_segmento* seg = list_remove(proceso->contexto->tabla_segmentos, 0);
         t_hueco*    hueco = malloc(sizeof(t_hueco));
         hueco->base = seg->base;
         hueco->limite = seg->limite;
@@ -239,7 +239,7 @@ void finalizar_proceso(uint32_t pid) {
     }
     pthread_mutex_unlock(&memoria_mutex);
 
-    list_destroy(proceso->tabla_segmentos);
+    list_destroy(proceso->contexto->tabla_segmentos);
     free(proceso->contexto);
     free(proceso->path_pseudocodigo);
     free(proceso);
@@ -250,8 +250,8 @@ void finalizar_proceso(uint32_t pid) {
 //Gestión de segmentos
 
 t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento) {
-    for (int i = 0; i < list_size(proceso->tabla_segmentos); i++) {
-        t_segmento* seg = list_get(proceso->tabla_segmentos, i);
+    for (int i = 0; i < list_size(proceso->contexto->tabla_segmentos); i++) {
+        t_segmento* seg = list_get(proceso->contexto->tabla_segmentos, i);
         if (seg->id_segmento == id_segmento) return seg;
     }
     return NULL;
@@ -264,7 +264,6 @@ int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
         log_error(loggerMemory, "PID %d no encontrado al crear segmento %d", pid, id_segmento);
         return -1;
     }
-
     if (tamaño > segment_max_size) {
         log_error(loggerMemory, "PID %d: segmento %d excede tamaño máximo (%d > %d)", pid, id_segmento, tamaño, segment_max_size);
         return -1;
@@ -282,7 +281,7 @@ int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
     seg->id_segmento = id_segmento;
     seg->base  = hueco->base;
     seg->limite = tamaño;
-    list_add(proceso->tabla_segmentos, seg);
+    list_add(proceso->contexto->tabla_segmentos, seg);
 
     // Recortar el hueco desde el principio
     hueco->base   += tamaño;
@@ -315,7 +314,7 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
     hueco_liberado->base  = seg->base;
     hueco_liberado->limite = seg->limite;
 
-    list_remove_element(proceso->tabla_segmentos, seg);
+    list_remove_element(proceso->contexto->tabla_segmentos, seg);
     free(seg);
 
     // Reintegrar el espacio al mapa de huecos (con fusión de adyacentes)

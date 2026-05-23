@@ -129,6 +129,20 @@ t_buffer* serializar_contexto_ctx(t_contexto_ejecucion* ctx){
     buffer_add_uint32(buf, ctx->edx);
     buffer_add_uint32(buf, ctx->si);
     buffer_add_uint32(buf, ctx->di);
+
+    uint32_t n = 0;
+    if (ctx->tabla_segmentos != NULL) {
+        n = list_size(ctx->tabla_segmentos);
+    }
+
+    buffer_add_uint32(buf, n);
+    for (uint32_t i = 0; i < n; i++) {
+        t_segmento* seg = list_get(ctx->tabla_segmentos, i);
+        buffer_add_uint32(buf, seg->id_segmento);
+        buffer_add_uint32(buf, seg->base);
+        buffer_add_uint32(buf, seg->limite);
+    }
+    
     return buf;
 }
 
@@ -145,6 +159,16 @@ t_contexto_ejecucion* deserializar_contexto_ctx(t_buffer* buf) {
     ctx->edx = buffer_read_uint32(buf);
     ctx->si  = buffer_read_uint32(buf);
     ctx->di  = buffer_read_uint32(buf);
+
+    uint32_t n = buffer_read_uint32(buf);
+    ctx->tabla_segmentos = list_create(); 
+    for (uint32_t i = 0; i < n; i++) {
+        t_segmento* seg = malloc(sizeof(t_segmento));
+        seg->id_segmento = buffer_read_uint32(buf);
+        seg->base        = buffer_read_uint32(buf);
+        seg->limite      = buffer_read_uint32(buf);
+        list_add(ctx->tabla_segmentos, seg);
+    }
     return ctx;
 }
 

@@ -4,18 +4,11 @@
 #include <utils/utils.h>
 #include <commons/collections/list.h>
 
-// Entrada en la tabla de segmentos de un proceso (segmentación pura)
-typedef struct {
-    uint32_t id_segmento;
-    uint32_t base;   // dirección física global donde empieza el segmento
-    uint32_t limite; // tamaño en bytes del segmento
-} t_segmento;
-
 // Información de un Memory Stick conectado
 typedef struct {
     int      socket;
     uint32_t size;
-    uint32_t base_fisica; // primera dirección física global de este stick
+    uint32_t base_acumulada;
 } t_memory_stick_info;
 
 // Hueco libre contiguo en el espacio de memoria física global
@@ -28,8 +21,7 @@ typedef struct {
 typedef struct {
     uint32_t              pid;
     char*                 path_pseudocodigo;
-    t_contexto_ejecucion* contexto;
-    t_list*               tabla_segmentos; // lista de t_segmento*
+    t_contexto_ejecucion* contexto; // contexto->tabla_segmentos es la tabla de segmentos del proceso
 } t_proceso_memory;
 
 // VARIABLES GLOBALES

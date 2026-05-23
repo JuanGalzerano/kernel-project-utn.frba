@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <commons/collections/queue.h>
+#include <commons/collections/list.h>
 
 typedef struct {
     uint32_t pc;
@@ -17,8 +18,9 @@ typedef struct {
     uint32_t ebx;
     uint32_t ecx;
     uint32_t edx;
-    uint32_t si;   // dirección lógica de origen
-    uint32_t di;   // dirección lógica de destino
+    uint32_t si;              // dirección lógica de origen
+    uint32_t di;              // dirección lógica de destino
+    t_list*  tabla_segmentos; // lista de t_segmento*, NULL cuando no aplica
 } t_contexto_ejecucion;
 
 
@@ -71,6 +73,13 @@ typedef struct{
     uint32_t segmentoId;
 }t_mem_free;
 
+
+// Segmento de la tabla de segmentos de un proceso (compartido entre scheduler y CPU)
+typedef struct {
+    uint32_t id_segmento;
+    uint32_t base;
+    uint32_t limite;
+} t_segmento;
 
 typedef struct {
     uint32_t size;
