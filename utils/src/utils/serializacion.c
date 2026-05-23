@@ -187,6 +187,7 @@ enviar_paquete(socketCpu, paquete_contexto);
 
 t_buffer* serializar_init_proc(t_init_proc* proc){
     t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, proc->pid);
     uint32_t tamanioPath = strlen(proc->pathArchivoInstrucciones)+1;
     buffer_add_uint32(buf, tamanioPath);
     buffer_add_string(buf,tamanioPath, proc->pathArchivoInstrucciones);
@@ -196,6 +197,7 @@ t_buffer* serializar_init_proc(t_init_proc* proc){
 
 t_init_proc* deserializar_init_proc(t_buffer* buf){
     t_init_proc* proc = malloc(sizeof(t_init_proc));
+    proc->pid = buffer_read_uint32(buf);
     uint32_t tamanioPath = buffer_read_uint32(buf);
     proc->pathArchivoInstrucciones = buffer_read_string(buf, tamanioPath);
     proc->prioridad = buffer_read_uint32(buf);

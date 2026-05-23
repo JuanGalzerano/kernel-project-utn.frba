@@ -13,6 +13,8 @@ t_cpu_exec* obtener_cpu_libre();
 
 void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb);
 
+void reanudar_proceso_en_cpu(t_cpu_exec* cpu);
+
 uint32_t generar_pid();
 
 t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid);

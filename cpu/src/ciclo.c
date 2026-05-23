@@ -175,7 +175,7 @@ int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid) {
         char *path = strtok_r(NULL, " ", &cursor);
         int prioridad = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: INIT_PROC - %s %d", pid, path, prioridad);
-        solicitar_init_proc(path, prioridad, socketConexionScheduler);
+        solicitar_init_proc(path, prioridad, socketConexionScheduler, pid);
         return 1;
     }
     case EXIT:

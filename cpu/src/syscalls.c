@@ -93,8 +93,9 @@ void solicitar_stdin(Codigo_registros_cpu registroDirLogica, Codigo_registros_cp
     eliminar_paquete(paquete);
     free(stdin_struct);
 }
-void solicitar_init_proc(char *pathArchivoInstrucciones, uint32_t prioridad, int socketConexionScheduler) {
+void solicitar_init_proc(char *pathArchivoInstrucciones, uint32_t prioridad, int socketConexionScheduler, uint32_t pid) {
     t_init_proc *init_proc_struct = malloc(sizeof(t_init_proc));
+    init_proc_struct->pid = pid;
     init_proc_struct->prioridad = prioridad;
     init_proc_struct->pathArchivoInstrucciones = pathArchivoInstrucciones;
     t_buffer *buffer = serializar_init_proc(init_proc_struct);

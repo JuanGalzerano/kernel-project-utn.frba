@@ -26,6 +26,7 @@ typedef struct {
 
 //para la syscall INIT_PROC
 typedef struct{
+    uint32_t pid;
     char* pathArchivoInstrucciones;
     uint32_t prioridad;
 } t_init_proc;

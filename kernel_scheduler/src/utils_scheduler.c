@@ -87,6 +87,20 @@ void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
     free(paquete);
 }
 
+// Re-despacha al mismo CPU el PID que ya tiene asignado, sin cambiar su estado.
+// Se usa para syscalls no bloqueantes (ej. INIT_PROC) donde el proceso padre
+// debe seguir ejecutando inmediatamente.
+void reanudar_proceso_en_cpu(t_cpu_exec* cpu) {
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, cpu->pcb->pid);
+    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
+    enviar_paquete(cpu->socketConexion, paquete);
+
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
+}
+
 uint32_t generar_pid() {
     pthread_mutex_lock(&mutex_pid);
     uint32_t pid = proximo_pid++;

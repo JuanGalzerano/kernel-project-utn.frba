@@ -109,11 +109,16 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
                 uint32_t nuevoPid = generar_pid();
                 crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
-                
-                // siempre mandar OK, la CPU no puede quedarse bloqueada
-                //uint32_t okCreacion = 1;
-                //send(socketCliente, &okCreacion, sizeof(uint32_t), 0);
-                
+
+                // INIT_PROC no bloquea al proceso padre: lo devolvemos a ejecutar
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpuPadre = encontrar_cpu_con_pid(proc->pid);
+                pthread_mutex_unlock(&exec_mutex);
+
+                if (cpuPadre != NULL) {
+                    reanudar_proceso_en_cpu(cpuPadre);
+                }
+
                 free(proc->pathArchivoInstrucciones);
                 free(proc);
                 break;
@@ -136,7 +141,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 enviar_fin_proceso_memory(pid);
 
                 //
-                enviar_fin_proceso_a_cpu(pid, socketCliente);
+                //enviar_fin_proceso_a_cpu(pid, socketCliente);
 
                 // 3. loguear y liberar el PCB
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
