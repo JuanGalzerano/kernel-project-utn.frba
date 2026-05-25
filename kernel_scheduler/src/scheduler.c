@@ -199,6 +199,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
 
+                //ACA TENGO QUE DIFERENCIAR SI HAY IO DISPONIBLE O NO PARA VER SI BLOQUEEO O NO
+
                 pthread_mutex_unlock(&exec_mutex); 
 
                 bloquear_proceso(cpuUsadaStdout->pcb);
@@ -311,6 +313,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     //ya esxiste =>
                     pthread_mutex_unlock(&mutex_lista_mutex);
                 }
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* unaCpuPadre = encontrar_cpu_con_pid(mutexNuevo->pid);
+                pthread_mutex_unlock(&exec_mutex);
+
+                if (unaCpuPadre != NULL) {
+                    reanudar_proceso_en_cpu(unaCpuPadre);
+                }
                 
                 //uint32_t existe=1;
                 //send(socketCliente, &existe, sizeof(uint32_t), 0);decidimos que no es necesario avisarle, ya que si ya esta creado, no realizamos nada y listo
@@ -326,10 +336,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_lock(&mutex_lista_mutex);
                 t_mutex_syscall* mutexABloquearEnLista = buscar_mutex(mutexABloquear->nombreMutex);
 
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
+                pthread_mutex_unlock(&exec_mutex);
+
                 if(mutexABloquearEnLista->pid != UINT32_MAX){
                     //esta tomado
-                    t_cpu_exec* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
-
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
                     bloquear_proceso(cpuALiberar->pcb);
@@ -343,7 +355,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->pid = mutexABloquear->pid;
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", mutexABloquear->pid, mutexABloquear->nombreMutex);
-
+                    if(cpuALiberar!=NULL){
+                        reanudar_proceso_en_cpu(cpuALiberar);}
                 }
 
                 free(mutexABloquear->nombreMutex);
@@ -381,6 +394,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     sem_post(&sem_hay_proceso_ready);
                 }
 
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* otraCpuPadre = encontrar_cpu_con_pid(proc->pid);
+                pthread_mutex_unlock(&exec_mutex);
+
+                if (otraCpuPadre != NULL) {
+                    reanudar_proceso_en_cpu(otraCpuPadre);
+                }
+
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
                 break;
@@ -390,7 +411,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: MEM_ALLOC", infoMemAlloc->pid);
 
 
-                //sollicitar segmento a KM
+                //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
 
                     //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU
 
@@ -413,6 +434,15 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //confirmarle a CPU que se libero (no hay restriccion para liberar)
                 uint32_t okFree = 1;
                 send(socketCliente, &okFree,sizeof(uint32_t),0);
+
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* CpuFree = encontrar_cpu_con_pid(infoMemFree->pid);
+                pthread_mutex_unlock(&exec_mutex);
+
+                if (CpuFree != NULL) {
+                    reanudar_proceso_en_cpu(CpuFree);
+                }
 
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);
