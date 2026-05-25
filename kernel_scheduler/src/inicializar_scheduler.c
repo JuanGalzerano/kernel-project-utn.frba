@@ -45,6 +45,8 @@ void inicializar_semaforos(){
     sem_init(&sem_hay_proc_esperando_sleep,  0, 0);
     sem_init(&sem_hay_proc_esperando_stdin,  0, 0);
     sem_init(&sem_hay_proc_esperando_stdout, 0, 0);
+
+    pthread_mutex_init(&mutex_stdout_ocupado, NULL);
 }
 
 void inicializar_listas(){

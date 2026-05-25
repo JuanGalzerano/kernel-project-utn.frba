@@ -59,6 +59,7 @@ typedef struct{
     uint32_t pid;
     char* nombreMutex;
     t_queue* colaEspera;//esta cola es de PCBs en el scheduler, en la CPU, siempre NULL
+    int contador;
 }t_mutex_syscall;
 
 //para la syscall MEM_ALLOC
@@ -146,6 +147,9 @@ uint32_t  buffer_read_uint32(t_buffer *buffer);
 
 void      buffer_add_uint8(t_buffer *buffer, uint8_t data);
 uint8_t   buffer_read_uint8(t_buffer *buffer);
+
+void buffer_add_int(t_buffer *buffer, int data);
+int buffer_read_int(t_buffer *buffer);
 
 // El caller es responsable de liberar el string devuelto por buffer_read_string
 void      buffer_add_string(t_buffer *buffer, uint32_t length, char *string);

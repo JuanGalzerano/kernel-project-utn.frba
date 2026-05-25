@@ -56,6 +56,9 @@ int socketSleep;
 int socketStdin;
 int socketStdout;
 
+bool stdout_ocupado = false;
+pthread_mutex_t mutex_stdout_ocupado;
+
 // colas de gestion de IOs
 t_queue* cola_sleep;
 t_queue* cola_stdin;

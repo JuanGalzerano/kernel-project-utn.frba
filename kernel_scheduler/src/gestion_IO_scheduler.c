@@ -47,6 +47,11 @@ void* hilo_io_stdout(void* arg){
 
         t_paquete* paqueteStdout = crear_paquete(STDOUT, unBuffer);
         enviar_paquete(socketStdout, paqueteStdout);
+
+        pthread_mutex_lock(&mutex_stdout_ocupado);
+        stdout_ocupado=true;
+        pthread_mutex_unlock(&mutex_stdout_ocupado);
+
         free(unBuffer->stream);
         free(unBuffer);
         free(paqueteStdout);

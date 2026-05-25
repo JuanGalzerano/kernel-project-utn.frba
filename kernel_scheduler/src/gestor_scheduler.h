@@ -100,6 +100,9 @@ extern sem_t sem_hay_proc_esperando_sleep;
 extern sem_t sem_hay_proc_esperando_stdin;
 extern sem_t sem_hay_proc_esperando_stdout;
 
+extern bool stdout_ocupado;
+extern pthread_mutex_t mutex_stdout_ocupado;
+
 
 
 

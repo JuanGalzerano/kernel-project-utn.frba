@@ -53,6 +53,16 @@ uint8_t buffer_read_uint8(t_buffer *buffer){
     return numero;
 }
 
+void buffer_add_int(t_buffer *buffer, int data){
+    buffer_add(buffer, &data, sizeof(int));
+}
+
+int buffer_read_int(t_buffer *buffer){
+    int numero;
+    buffer_read(buffer, &numero, sizeof(int));
+    return numero;
+}
+
 void buffer_add_string(t_buffer *buffer, uint32_t length, char *string){
     buffer_add(buffer, string, length);
 }
@@ -250,6 +260,7 @@ t_stdin_stdout* deserializar_stdin(t_buffer* buf){
 t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct){
     t_buffer* buf = buffer_create(0);
     uint32_t tamanioChar = strlen(mutex_struct->nombreMutex)+1;
+    buffer_add_int(buf, mutex_struct->contador);
     buffer_add_uint32(buf, mutex_struct->pid);
     buffer_add_uint32(buf, tamanioChar);
     buffer_add_string(buf,tamanioChar, mutex_struct->nombreMutex);
@@ -261,6 +272,7 @@ t_buffer* serializar_mutex(t_mutex_syscall* mutex_struct){
 }
 t_mutex_syscall* deserializar_mutex(t_buffer* buf){
     t_mutex_syscall* mutex_struct = malloc(sizeof(t_mutex_syscall));
+    mutex_struct->contador = buffer_read_int(buf);
     mutex_struct->pid = buffer_read_uint32(buf);
     uint32_t tamanioChar = buffer_read_uint32(buf);
     mutex_struct->nombreMutex = buffer_read_string(buf, tamanioChar);

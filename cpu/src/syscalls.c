@@ -3,6 +3,7 @@
 //INSTRUCCIONES SYSCALLS
 void solicitar_mutex_create(char *nombreMutex, int socketConexionScheduler, uint32_t pid) {
     t_mutex_syscall *mutex_struct = malloc(sizeof(t_mutex_syscall));
+    mutex_struct->contador = 1;
     mutex_struct->pid = pid;
 //    mutex_struct->colaEspera=queue_create();
     mutex_struct->nombreMutex = nombreMutex;

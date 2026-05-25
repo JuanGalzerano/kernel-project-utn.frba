@@ -4,6 +4,15 @@
 uint32_t obtener_pid(int socketConexionScheduler) {
     t_paquete *paquete = recibir_paquete(socketConexionScheduler);
     uint32_t pid = buffer_read_uint32(paquete->buffer);
+
+    if(paquete->codigo_operacion == EJECUTAR_PROCESO){
+        //SEGUIS NORMAL
+    }
+    if (paquete->codigo_operacion == PROCESO_BLOQUEADO)
+    {
+        //NOSE QUE UTENES QUE HACER CUANDO SE BLOQUEA Y ESO
+    }
+    
     eliminar_paquete(paquete);
     return pid;
 }

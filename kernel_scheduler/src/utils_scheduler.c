@@ -319,13 +319,10 @@ void liberar_mutex_y_semaforos(){
 
 
 t_mutex_syscall* buscar_mutex(char* nombreMutex){
-    t_mutex_syscall* mutex = NULL;
-
-    for(int i = 0; i<list_size(lista_mutex);i++){
-        t_mutex_syscall* otroMutex = list_get(lista_mutex,i);
-        if(strcmp(otroMutex->nombreMutex, nombreMutex)){
-            mutex = otroMutex;
-            return mutex;
+    for(int i = 0; i < list_size(lista_mutex); i++){
+        t_mutex_syscall* otroMutex = list_get(lista_mutex, i);
+        if(strcmp(otroMutex->nombreMutex, nombreMutex) == 0){
+            return otroMutex;
         }
     }
     return NULL;

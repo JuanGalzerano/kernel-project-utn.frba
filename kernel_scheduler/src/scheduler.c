@@ -200,10 +200,16 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
 
                 //ACA TENGO QUE DIFERENCIAR SI HAY IO DISPONIBLE O NO PARA VER SI BLOQUEEO O NO
+                pthread_mutex_lock(&mutex_stdout_ocupado);
+                if(stdout_ocupado){
+                    bloquear_proceso(cpuUsadaStdout->pcb);
+                } else{
+                    reanudar_proceso_en_cpu(cpuUsadaStdout);
+                    sem_post(&sem_hay_cpu_libre);
+                }
+                pthread_mutex_unlock(&mutex_stdout_ocupado);
 
-                pthread_mutex_unlock(&exec_mutex); 
-
-                bloquear_proceso(cpuUsadaStdout->pcb);
+                pthread_mutex_unlock(&exec_mutex);
 
                 procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->pid, procesoStdout->direccionLogica, procesoStdout->bytesALeer);
 
@@ -212,8 +218,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&mutex_cola_stdout);
 
                 sem_post(&sem_hay_proc_esperando_stdout);
-
-                sem_post(&sem_hay_cpu_libre);
                 
                 break;
             case FINALIZAR_SLEEP: 
@@ -242,15 +246,20 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 t_pcb* pcbParaDesbloquear = buscar_y_sacar_de_block(pidFinalizado);
                 
-                pthread_mutex_lock(&ready_mutex);
-                queue_push(ready_cola, pcbParaDesbloquear);
-                pthread_mutex_unlock(&ready_mutex);
+                if(pcbParaDesbloquear!=NULL){
+                    pthread_mutex_lock(&ready_mutex);
+                    queue_push(ready_cola, pcbParaDesbloquear);
+                    pthread_mutex_unlock(&ready_mutex);
+                    sem_post(&sem_hay_proceso_ready);
+                }
+                pthread_mutex_lock(&mutex_stdout_ocupado);
+                stdout_ocupado=false;
+                pthread_mutex_unlock(&mutex_stdout_ocupado);
 
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
                 sem_post(&sem_stdout_disponible);
-                sem_post(&sem_hay_proceso_ready);
-
+                
                 break;
             case FINALIZAR_STDIN:
                 //recibir pid, bytes, cadenaLeida y  del IO
@@ -306,6 +315,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexParaLista->colaEspera=queue_create();
                     mutexParaLista->nombreMutex=strdup(mutexNuevo->nombreMutex);
                     mutexParaLista->pid = UINT32_MAX;//significa LIBRE, xq no podemos usar -1 y tampoco podemos usar NULL. Desp ver si esta bien
+                    mutexParaLista->contador = 1;
                     list_add(lista_mutex, mutexParaLista);
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     
@@ -332,16 +342,19 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_mutex_syscall* mutexABloquear = deserializar_mutex(paquete->buffer);
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: MUTEX_LOCK", mutexABloquear->pid);
-
+                
                 pthread_mutex_lock(&mutex_lista_mutex);
                 t_mutex_syscall* mutexABloquearEnLista = buscar_mutex(mutexABloquear->nombreMutex);
+                
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
                 pthread_mutex_unlock(&exec_mutex);
 
-                if(mutexABloquearEnLista->pid != UINT32_MAX){
+                if(mutexABloquearEnLista->contador < 1){
                     //esta tomado
+
+                    mutexABloquearEnLista->contador--;
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
                     bloquear_proceso(cpuALiberar->pcb);
@@ -352,11 +365,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
                 else{
                     //no esta tomado
+                    mutexABloquearEnLista->contador--;
                     mutexABloquearEnLista->pid = mutexABloquear->pid;
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", mutexABloquear->pid, mutexABloquear->nombreMutex);
                     if(cpuALiberar!=NULL){
-                        reanudar_proceso_en_cpu(cpuALiberar);}
+                        reanudar_proceso_en_cpu(cpuALiberar);
+                    }
                 }
 
                 free(mutexABloquear->nombreMutex);
@@ -370,14 +385,16 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_lock(&mutex_lista_mutex);
                 t_mutex_syscall* mutexALiberarEnLista = buscar_mutex(mutexALiberar->nombreMutex);
 
+                mutexALiberarEnLista->contador++;
+
                 log_info(loggerScheduler, "## (%d) Libera el Mutex %s", mutexALiberar->pid, mutexALiberar->nombreMutex);
 
-                if(queue_is_empty(mutexALiberarEnLista->colaEspera)) {
+                if(mutexALiberarEnLista->contador==1) {
                     // nadie esperando, queda libre
-                    mutexALiberarEnLista->pid = UINT32_MAX;
                     pthread_mutex_unlock(&mutex_lista_mutex);
                 } else {
                     // hay alguien esperando, le damos el mutex
+                    
                     t_pcb* siguiente = queue_pop(mutexALiberarEnLista->colaEspera);
                     mutexALiberarEnLista->pid = siguiente->pid;
                     pthread_mutex_unlock(&mutex_lista_mutex);
@@ -395,7 +412,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
 
                 pthread_mutex_lock(&exec_mutex);
-                t_cpu_exec* otraCpuPadre = encontrar_cpu_con_pid(proc->pid);
+                t_cpu_exec* otraCpuPadre = encontrar_cpu_con_pid(mutexALiberar->pid);
                 pthread_mutex_unlock(&exec_mutex);
 
                 if (otraCpuPadre != NULL) {
@@ -413,9 +430,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
 
-                    //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU
+                    //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
 
-                    //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso) 
+                    //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso)
 
                     //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
 
