@@ -1,4 +1,5 @@
-#include "instrucciones.h"  
+#include "instrucciones.h"
+#include <utils/mmu.h>
 
 Registros_cpu registros_cpu; //LOS REGISTROS DE LA CPU
 
@@ -24,9 +25,17 @@ void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor) {
 }
 /*ejecutar_mov_in(tipoRegistro) {
     uint32_t direccion_logica = leer_valor_en_registro(SI);
-    direccion_fisica = traducir_logica_a_fisica(direccion_logica);
+    t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica, uint32_t segment_max_size, t_list* lista_segmentos, t_list* lista_memory_stick, uint32_t tamanio_dato);
     if (tipoRegistro > 3) {
-        char* valor = leer_memoria(direccion_fisica, uint32_t);
+        array = traducir_logica_a_fisica();
+        for (int i = 0; i <= length(array); i++) {
+            socketMemoryStick = array[i].socketMemoryStick
+            tamanioALeerEnEstaMemoryStick = array[i].tamanioALeerEnEstaMemoryStick
+            dato_leido = leer_memory(socketMemoryStick, direccion, tamanioALeerEnEstaMemoryStick);
+            //juntar bytes
+            //casteo a uint32_t
+            char* valor = leer_memoria(direccion_fisica, uint32_t);
+        }
     }
     else {
         char* valor = leer_memoria(direccion_fisica, uint8_t);
