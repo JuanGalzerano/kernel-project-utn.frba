@@ -1,5 +1,5 @@
-   MUTEX_CREATE "semaforo"
-   INIT_PROC hola.txt 0
-   SLEEP 100
-   INIT_PROC chau.txt 0
-   EXIT
+MUTEX_CREATE "semaforo"
+INIT_PROC hola.txt 0
+SLEEP 100
+INIT_PROC chau.txt 0
+EXIT

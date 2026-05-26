@@ -1,20 +1,25 @@
 #include "contexto.h"
 #include "instrucciones.h"
 
-uint32_t obtener_pid(int socketConexionScheduler) {
-    t_paquete *paquete = recibir_paquete(socketConexionScheduler);
-    uint32_t pid = buffer_read_uint32(paquete->buffer);
+uint32_t obtener_pid(int socketConexionScheduler) {//el cambio que hice es que si scheduler te bloquea (manda pid tmb) no se siga ejecutando el bloqueado, sino que vuelve a pedir hasta que lo manden a ejecutar
+    while(1) {
+        t_paquete *paquete = recibir_paquete(socketConexionScheduler);
+        
+        if(paquete->codigo_operacion == EJECUTAR_PROCESO) {
+            uint32_t pid = buffer_read_uint32(paquete->buffer);
+            eliminar_paquete(paquete);
+            return pid; // solo retorna cuando es un proceso real a ejecutar
+        }
+        
+        if(paquete->codigo_operacion == PROCESO_BLOQUEADO) {
+            // el proceso fue bloqueado, seguimos esperando un nuevo PID
+            eliminar_paquete(paquete);
+            continue; // vuelve al inicio del while a esperar
+        }
 
-    if(paquete->codigo_operacion == EJECUTAR_PROCESO){
-        //SEGUIS NORMAL
+        // cualquier otro caso inesperado
+        eliminar_paquete(paquete);
     }
-    if (paquete->codigo_operacion == PROCESO_BLOQUEADO)
-    {
-        //NOSE QUE UTENES QUE HACER CUANDO SE BLOQUEA Y ESO
-    }
-    
-    eliminar_paquete(paquete);
-    return pid;
 }
 
 t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory) {
