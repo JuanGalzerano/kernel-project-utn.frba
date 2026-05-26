@@ -83,10 +83,11 @@ void agregar_memory_stick(int socket, uint32_t size) {
     list_add(lista_memory_sticks, stick);
 
     memoria_total_size += size;
+    memoria_libre_size += size; // todo el espacio nuevo empieza libre
 
     pthread_mutex_unlock(&memoria_mutex);
 
-    // TODO: notificar al Kernel Scheduler que hay más memoria disponible.
+    // notificar al Kernel Scheduler que hay más memoria disponible.
     // Requiere un nuevo op_code NUEVA_MEMORIA en utils y que socketScheduler esté listo.
 }
 
@@ -99,6 +100,26 @@ t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {
     return NULL;
 }
 
+static void manejar_desconexion_stick(int socket) {
+    log_warning(loggerMemory, "Memory Stick desconectado (FD %d) - memoria corrupta", socket);
+
+    pthread_mutex_lock(&memoria_mutex);
+    for (int i = 0; i < list_size(lista_memory_sticks); i++) {
+        t_memory_stick_info* s = list_get(lista_memory_sticks, i);
+        if (s->socket == socket) {
+            list_remove_and_destroy_element(lista_memory_sticks, i, free);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&memoria_mutex);
+
+    t_paquete* aviso = crear_paquete(MEMORIA_CORRUPTA, NULL);
+    enviar_paquete(socketScheduler, aviso);
+    eliminar_paquete(aviso);
+
+    close(socket);
+}
+
 int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out) {
     pthread_mutex_lock(&memoria_mutex);
     t_memory_stick_info* stick = encontrar_stick_por_dir_fisica(dir_fisica);
@@ -109,17 +130,23 @@ int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out
         return -1;
     }
 
-    // La dirección física dentro del stick empieza en 0, así que hay que restarle su base global
     uint32_t dir_en_stick = dir_fisica - stick->base_acumulada;
 
-/*
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, dir_en_stick);
+    buffer_add_uint32(buf, tamanio);
+    t_paquete* pedido = crear_paquete(LEER_BYTES, buf);
+    enviar_paquete(stick->socket, pedido);
+    eliminar_paquete(pedido);
 
-    Estructura para poderle mandar un mensaje al stick para que lea la memoria, en la direccion fisica que le pasaria
-    Mas que estructura, una funcion y ya ta
+    t_paquete* respuesta = recibir_paquete(stick->socket);
+    if (respuesta == NULL) {
+        manejar_desconexion_stick(stick->socket);
+        return -1;
+    }
+    buffer_read(respuesta->buffer, buffer_out, tamanio);
+    eliminar_paquete(respuesta);
 
-*/
-
-    memset(buffer_out, 0, tamanio);
     return 1;
 }
 
@@ -129,23 +156,30 @@ int escribir_en_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* datos)
     pthread_mutex_unlock(&memoria_mutex);
 
     if (!stick) {
-        log_error(loggerMemory, "No se encontró Memory Stick para dir_fisica %d", dir_fisica);
+        log_error(loggerMemory, "No se encontro Memory Stick para dir_fisica %d", dir_fisica);
         return -1;
     }
 
     uint32_t dir_en_stick = dir_fisica - stick->base_acumulada;
 
-/*
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, dir_en_stick);
+    buffer_add_uint32(buf, tamanio);
+    buffer_add(buf, datos, tamanio);
+    t_paquete* pedido = crear_paquete(ESCRIBIR_BYTES, buf);
+    enviar_paquete(stick->socket, pedido);
+    eliminar_paquete(pedido);
 
-    Estructura para poderle mandar un mensaje al stick para que escriba la memoria, en la direccion fisica que le pasaria
-    Mas que estructura, una funcion y ya ta
-
-*/
+    t_paquete* respuesta = recibir_paquete(stick->socket);
+    if (respuesta == NULL) {
+        manejar_desconexion_stick(stick->socket);
+        return -1;
+    }
+    eliminar_paquete(respuesta);
 
     return 1;
 }
 
-// Gestión de huecos (lo pongo en static porque solo se usa dentro de este .c) 
 
 static t_hueco* encontrar_hueco_best_fit(uint32_t tamaño) {
     t_hueco* mejor = NULL;
@@ -228,6 +262,7 @@ void finalizar_proceso(uint32_t pid) {
         t_hueco*    hueco = malloc(sizeof(t_hueco));
         hueco->base = seg->base;
         hueco->limite = seg->limite;
+        memoria_libre_size += seg->limite;
         free(seg);
         insertar_hueco_y_fusionar(hueco);
     }
@@ -251,47 +286,55 @@ t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento) {
     return NULL;
 }
 
-// Retorna: 1=ok, 0=no hay hueco contiguo (ncesitaria compactar para buscar de nuevo un hueco), -1=error
-int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
+op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) {
         log_error(loggerMemory, "PID %d no encontrado al crear segmento %d", pid, id_segmento);
-        return -1;
+        return MEMORIA_NO_DISPONIBLE;
     }
     if (tamaño > segment_max_size) {
-        log_error(loggerMemory, "PID %d: segmento %d excede tamaño máximo (%d > %d)", pid, id_segmento, tamaño, segment_max_size);
-        return -1;
+        log_error(loggerMemory, "PID %d: segmento %d excede tamaño maximo (%d > %d)", pid, id_segmento, tamaño, segment_max_size);
+        return MEMORIA_NO_DISPONIBLE;
     }
 
     pthread_mutex_lock(&memoria_mutex);
 
     t_hueco* hueco = encontrar_hueco(tamaño);
-    if (!hueco) {
+
+    //Caso A
+    if (hueco != NULL) {
+        t_segmento* seg  = malloc(sizeof(t_segmento));
+        seg->id_segmento = id_segmento;
+        seg->base  = hueco->base;
+        seg->limite = tamaño;
+        list_add(proceso->contexto->tabla_segmentos, seg);
+
+        hueco->base   += tamaño; //aca rearmo el hueco, ya que ahora se achico o directamente se elimino si justo el hueco tenia el tam del segmetno
+        hueco->limite -= tamaño;
+        if (hueco->limite == 0) {
+            list_remove_element(lista_huecos, hueco);
+            free(hueco);
+        }
+        memoria_libre_size -= tamaño;
+
         pthread_mutex_unlock(&memoria_mutex);
-        return 0; //HAY que compactar supuestamente entonces si tengo que buscar un nuevo hueco post-compactacion
+        log_info(loggerMemory, "PID: %d - Segmento Creado - Id: %d - Base: %d - Tamaño: %d", pid, id_segmento, seg->base, tamaño);
+        return MEMORIA_DISPONIBLE;
     }
 
-    t_segmento* seg  = malloc(sizeof(t_segmento));
-    seg->id_segmento = id_segmento;
-    seg->base  = hueco->base;
-    seg->limite = tamaño;
-    list_add(proceso->contexto->tabla_segmentos, seg);
-
-    // Recortar el hueco desde el principio
-    hueco->base   += tamaño;
-    hueco->limite -= tamaño;
-    if (hueco->limite == 0) {
-        list_remove_element(lista_huecos, hueco);
-        free(hueco);
+    //caso B (tiene que ir si o si antes de mem dispo, porque si fuera primero mandaria a compactar de una)
+    if (memoria_libre_size >= tamaño) {
+        pthread_mutex_unlock(&memoria_mutex);
+        log_info(loggerMemory, "PID: %d - Segmento %d - Memoria suficiente pero no contigua, requiere compactacion", pid, id_segmento);
+        return COMPACTACION;
     }
 
+    //Caso C: no hay memoria suficiente
     pthread_mutex_unlock(&memoria_mutex);
-
-    log_info(loggerMemory, "## PID: %d - Segmento Creado %d - Tamaño: %d", pid, id_segmento, tamaño);
-    return 1;
+    log_info(loggerMemory, "PID: %d - Segmento %d - Memoria insuficiente (libre: %d, pedido: %d)", pid, id_segmento, memoria_libre_size, tamaño);
+    return MEMORIA_NO_DISPONIBLE;
 }
 
-// Retorna: 1=ok, -1=error (proceso o segmento no encontrado)
 int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) return -1;
@@ -308,10 +351,11 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
     hueco_liberado->base  = seg->base;
     hueco_liberado->limite = seg->limite;
 
+    memoria_libre_size += seg->limite;
+
     list_remove_element(proceso->contexto->tabla_segmentos, seg);
     free(seg);
 
-    // Reintegrar el espacio al mapa de huecos (con fusión de adyacentes)
     insertar_hueco_y_fusionar(hueco_liberado);
 
     pthread_mutex_unlock(&memoria_mutex);

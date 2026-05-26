@@ -38,7 +38,8 @@ extern char*     allocation_strategy; //BEST o WORST
 extern t_list*   lista_procesos;       //ista de t_proceso_memory*
 extern t_list*   lista_memory_sticks;  // lista de t_memory_stick_info*
 extern t_list*   lista_huecos;         // lista de t_hueco* ordenada por base física
-extern uint32_t  memoria_total_size;   //suma de tamaños de todos los sticks conectados
+extern uint32_t  memoria_total_size;   // suma de tamaños de todos los sticks conectados
+extern uint32_t  memoria_libre_size;   // suma de bytes libres en todos los huecos (se mantiene actualizada)
 
 extern pthread_mutex_t memoria_mutex;   //protege lista_huecos, lista_memory_sticks y tablas de segmentos
 extern pthread_mutex_t procesos_mutex;  //protege lista_procesos y proceso->contexto

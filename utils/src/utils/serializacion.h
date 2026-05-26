@@ -132,6 +132,8 @@ typedef enum {
     DISPARAR_COMPACTACION = 39,
     SOLICITAR_SEGMENTO = 40,
     PROCESOS_DESALOJADOS = 41,
+    LECTURA_FALLIDA = 42,
+    MEMORIA_CORRUPTA = 43,
 } op_code;
  
 typedef struct {

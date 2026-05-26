@@ -22,8 +22,7 @@ int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out
 int escribir_en_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* datos);
 
 // Gestión de segmentos
-// Retorna: 1=ok, 0=no hay hueco contiguo suficiente (se necesita compactación), -1=error
-int crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño);
+op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño);
 int eliminar_segmento(uint32_t pid, uint32_t id_segmento);
 t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento);
 

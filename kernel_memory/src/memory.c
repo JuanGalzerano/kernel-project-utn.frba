@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
     lista_memory_sticks = list_create();
     lista_huecos = list_create();
     memoria_total_size  = 0;
+    memoria_libre_size  = 0;
     socketScheduler = -1;
     pthread_mutex_init(&memoria_mutex, NULL);
     pthread_mutex_init(&procesos_mutex, NULL);
@@ -35,7 +36,7 @@ int main(int argc, char* argv[]) {
     socketScheduler = aceptar_cliente(socketEscucha, loggerMemory);
     log_info(loggerMemory, "## Kernel Scheduler Conectado - FD del socket: %d", socketScheduler);
     int socketSwap      = aceptar_cliente(socketEscucha, loggerMemory);
-    (void)socketSwap; // TODO: usar cuando se implemente swap
+    (void)socketSwap; //usar cuando se implemente swap
 
     // Thread dedicado al scheduler: recibe nuevos procesos en loop
     int* argSched = malloc(sizeof(int));
@@ -59,11 +60,8 @@ int main(int argc, char* argv[]) {
                 pthread_detach(hilo);
                 break;
             case MEMORY_STICK:
-                // El registro del stick ya se hizo en aceptar_cliente_memory.
-                // Lanzamos un thread que bloquea esperando la desconexión del stick.
-                // Cuando se cae, notifica al Scheduler (memoria corrupta → BSOD).
-                pthread_create(&hilo, NULL, monitorear_memory_stick, arg);
-                pthread_detach(hilo);
+                // La desconexion se detecta en leer/escribir_en_memory_stick cuando recibir_paquete devuelve NULL.
+                free(arg);
                 break;
             default:
                 log_warning(loggerMemory, "Modulo desconocido conectado: %d", quien);
@@ -112,29 +110,9 @@ int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
 }
 
 
-// me falta enviar opcode MEMORIA_CORRUPTA al scheduler (requiere nuevo op_code en utils).
-void* monitorear_memory_stick(void* arg) {
-    int socket = *(int*)arg;
-    free(arg);
 
-    char buf[1];
-    while (recv(socket, buf, 1, MSG_WAITALL) > 0);//esto no es que espera un send de memory stick, sino que si un memory stick muere por protocolo se manda un msj que puedo yo receptar (un 0)
-
-    log_warning(loggerMemory, "Memory Stick desconectado (FD %d) - memoria corrupta", socket);
-
-    pthread_mutex_lock(&memoria_mutex);
-    for (int i = 0; i < list_size(lista_memory_sticks); i++) {
-        t_memory_stick_info* stick = list_get(lista_memory_sticks, i);
-        if (stick->socket == socket) {
-            list_remove_and_destroy_element(lista_memory_sticks, i, free);
-            break;
-        }
-    }
-    pthread_mutex_unlock(&memoria_mutex);
-
-    // TODO: enviar MEMORIA_CORRUPTA al socketScheduler para que haga BSOD.
-    close(socket);
-    return NULL;
+void compactar(void) {
+    //implementar compactacion real
 }
 
 // Loop que atiende al scheduler.
@@ -168,52 +146,65 @@ void* atender_scheduler(void* arg) {
                 t_stdin_stdout* req = deserializar_stdin(paquete->buffer);
                 eliminar_paquete(paquete);
 
-                uint32_t dir_fisica;
+                uint32_t dir_fisica = 0;
                 int ok = traducir_y_verificar(req->pid, req->direccionLogica, req->bytesALeer, &dir_fisica);
                 if (ok > 0) {
                     ok = escribir_en_memory_stick(dir_fisica, req->bytesALeer, req->cadenaLeida);
                 }
 
-                log_info(loggerMemory, "## PID: %d - Escritura - Dir. Física: %d - Tamaño: %d",
-                         req->pid, dir_fisica, req->bytesALeer);
+                log_info(loggerMemory, "PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", req->pid, dir_fisica, req->bytesALeer);
                 free(req->cadenaLeida);
                 free(req);
                 send(socket, &ok, sizeof(int), 0);
                 break;
             }
             case LEER_BYTES: {
-                
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 uint32_t dir_logica = buffer_read_uint32(paquete->buffer);
                 uint32_t bytes = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
 
-                char* respuesta = calloc(bytes + 1, 1);
-                uint32_t dir_fisica;
+                uint32_t dir_fisica = 0;
                 int ok = traducir_y_verificar(pid, dir_logica, bytes, &dir_fisica);
+
                 if (ok > 0) {
-                    leer_de_memory_stick(dir_fisica, bytes, respuesta);
-                    log_info(loggerMemory, "## PID: %d - Lectura - Dir. Física: %d - Tamaño: %d",
-                             pid, dir_fisica, bytes);
+                    char* datos = calloc(bytes, 1);
+                    leer_de_memory_stick(dir_fisica, bytes, datos);
+                    log_info(loggerMemory, "PID: %d - Lectura - Dir. Fisica: %d - Tamanio: %d", pid, dir_fisica, bytes);
+
+                    t_buffer* buf = buffer_create(0);
+                    buffer_add(buf, datos, bytes);
+                    free(datos);
+                    t_paquete* respuesta = crear_paquete(LEER_BYTES, buf);
+                    enviar_paquete(socket, respuesta);
+                    eliminar_paquete(respuesta);
+                } else {
+                    t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
+                    enviar_paquete(socket, respuesta);
+                    eliminar_paquete(respuesta);
                 }
-                send(socket, respuesta, bytes + 1, 0);
-                free(respuesta);
                 break;
             }
-            case MEM_ALLOC: {
+            case SOLICITAR_SEGMENTO: {
                 t_mem_alloc* req = deserializar_mem_alloc(paquete->buffer);
                 eliminar_paquete(paquete);
-                int ok = crear_segmento(req->pid, req->segmentoId, req->tamanio);
+                op_code resultado = crear_segmento(req->pid, req->segmentoId, req->tamanio);
                 free(req);
-                send(socket, &ok, sizeof(int), 0); //es el mock que me piden en el check 2
+                t_paquete* resp = crear_paquete(resultado, NULL);
+                enviar_paquete(socket, resp);
+                eliminar_paquete(resp);
                 break;
             }
             case MEM_FREE: {
-                t_mem_free* req = deserializar_mem_free(paquete->buffer);
+                t_mem_free* infoFree = deserializar_mem_free(paquete->buffer);
                 eliminar_paquete(paquete);
-                int ok = eliminar_segmento(req->pid, req->segmentoId);
-                free(req);
-                send(socket, &ok, sizeof(int), 0); //es el mock que me piden en el check 2
+                eliminar_segmento(infoFree->pid, infoFree->segmentoId);
+                free(infoFree);
+                break;
+            }
+            case PROCESOS_DESALOJADOS: {
+                eliminar_paquete(paquete);
+                compactar();
                 break;
             }
             default:
