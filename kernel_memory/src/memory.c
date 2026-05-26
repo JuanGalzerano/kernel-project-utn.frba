@@ -150,9 +150,8 @@ void* atender_scheduler(void* arg) {
                 int ok = traducir_y_verificar(req->pid, req->direccionLogica, req->bytesALeer, &dir_fisica);
                 if (ok > 0) {
                     ok = escribir_en_memory_stick(dir_fisica, req->bytesALeer, req->cadenaLeida);
+                    log_info(loggerMemory, "PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", req->pid, dir_fisica, req->bytesALeer);
                 }
-
-                log_info(loggerMemory, "PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", req->pid, dir_fisica, req->bytesALeer);
                 free(req->cadenaLeida);
                 free(req);
                 send(socket, &ok, sizeof(int), 0);
