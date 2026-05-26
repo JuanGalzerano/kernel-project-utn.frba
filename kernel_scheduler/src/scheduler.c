@@ -427,14 +427,36 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_mem_alloc* infoMemAlloc = deserializar_mem_alloc(paquete->buffer);
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: MEM_ALLOC", infoMemAlloc->pid);
 
-
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
+                pthread_mutex_unlock(&exec_mutex);
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
+                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc);
 
-                    //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
-
-                    //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso)
-
-                    //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
+                switch (rtaKM)
+                {
+                case MEMORIA_DISPONIBLE:
+                //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
+                    if(cpuAlloc!=NULL){
+                        reanudar_proceso_en_cpu(cpuAlloc);
+                    }
+                    break;
+                case MEMORIA_NO_DISPONIBLE:
+                //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
+                    bloquear_proceso(cpuAlloc->pcb);
+                    sem_post(&sem_hay_cpu_libre);
+                    break;
+                case COMPACTACION:
+                //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso)
+                    //compactacion();
+                    t_paquete* pacProcsDesalojados = crear_paquete(PROCESOS_DESALOJADOS, NULL);
+                    enviar_paquete(socketConexionMemory,pacProcsDesalojados);
+                    free(pacProcsDesalojados);
+                    break;
+                
+                
+                }
+                free(infoMemAlloc);
 
                 break;
             case MEM_FREE:

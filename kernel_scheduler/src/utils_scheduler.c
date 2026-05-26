@@ -327,3 +327,26 @@ t_mutex_syscall* buscar_mutex(char* nombreMutex){
     }
     return NULL;
 }
+
+
+op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
+    t_buffer* buffer = serializar_mem_alloc(infoMemAlloc);
+    t_paquete* paquete = crear_paquete(SOLICITAR_SEGMENTO, buffer);
+    pthread_mutex_lock(&mutex_socket_memory);
+    enviar_paquete(socketConexionMemory, paquete);
+
+    t_paquete* otroPaquete = recibir_paquete(socketConexionMemory);
+
+    op_code codigo = otroPaquete->codigo_operacion;
+
+    pthread_mutex_unlock(&mutex_socket_memory);
+
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
+    //free(otroPaquete->buffer->stream); nose si van estos dos
+    //free(otroPaquete->buffer);
+    free(otroPaquete);
+
+    return codigo;
+}
