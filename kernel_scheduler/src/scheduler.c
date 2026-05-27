@@ -146,8 +146,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 // notificar al KM que libere los recursos del proceso
                 enviar_fin_proceso_memory(pid);
 
-                //
-                //enviar_fin_proceso_a_cpu(pid, socketCliente);
+                //revisar si va esta de aca abajo
+                enviar_fin_proceso_a_cpu(pid, socketCliente);
 
                 // 3. loguear y liberar el PCB
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
