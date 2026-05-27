@@ -16,18 +16,13 @@ char* leer_instruccion(t_proceso_memory* proceso, uint32_t pc);
 void agregar_memory_stick(int socket, uint32_t size);
 t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica);
 
-// I/O con Memory Sticks (la comunicación real va por socket; estas funciones encapsulan eso)
-// Retornan 1=ok, -1=error
-int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out);
-int escribir_en_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* datos);
+// I/O con Memory Sticks — iteran la lista de pedazos devuelta por el MMU. Retornan 1=ok, -1=error
+int leer_pedazos(t_list* pedazos, char* buffer_out);
+int escribir_pedazos(t_list* pedazos, char* datos);
 
 // Gestión de segmentos
 op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño);
 int eliminar_segmento(uint32_t pid, uint32_t id_segmento);
-t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento);
-
-// Traducción de dirección lógica a física.
-// Retorna 1=ok (dir_fisica_out cargada), -1=seg_fault.
-int traducir_y_verificar(uint32_t pid, uint32_t dir_logica, uint32_t tamanio, uint32_t* dir_fisica_out);
+t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segmento);
 
 #endif

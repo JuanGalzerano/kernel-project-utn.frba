@@ -113,73 +113,63 @@ static void manejar_desconexion_stick(int socket) {
     }
     pthread_mutex_unlock(&memoria_mutex);
 
-    t_paquete* aviso = crear_paquete(MEMORIA_CORRUPTA, NULL);
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, (uint32_t)socket);
+    t_paquete* aviso = crear_paquete(MEMORIA_CORRUPTA, buf);
     enviar_paquete(socketScheduler, aviso);
     eliminar_paquete(aviso);
 
     close(socket);
 }
 
-int leer_de_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* buffer_out) {
-    pthread_mutex_lock(&memoria_mutex);
-    t_memory_stick_info* stick = encontrar_stick_por_dir_fisica(dir_fisica);
-    pthread_mutex_unlock(&memoria_mutex);
 
-    if (!stick) {
-        log_error(loggerMemory, "No se encontró Memory Stick para dir_fisica %d", dir_fisica);
-        return -1;
+int leer_pedazos(t_list* pedazos, char* buffer_out) {
+    uint32_t bytes_ya_procesados = 0;
+    for (int i = 0; i < list_size(pedazos); i++) {
+        struct_control_mmu* pedazo = list_get(pedazos, i);
+
+        t_buffer* buf = buffer_create(0);
+        buffer_add_uint32(buf, pedazo->desde_donde_leer);
+        buffer_add_uint32(buf, pedazo->tamanio_a_leer_en_esta_memory_stick);
+        t_paquete* pedido = crear_paquete(LEER_BYTES, buf);
+        enviar_paquete(pedazo->socketMemoryStick, pedido);
+        eliminar_paquete(pedido);
+
+        t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
+        if (respuesta == NULL) {
+            manejar_desconexion_stick(pedazo->socketMemoryStick);
+            return -1;
+        }
+        buffer_read(respuesta->buffer, buffer_out + bytes_ya_procesados, pedazo->tamanio_a_leer_en_esta_memory_stick);
+        eliminar_paquete(respuesta);
+        bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
     }
-
-    uint32_t dir_en_stick = dir_fisica - stick->base_acumulada;
-
-    t_buffer* buf = buffer_create(0);
-    buffer_add_uint32(buf, dir_en_stick);
-    buffer_add_uint32(buf, tamanio);
-    t_paquete* pedido = crear_paquete(LEER_BYTES, buf);
-    enviar_paquete(stick->socket, pedido);
-    eliminar_paquete(pedido);
-
-    t_paquete* respuesta = recibir_paquete(stick->socket);
-    if (respuesta == NULL) {
-        manejar_desconexion_stick(stick->socket);
-        return -1;
-    }
-    buffer_read(respuesta->buffer, buffer_out, tamanio);
-    eliminar_paquete(respuesta);
-
     return 1;
 }
 
-int escribir_en_memory_stick(uint32_t dir_fisica, uint32_t tamanio, void* datos) {
-    pthread_mutex_lock(&memoria_mutex);
-    t_memory_stick_info* stick = encontrar_stick_por_dir_fisica(dir_fisica);
-    pthread_mutex_unlock(&memoria_mutex);
+int escribir_pedazos(t_list* pedazos, char* datos) {
+    uint32_t bytes_ya_procesados = 0;
+    for (int i = 0; i < list_size(pedazos); i++) {
+        struct_control_mmu* pedazo = list_get(pedazos, i);
 
-    if (!stick) {
-        log_error(loggerMemory, "No se encontro Memory Stick para dir_fisica %d", dir_fisica);
-        return -1;
+        t_buffer* buf = buffer_create(0);
+        buffer_add_uint32(buf, pedazo->desde_donde_leer);
+        buffer_add_uint32(buf, pedazo->tamanio_a_leer_en_esta_memory_stick);
+        buffer_add(buf, datos + bytes_ya_procesados, pedazo->tamanio_a_leer_en_esta_memory_stick);
+        t_paquete* pedido = crear_paquete(ESCRIBIR_BYTES, buf);
+        enviar_paquete(pedazo->socketMemoryStick, pedido);
+        eliminar_paquete(pedido);
+
+        t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
+        if (respuesta == NULL) {
+            manejar_desconexion_stick(pedazo->socketMemoryStick);
+            return -1;
+        }
+        eliminar_paquete(respuesta);
+        bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
     }
-
-    uint32_t dir_en_stick = dir_fisica - stick->base_acumulada;
-
-    t_buffer* buf = buffer_create(0);
-    buffer_add_uint32(buf, dir_en_stick);
-    buffer_add_uint32(buf, tamanio);
-    buffer_add(buf, datos, tamanio);
-    t_paquete* pedido = crear_paquete(ESCRIBIR_BYTES, buf);
-    enviar_paquete(stick->socket, pedido);
-    eliminar_paquete(pedido);
-
-    t_paquete* respuesta = recibir_paquete(stick->socket);
-    if (respuesta == NULL) {
-        manejar_desconexion_stick(stick->socket);
-        return -1;
-    }
-    eliminar_paquete(respuesta);
-
     return 1;
 }
-
 
 static t_hueco* encontrar_hueco_best_fit(uint32_t tamaño) {
     t_hueco* mejor = NULL;
@@ -278,7 +268,7 @@ void finalizar_proceso(uint32_t pid) {
 
 //Gestión de segmentos
 
-t_segmento* buscar_segmento(t_proceso_memory* proceso, uint32_t id_segmento) {
+t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segmento) {
     for (int i = 0; i < list_size(proceso->contexto->tabla_segmentos); i++) {
         t_segmento* seg = list_get(proceso->contexto->tabla_segmentos, i);
         if (seg->id_segmento == id_segmento) return seg;
@@ -341,7 +331,7 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
 
     pthread_mutex_lock(&memoria_mutex);
 
-    t_segmento* seg = buscar_segmento(proceso, id_segmento);
+    t_segmento* seg = buscar_segmento_proceso(proceso, id_segmento);
     if (!seg) {
         pthread_mutex_unlock(&memoria_mutex);
         return -1;
@@ -360,21 +350,4 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
 
     pthread_mutex_unlock(&memoria_mutex);
     return 1;
-}
-
-
-int traducir_y_verificar(uint32_t pid, uint32_t dir_logica, uint32_t tamanio, uint32_t* dir_fisica_out) {
-    uint32_t id_segmento = dir_logica / segment_max_size;
-    uint32_t offset      = dir_logica % segment_max_size;
-
-    t_proceso_memory* proceso = buscar_proceso(pid);
-    if (!proceso) return -1;
-
-    t_segmento* seg = buscar_segmento(proceso, id_segmento);
-    if (!seg) return -1;
-
-    if (offset + tamanio > seg->limite) return -1; 
-
-    *dir_fisica_out = seg->base + offset;//aca modifica el valor del parametro
-    return 1;//indica exito en la traduccion
 }

@@ -14,6 +14,7 @@
 #include <commons/config.h>
 #include <pthread.h>
 #include "serializacion.h"
+#include "mmu.h"
 
 /**
 @brief Imprime un saludo por consola

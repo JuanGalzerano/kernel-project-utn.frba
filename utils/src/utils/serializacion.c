@@ -115,8 +115,10 @@ t_paquete* recibir_paquete(int socket) {
     recv(socket, &size, sizeof(uint32_t), MSG_WAITALL);
     t_buffer *buffer = buffer_create(size);
     buffer->size = size;
-    buffer->stream = malloc(size); //aca no se maneja el caso de que el size sea igual a 0 (paquete sin buffer)
-    recv(socket, buffer->stream, size, MSG_WAITALL);
+    if (size > 0) {//para que pueda mandar streams vacios porque sino quedaba un malloc(0)
+        buffer->stream = malloc(size);
+        recv(socket, buffer->stream, size, MSG_WAITALL);
+    }
     paqueteRecibido->buffer = buffer;
     return paqueteRecibido;
 }

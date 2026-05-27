@@ -4,13 +4,6 @@
 #include <utils/utils.h>
 #include <commons/collections/list.h>
 
-// Información de un Memory Stick conectado
-typedef struct {
-    int      socket;
-    uint32_t size;
-    uint32_t base_acumulada;
-} t_memory_stick_info;
-
 // Hueco libre contiguo en el espacio de memoria física global
 typedef struct {
     uint32_t base;   // dirección física global donde empieza el hueco

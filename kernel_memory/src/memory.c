@@ -146,11 +146,19 @@ void* atender_scheduler(void* arg) {
                 t_stdin_stdout* req = deserializar_stdin(paquete->buffer);
                 eliminar_paquete(paquete);
 
-                uint32_t dir_fisica = 0;
-                int ok = traducir_y_verificar(req->pid, req->direccionLogica, req->bytesALeer, &dir_fisica);
-                if (ok > 0) {
-                    ok = escribir_en_memory_stick(dir_fisica, req->bytesALeer, req->cadenaLeida);
-                    log_info(loggerMemory, "PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", req->pid, dir_fisica, req->bytesALeer);
+                t_proceso_memory* proc = buscar_proceso(req->pid);
+                int ok = -1;
+                if (proc != NULL) {
+                    pthread_mutex_lock(&memoria_mutex);
+                    t_list* pedazos = traducir_logica_a_fisica(req->direccionLogica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, req->bytesALeer);
+                    pthread_mutex_unlock(&memoria_mutex);
+
+                    if (pedazos != NULL) {
+                        ok = escribir_pedazos(pedazos, req->cadenaLeida);
+                        if (ok > 0)
+                            log_info(loggerMemory, "PID: %d - Escritura - Dir. Logica: %d - Tamanio: %d", req->pid, req->direccionLogica, req->bytesALeer);
+                        list_destroy_and_destroy_elements(pedazos, free);
+                    }
                 }
                 free(req->cadenaLeida);
                 free(req);
@@ -163,17 +171,33 @@ void* atender_scheduler(void* arg) {
                 uint32_t bytes = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
 
-                uint32_t dir_fisica = 0;
-                int ok = traducir_y_verificar(pid, dir_logica, bytes, &dir_fisica);
+                t_proceso_memory* proc = buscar_proceso(pid);
+                if (proc == NULL) {
+                    t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
+                    enviar_paquete(socket, respuesta);
+                    eliminar_paquete(respuesta);
+                    break;
+                }
+
+                pthread_mutex_lock(&memoria_mutex);
+                t_list* pedazos = traducir_logica_a_fisica(dir_logica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, bytes);
+                pthread_mutex_unlock(&memoria_mutex);
+
+                if (pedazos == NULL) {
+                    t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
+                    enviar_paquete(socket, respuesta);
+                    eliminar_paquete(respuesta);
+                    break;
+                }
+
+                char* datos = calloc(bytes, 1);
+                int ok = leer_pedazos(pedazos, datos);
+                list_destroy_and_destroy_elements(pedazos, free);
 
                 if (ok > 0) {
-                    char* datos = calloc(bytes, 1);
-                    leer_de_memory_stick(dir_fisica, bytes, datos);
-                    log_info(loggerMemory, "PID: %d - Lectura - Dir. Fisica: %d - Tamanio: %d", pid, dir_fisica, bytes);
-
+                    log_info(loggerMemory, "PID: %d - Lectura - Dir. Logica: %d - Tamanio: %d", pid, dir_logica, bytes);
                     t_buffer* buf = buffer_create(0);
                     buffer_add(buf, datos, bytes);
-                    free(datos);
                     t_paquete* respuesta = crear_paquete(LEER_BYTES, buf);
                     enviar_paquete(socket, respuesta);
                     eliminar_paquete(respuesta);
@@ -182,6 +206,7 @@ void* atender_scheduler(void* arg) {
                     enviar_paquete(socket, respuesta);
                     eliminar_paquete(respuesta);
                 }
+                free(datos);
                 break;
             }
             case SOLICITAR_SEGMENTO: {
