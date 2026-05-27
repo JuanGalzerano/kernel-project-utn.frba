@@ -35,8 +35,7 @@ int main(int argc, char* argv[]) {
     // Ya sabemos quienes son, no necesitamos identificarlos
     socketScheduler = aceptar_cliente(socketEscucha, loggerMemory);
     log_info(loggerMemory, "## Kernel Scheduler Conectado - FD del socket: %d", socketScheduler);
-    int socketSwap      = aceptar_cliente(socketEscucha, loggerMemory);
-    (void)socketSwap; //usar cuando se implemente swap
+    // int socketSwap = aceptar_cliente(socketEscucha, loggerMemory); // descomentar cuando swap este implementado
 
     // Thread dedicado al scheduler: recibe nuevos procesos en loop
     int* argSched = malloc(sizeof(int));
@@ -60,8 +59,34 @@ int main(int argc, char* argv[]) {
                 pthread_detach(hilo);
                 break;
             case MEMORY_STICK:
-                // La desconexion se detecta en leer/escribir_en_memory_stick cuando recibir_paquete devuelve NULL.
                 free(arg);
+                /*  EJEMPLO DE ESCRITURA Y LECTURA DE STICK TOTALMENTE FUNCIONAL DEW
+                log_info(loggerMemory, "TEST - case MEMORY_STICK alcanzado, sticks en lista: %d", list_size(lista_memory_sticks));
+
+                if (list_size(lista_memory_sticks) >= 1) {
+                    t_memory_stick_info* stick = list_get(lista_memory_sticks, 0);
+                    char* texto   = "Hola Memory Stick!";
+                    uint32_t tam  = strlen(texto) + 1;
+
+                    struct_control_mmu* pedazo = malloc(sizeof(struct_control_mmu));
+                    pedazo->socketMemoryStick = stick->socket;
+                    pedazo->desde_donde_leer = 0;
+                    pedazo->tamanio_a_leer_en_esta_memory_stick = tam;
+
+                    t_list* pedazos = list_create();
+                    list_add(pedazos, pedazo);
+
+                    escribir_pedazos(pedazos, texto);
+                    log_info(loggerMemory, "TEST escritura - '%s' (%d bytes en offset 0)", texto, tam);
+
+                    char* leido = calloc(tam, 1);
+                    leer_pedazos(pedazos, leido);
+                    log_info(loggerMemory, "TEST lectura  - '%s'", leido);
+                    free(leido);
+
+                    list_destroy_and_destroy_elements(pedazos, free);
+                }
+                */
                 break;
             default:
                 log_warning(loggerMemory, "Modulo desconocido conectado: %d", quien);

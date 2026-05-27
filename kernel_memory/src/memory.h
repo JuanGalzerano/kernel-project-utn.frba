@@ -3,6 +3,8 @@
 
 #include "memory_gestor.h"
 #include "inicializar.h"
+#include "segmentacion.h"
+#include "memory_sticks.h"
 #include "serializacion_m.h"
 
 // VARIABLES GLOBALES (definiciones — solo en memory.c)

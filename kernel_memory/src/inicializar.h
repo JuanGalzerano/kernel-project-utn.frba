@@ -3,26 +3,10 @@
 
 #include "memory_gestor.h"
 
-// Inicialización del módulo
-void inicializar_log_y_config(char* path);
-
-// Gestión de procesos
-int inicializar_proceso(uint32_t pid, char* path);
-void finalizar_proceso(uint32_t pid);
+void              inicializar_log_y_config(char* path);
+int               inicializar_proceso(uint32_t pid, char* path);
+void              finalizar_proceso(uint32_t pid);
 t_proceso_memory* buscar_proceso(uint32_t pid);
-char* leer_instruccion(t_proceso_memory* proceso, uint32_t pc);
-
-// Memory Sticks
-void agregar_memory_stick(int socket, uint32_t size);
-t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica);
-
-// I/O con Memory Sticks — iteran la lista de pedazos devuelta por el MMU. Retornan 1=ok, -1=error
-int leer_pedazos(t_list* pedazos, char* buffer_out);
-int escribir_pedazos(t_list* pedazos, char* datos);
-
-// Gestión de segmentos
-op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño);
-int eliminar_segmento(uint32_t pid, uint32_t id_segmento);
-t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segmento);
+char*             leer_instruccion(t_proceso_memory* proceso, uint32_t pc);
 
 #endif

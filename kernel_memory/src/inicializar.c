@@ -1,4 +1,5 @@
 #include "inicializar.h"
+#include "segmentacion.h"
 
 void inicializar_log_y_config(char* path) {
     loggerMemory = log_create("memory.log", "memory.c", true, LOG_LEVEL_INFO);
@@ -50,7 +51,7 @@ char* leer_instruccion(t_proceso_memory* proceso, uint32_t pc) {
         return NULL;
     }
 
-    char* linea = NULL;
+    char*    linea       = NULL;
     size_t   capacidad   = 0;
     uint32_t linea_actual = 0;
 
@@ -69,167 +70,6 @@ char* leer_instruccion(t_proceso_memory* proceso, uint32_t pc) {
     return NULL;
 }
 
-// Memory Sticks 
-
-void agregar_memory_stick(int socket, uint32_t size) {
-    t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
-    stick->socket = socket;
-    stick->size   = size;
-
-    pthread_mutex_lock(&memoria_mutex);
-
-    stick->base_acumulada = memoria_total_size; // se pega al final del espacio ya existente
-
-    list_add(lista_memory_sticks, stick);
-
-    memoria_total_size += size;
-    memoria_libre_size += size; // todo el espacio nuevo empieza libre
-
-    pthread_mutex_unlock(&memoria_mutex);
-
-    // notificar al Kernel Scheduler que hay más memoria disponible.
-    // Requiere un nuevo op_code NUEVA_MEMORIA en utils y que socketScheduler esté listo.
-}
-
-t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {
-    for (int i = 0; i < list_size(lista_memory_sticks); i++) {
-        t_memory_stick_info* stick = list_get(lista_memory_sticks, i);
-        if (dir_fisica >= stick->base_acumulada && dir_fisica < stick->base_acumulada + stick->size)
-            return stick;
-    }
-    return NULL;
-}
-
-static void manejar_desconexion_stick(int socket) {
-    log_warning(loggerMemory, "Memory Stick desconectado (FD %d) - memoria corrupta", socket);
-
-    pthread_mutex_lock(&memoria_mutex);
-    for (int i = 0; i < list_size(lista_memory_sticks); i++) {
-        t_memory_stick_info* s = list_get(lista_memory_sticks, i);
-        if (s->socket == socket) {
-            list_remove_and_destroy_element(lista_memory_sticks, i, free);
-            break;
-        }
-    }
-    pthread_mutex_unlock(&memoria_mutex);
-
-    t_buffer* buf = buffer_create(0);
-    buffer_add_uint32(buf, (uint32_t)socket);
-    t_paquete* aviso = crear_paquete(MEMORIA_CORRUPTA, buf);
-    enviar_paquete(socketScheduler, aviso);
-    eliminar_paquete(aviso);
-
-    close(socket);
-}
-
-
-int leer_pedazos(t_list* pedazos, char* buffer_out) {
-    uint32_t bytes_ya_procesados = 0;
-    for (int i = 0; i < list_size(pedazos); i++) {
-        struct_control_mmu* pedazo = list_get(pedazos, i);
-
-        t_buffer* buf = buffer_create(0);
-        buffer_add_uint32(buf, pedazo->desde_donde_leer);
-        buffer_add_uint32(buf, pedazo->tamanio_a_leer_en_esta_memory_stick);
-        t_paquete* pedido = crear_paquete(LEER_BYTES, buf);
-        enviar_paquete(pedazo->socketMemoryStick, pedido);
-        eliminar_paquete(pedido);
-
-        t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
-        if (respuesta == NULL) {
-            manejar_desconexion_stick(pedazo->socketMemoryStick);
-            return -1;
-        }
-        buffer_read(respuesta->buffer, buffer_out + bytes_ya_procesados, pedazo->tamanio_a_leer_en_esta_memory_stick);
-        eliminar_paquete(respuesta);
-        bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
-    }
-    return 1;
-}
-
-int escribir_pedazos(t_list* pedazos, char* datos) {
-    uint32_t bytes_ya_procesados = 0;
-    for (int i = 0; i < list_size(pedazos); i++) {
-        struct_control_mmu* pedazo = list_get(pedazos, i);
-
-        t_buffer* buf = buffer_create(0);
-        buffer_add_uint32(buf, pedazo->desde_donde_leer);
-        buffer_add_uint32(buf, pedazo->tamanio_a_leer_en_esta_memory_stick);
-        buffer_add(buf, datos + bytes_ya_procesados, pedazo->tamanio_a_leer_en_esta_memory_stick);
-        t_paquete* pedido = crear_paquete(ESCRIBIR_BYTES, buf);
-        enviar_paquete(pedazo->socketMemoryStick, pedido);
-        eliminar_paquete(pedido);
-
-        t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
-        if (respuesta == NULL) {
-            manejar_desconexion_stick(pedazo->socketMemoryStick);
-            return -1;
-        }
-        eliminar_paquete(respuesta);
-        bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
-    }
-    return 1;
-}
-
-static t_hueco* encontrar_hueco_best_fit(uint32_t tamaño) {
-    t_hueco* mejor = NULL;
-    for (int i = 0; i < list_size(lista_huecos); i++) {
-        t_hueco* h = list_get(lista_huecos, i);
-        if (h->limite >= tamaño && (!mejor || h->limite < mejor->limite))
-            mejor = h;
-    }
-    return mejor;
-}
-
-static t_hueco* encontrar_hueco_worst_fit(uint32_t tamaño) {
-    t_hueco* peor = NULL;
-    for (int i = 0; i < list_size(lista_huecos); i++) {
-        t_hueco* h = list_get(lista_huecos, i);
-        if (h->limite >= tamaño && (!peor || h->limite > peor->limite))
-            peor = h;
-    }
-    return peor;
-}
-
-//det estrategia para encontrar un hueco
-static t_hueco* encontrar_hueco(uint32_t tamaño) {
-    if (strcmp(allocation_strategy, "BEST") == 0)
-        return encontrar_hueco_best_fit(tamaño);
-    return encontrar_hueco_worst_fit(tamaño);
-}
-
-// Inserta un hueco en lista_huecos (ya ordenada por base) y fusiona con adyacentes.
-// usar memoria_mutex para usar funcion.
-static void insertar_hueco_y_fusionar(t_hueco* nuevo) {
-    //Mete hueco en el medio patenado para delante la posicion del que tiene por primera vez una vez mayor al nuevo
-    int pos = list_size(lista_huecos);
-    for (int i = 0; i < list_size(lista_huecos); i++) {
-        t_hueco* h = list_get(lista_huecos, i);
-        if (h->base > nuevo->base) { pos = i; break; }
-    }
-    list_add_in_index(lista_huecos, pos, nuevo);
-
-    // Intenta fusionar con el siguiente si es adyacente
-    if (pos + 1 < list_size(lista_huecos)) {
-        t_hueco* sig = list_get(lista_huecos, pos + 1);
-        if (nuevo->base + nuevo->limite == sig->base) {
-            nuevo->limite += sig->limite;
-            list_remove_and_destroy_element(lista_huecos, pos + 1, free);
-        }
-    }
-
-    // Intenta fusionar con el anterior si es adyacente
-    if (pos > 0) {
-        t_hueco* ant = list_get(lista_huecos, pos - 1);
-        if (ant->base + ant->limite == nuevo->base) {
-            ant->limite += nuevo->limite;
-            list_remove_and_destroy_element(lista_huecos, pos, free);
-        }
-    }
-}
-
-//Finalización de procesos
-
 void finalizar_proceso(uint32_t pid) {
     pthread_mutex_lock(&procesos_mutex);
     t_proceso_memory* proceso = NULL;
@@ -245,13 +85,12 @@ void finalizar_proceso(uint32_t pid) {
     list_remove_element(lista_procesos, proceso);
     pthread_mutex_unlock(&procesos_mutex);
 
-    // Devolver todos los segmentos como huecos libres
     pthread_mutex_lock(&memoria_mutex);
     while (list_size(proceso->contexto->tabla_segmentos) > 0) {
-        t_segmento* seg = list_remove(proceso->contexto->tabla_segmentos, 0);
+        t_segmento* seg   = list_remove(proceso->contexto->tabla_segmentos, 0);
         t_hueco*    hueco = malloc(sizeof(t_hueco));
-        hueco->base = seg->base;
-        hueco->limite = seg->limite;
+        hueco->base       = seg->base;
+        hueco->limite     = seg->limite;
         memoria_libre_size += seg->limite;
         free(seg);
         insertar_hueco_y_fusionar(hueco);
@@ -264,90 +103,4 @@ void finalizar_proceso(uint32_t pid) {
     free(proceso);
 
     log_info(loggerMemory, "## PID: %d - Proceso Finalizado", pid);
-}
-
-//Gestión de segmentos
-
-t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segmento) {
-    for (int i = 0; i < list_size(proceso->contexto->tabla_segmentos); i++) {
-        t_segmento* seg = list_get(proceso->contexto->tabla_segmentos, i);
-        if (seg->id_segmento == id_segmento) return seg;
-    }
-    return NULL;
-}
-
-op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
-    t_proceso_memory* proceso = buscar_proceso(pid);
-    if (!proceso) {
-        log_error(loggerMemory, "PID %d no encontrado al crear segmento %d", pid, id_segmento);
-        return MEMORIA_NO_DISPONIBLE;
-    }
-    if (tamaño > segment_max_size) {
-        log_error(loggerMemory, "PID %d: segmento %d excede tamaño maximo (%d > %d)", pid, id_segmento, tamaño, segment_max_size);
-        return MEMORIA_NO_DISPONIBLE;
-    }
-
-    pthread_mutex_lock(&memoria_mutex);
-
-    t_hueco* hueco = encontrar_hueco(tamaño);
-
-    //Caso A
-    if (hueco != NULL) {
-        t_segmento* seg  = malloc(sizeof(t_segmento));
-        seg->id_segmento = id_segmento;
-        seg->base  = hueco->base;
-        seg->limite = tamaño;
-        list_add(proceso->contexto->tabla_segmentos, seg);
-
-        hueco->base   += tamaño; //aca rearmo el hueco, ya que ahora se achico o directamente se elimino si justo el hueco tenia el tam del segmetno
-        hueco->limite -= tamaño;
-        if (hueco->limite == 0) {
-            list_remove_element(lista_huecos, hueco);
-            free(hueco);
-        }
-        memoria_libre_size -= tamaño;
-
-        pthread_mutex_unlock(&memoria_mutex);
-        log_info(loggerMemory, "PID: %d - Segmento Creado - Id: %d - Base: %d - Tamaño: %d", pid, id_segmento, seg->base, tamaño);
-        return MEMORIA_DISPONIBLE;
-    }
-
-    //caso B (tiene que ir si o si antes de mem dispo, porque si fuera primero mandaria a compactar de una)
-    if (memoria_libre_size >= tamaño) {
-        pthread_mutex_unlock(&memoria_mutex);
-        log_info(loggerMemory, "PID: %d - Segmento %d - Memoria suficiente pero no contigua, requiere compactacion", pid, id_segmento);
-        return COMPACTACION;
-    }
-
-    //Caso C: no hay memoria suficiente
-    pthread_mutex_unlock(&memoria_mutex);
-    log_info(loggerMemory, "PID: %d - Segmento %d - Memoria insuficiente (libre: %d, pedido: %d)", pid, id_segmento, memoria_libre_size, tamaño);
-    return MEMORIA_NO_DISPONIBLE;
-}
-
-int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
-    t_proceso_memory* proceso = buscar_proceso(pid);
-    if (!proceso) return -1;
-
-    pthread_mutex_lock(&memoria_mutex);
-
-    t_segmento* seg = buscar_segmento_proceso(proceso, id_segmento);
-    if (!seg) {
-        pthread_mutex_unlock(&memoria_mutex);
-        return -1;
-    }
-
-    t_hueco* hueco_liberado  = malloc(sizeof(t_hueco));
-    hueco_liberado->base  = seg->base;
-    hueco_liberado->limite = seg->limite;
-
-    memoria_libre_size += seg->limite;
-
-    list_remove_element(proceso->contexto->tabla_segmentos, seg);
-    free(seg);
-
-    insertar_hueco_y_fusionar(hueco_liberado);
-
-    pthread_mutex_unlock(&memoria_mutex);
-    return 1;
 }
