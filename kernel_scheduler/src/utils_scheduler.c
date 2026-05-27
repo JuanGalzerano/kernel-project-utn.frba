@@ -350,3 +350,87 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
 
     return codigo;
 }
+
+
+
+//POR AHORA ES SOLO PARA LO DE BSOD, CREO QUE DESP SE SUMA LO DE QUE HAY MAS MEMORIA
+
+void* hilo_escuchar_memory(void* arg) {
+    while(1) {
+        t_paquete* paquete = recibir_paquete(socketConexionMemory);
+        if(paquete == NULL) {
+            break;
+        }
+
+        switch(paquete->codigo_operacion) {
+            case MEMORIA_CORRUPTA:
+                log_info(loggerScheduler, "## BSOD: Corrupcion de memoria detectada");
+                free(paquete->buffer->stream);
+                free(paquete->buffer);
+                free(paquete);
+                manejar_bsod();
+                return NULL;
+        }
+
+        free(paquete->buffer->stream);
+        free(paquete->buffer);
+        free(paquete);
+    }
+    return NULL;
+}
+
+
+
+void manejar_bsod() {
+    // EXEC
+    pthread_mutex_lock(&exec_mutex);
+    for(int i = 0; i < list_size(exec_lista); i++) {
+        t_cpu_exec* cpu = list_get(exec_lista, i);
+        if(cpu->pcb != NULL) {
+            log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
+            free(cpu->pcb);
+            cpu->pcb = NULL;
+        }
+    }
+    pthread_mutex_unlock(&exec_mutex);
+
+    // READY
+    pthread_mutex_lock(&ready_mutex);
+    while(!queue_is_empty(ready_cola)) {
+        t_pcb* pcb = queue_pop(ready_cola);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+        free(pcb);
+    }
+    pthread_mutex_unlock(&ready_mutex);
+
+    // BLOCK
+    pthread_mutex_lock(&block_mutex);
+    while(!list_is_empty(block_lista)) {
+        t_pcb* pcb = list_remove(block_lista, 0);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+        free(pcb);
+    }
+    pthread_mutex_unlock(&block_mutex);
+
+/*DESCOMENTAR CUANDO HAGA PLANI A MEDIO PLAZO
+    // SUSP_BLOCK
+    pthread_mutex_lock(&susp_block_mutex);
+    while(!list_is_empty(susp_block)) {
+        t_pcb* pcb = list_remove(susp_block, 0);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+        free(pcb);
+    }
+    pthread_mutex_unlock(&susp_block_mutex);
+
+    // SUSP_READY
+    pthread_mutex_lock(&susp_ready_mutex);
+    while(!list_is_empty(susp_ready)) {
+        t_pcb* pcb = list_remove(susp_ready, 0);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+        free(pcb);
+    }
+    pthread_mutex_unlock(&susp_ready_mutex);
+*/
+    log_info(loggerScheduler, "## Kernel Scheduler finalizado por BSOD");
+    abort();
+}

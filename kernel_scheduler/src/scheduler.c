@@ -38,6 +38,11 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     pthread_create(&hilo_stdout, NULL, hilo_io_stdout, NULL);
     pthread_detach(hilo_stdout);
 
+//P/A ESCUCHAR A SCHEDULER
+    pthread_t hilo_memory;
+    pthread_create(&hilo_memory, NULL, hilo_escuchar_memory, NULL);
+    pthread_detach(hilo_memory);
+
     while(1){
         int socketCliente = aceptar_cliente_scheduler(socketEscucha, loggerScheduler);
 
@@ -80,7 +85,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
         }
 
         switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
-            case MOTIVO_FIN_QUANTUM:
+            case MOTIVO_FIN_QUANTUM://creo que lo tendria que cambiar a FINALIZAR_POR_QUANTUM
             //ME PARECE QUE LO QUE ME TIENE QUE MANDAR VIOTTI ES EL PID Y YO AHI BUSCO LA CPU EN LA QUE ESTA EJECUTANDO. REVISAR
                 
                 uint32_t pidInterrumpido;
@@ -124,10 +129,11 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case EXIT: //aca solo recibir el pid, me parece innecesario serializar un bufffer solo para esto
             //despues ver los casos en los que se pasa de READY-> EXIT Y BLOCK->EXIT 
+
                 uint32_t pid;
                 buffer_read(paquete->buffer, &pid, sizeof(uint32_t));
 
-                //CREO QIUE TENGO QUE HACER EL LOG DE SOLICITO SYSCALL
+                log_info("## (%d) - Solicitó syscall: EXIT", pid);
 
                 // encontrar el pcb en exec_lista y liberarlo
                 pthread_mutex_lock(&exec_mutex);
@@ -433,29 +439,27 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
                 op_code rtaKM = solicitar_segmento_memory(infoMemAlloc);
 
-                switch (rtaKM)
-                {
-                case MEMORIA_DISPONIBLE:
+                if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
                     if(cpuAlloc!=NULL){
                         reanudar_proceso_en_cpu(cpuAlloc);
                     }
-                    break;
-                case MEMORIA_NO_DISPONIBLE:
+                }
+                if(rtaKM==MEMORIA_NO_DISPONIBLE){
                 //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
                     bloquear_proceso(cpuAlloc->pcb);
                     sem_post(&sem_hay_cpu_libre);
-                    break;
-                case COMPACTACION:
+                }
+                if(rtaKM==COMPACTACION){
                 //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso)
                     //compactacion();
                     t_paquete* pacProcsDesalojados = crear_paquete(PROCESOS_DESALOJADOS, NULL);
                     enviar_paquete(socketConexionMemory,pacProcsDesalojados);
                     free(pacProcsDesalojados);
-                    break;
-                
-                
                 }
+                
+                
+                
                 free(infoMemAlloc);
 
                 break;
@@ -486,6 +490,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);
                 break;
+            
             //agregar caso que no coincida con nada
             
         }

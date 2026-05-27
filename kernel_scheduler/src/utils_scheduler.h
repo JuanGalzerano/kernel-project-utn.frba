@@ -43,4 +43,7 @@ t_mutex_syscall* buscar_mutex(char* nombreMutex);
 
 op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc);
 
+void* hilo_escuchar_memory(void* arg);
+
+void manejar_bsod();
 #endif
