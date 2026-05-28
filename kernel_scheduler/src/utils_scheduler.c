@@ -285,10 +285,15 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
     free(unPaquete);
 
     //ver si hay que elimiinar paquete
+    char* cadena = malloc(bytes);// ver sy es bytes +1 y eso
 
-    char* cadena = malloc(bytes+1);
+    t_paquete* respuesta = recibir_paquete(socketConexionMemory);
+    if(respuesta->codigo_operacion == LECTURA_FALLIDA){
+        cadena = NULL;
+    }else{
+        cadena = buffer_read_string(respuesta->buffer, bytes);
+    }
 
-    recv(socketConexionMemory, cadena, bytes+1, MSG_WAITALL);
     pthread_mutex_unlock(&mutex_socket_memory);
 
     return cadena;

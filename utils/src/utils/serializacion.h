@@ -94,7 +94,7 @@ typedef enum {
     ENVIAR_CONTEXTO     = 1,
     ACTUALIZAR_CONTEXTO = 2,
     OBTENER_INSTRUCCION = 3,
-    MOTIVO_FIN_QUANTUM = 4,
+    MOTIVO_FIN_QUANTUM = 4,//no lo uso mas pero es un bardo sacarla y reordenar
     FINALIZAR_POR_QUANTUM = 5,
     EJECUTAR_PROCESO = 6,
     PATH_PROCESO = 7,

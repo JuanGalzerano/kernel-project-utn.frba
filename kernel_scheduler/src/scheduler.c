@@ -85,7 +85,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
         }
 
         switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
-            case MOTIVO_FIN_QUANTUM://creo que lo tendria que cambiar a FINALIZAR_POR_QUANTUM
+            case FINALIZAR_POR_QUANTUM://creo que lo tendria que cambiar a FINALIZAR_POR_QUANTUM
             //ME PARECE QUE LO QUE ME TIENE QUE MANDAR VIOTTI ES EL PID Y YO AHI BUSCO LA CPU EN LA QUE ESTA EJECUTANDO. REVISAR
                 
                 uint32_t pidInterrumpido;
@@ -218,12 +218,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&exec_mutex);
 
                 procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->pid, procesoStdout->direccionLogica, procesoStdout->bytesALeer);
-
-                pthread_mutex_lock(&mutex_cola_stdout);
-                queue_push(cola_stdout, procesoStdout);
-                pthread_mutex_unlock(&mutex_cola_stdout);
-
-                sem_post(&sem_hay_proc_esperando_stdout);
+                if(procesoStdout->cadenaLeida != NULL){
+                    pthread_mutex_lock(&mutex_cola_stdout);
+                    queue_push(cola_stdout, procesoStdout);
+                    pthread_mutex_unlock(&mutex_cola_stdout);
+                    sem_post(&sem_hay_proc_esperando_stdout);
+                }else{
+                    log_error("no se pudieron leer los bytes que solicito el pid: (%d)", procesoStdout->pid);
+                }
                 
                 break;
             case FINALIZAR_SLEEP: 
@@ -489,6 +491,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);
+                break;
+            default:
+                log_error("------recibi %d , y no lo entiendo", paquete->codigo_operacion);
                 break;
             
             //agregar caso que no coincida con nada
