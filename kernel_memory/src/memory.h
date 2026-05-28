@@ -16,6 +16,8 @@ char*     puertoEscucha;
 char*     scriptsBasePath;
 uint32_t  segment_max_size;
 char*     allocation_strategy;
+uint32_t  instruction_delay;
+uint32_t  compaction_delay;
 
 t_list*   lista_procesos;
 t_list*   lista_memory_sticks;

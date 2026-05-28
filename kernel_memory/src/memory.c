@@ -14,6 +14,8 @@ int main(int argc, char* argv[]) {
     scriptsBasePath = config_get_string_value(configMemory, "SCRIPTS_BASEPATH");
     segment_max_size = (uint32_t)config_get_int_value(configMemory, "SEGMENT_MAX_SIZE");
     allocation_strategy = config_get_string_value(configMemory, "ALLOCATION_STRATEGY");
+    instruction_delay = (uint32_t)config_get_int_value(configMemory, "INSTRUCTION_DELAY");
+    compaction_delay = (uint32_t)config_get_int_value(configMemory, "COMPACTION_DELAY");
 
     lista_procesos = list_create();
     lista_memory_sticks = list_create();
@@ -253,6 +255,7 @@ void* atender_scheduler(void* arg) {
             }
             case PROCESOS_DESALOJADOS: {
                 eliminar_paquete(paquete);
+                usleep(compaction_delay * 1000);
                 compactar();
                 break;
             }
@@ -288,6 +291,7 @@ void* atender_cpu(void* arg) {
                 break;
             case OBTENER_INSTRUCCION: {
                 uint32_t pc = buffer_read_uint32(paquete->buffer);
+                usleep(instruction_delay * 1000);
                 enviar_instruccion_cpu(socket, pid, pc);
                 eliminar_paquete(paquete);
                 break;

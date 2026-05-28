@@ -27,6 +27,8 @@ extern char*     puertoEscucha;
 extern char*     scriptsBasePath;
 extern uint32_t  segment_max_size;
 extern char*     allocation_strategy; //BEST o WORST
+extern uint32_t  instruction_delay; 
+extern uint32_t  compaction_delay;
 
 extern t_list*   lista_procesos;       //ista de t_proceso_memory*
 extern t_list*   lista_memory_sticks;  // lista de t_memory_stick_info*
