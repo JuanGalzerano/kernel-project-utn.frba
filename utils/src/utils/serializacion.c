@@ -91,7 +91,10 @@ t_paquete* crear_paquete(op_code codigo_operacion, t_buffer* buffer) {
 //Enviar paquete
 void enviar_paquete(int socket, t_paquete* paquete) {
     op_code op = paquete->codigo_operacion;
-    uint32_t size = paquete->buffer->offset;
+    uint32_t size = 0;
+    if (paquete->buffer != NULL) {
+        size = paquete->buffer->offset;
+    }
     send(socket, &op, sizeof(op_code), 0);
     send(socket, &size, sizeof(uint32_t), 0);
     if (size > 0) {
@@ -240,10 +243,13 @@ t_buffer* serializar_stdin(t_stdin_stdout* ProcesoStdin){
     buffer_add_uint32(buf, ProcesoStdin->pid);
     buffer_add_uint32(buf, ProcesoStdin->bytesALeer);
     buffer_add_uint32(buf, ProcesoStdin->direccionLogica);
-    uint32_t tamanioActualCadena = strlen(ProcesoStdin->cadenaLeida)+1; // lo hacemos asi xq no sabemos si es el momento en que la cadena ya fue "rellenada" o es cuando se la estamos pasando a IO para que la llene
-    buffer_add_uint32(buf, tamanioActualCadena);
-    buffer_add_string(buf, tamanioActualCadena, ProcesoStdin->cadenaLeida);
-
+    if (ProcesoStdin->cadenaLeida != NULL) {
+        uint32_t tamanioActualCadena = strlen(ProcesoStdin->cadenaLeida) + 1;
+        buffer_add_uint32(buf, tamanioActualCadena);
+        buffer_add_string(buf, tamanioActualCadena, ProcesoStdin->cadenaLeida);
+    } else {
+        buffer_add_uint32(buf, 0);
+    }
     return buf;
 }
 
@@ -253,7 +259,11 @@ t_stdin_stdout* deserializar_stdin(t_buffer* buf){
     ProcesoStdin->bytesALeer = buffer_read_uint32(buf);
     ProcesoStdin->direccionLogica = buffer_read_uint32(buf);
     uint32_t tamanioActualCadena = buffer_read_uint32(buf);
-    ProcesoStdin->cadenaLeida = buffer_read_string(buf, tamanioActualCadena);
+    if (tamanioActualCadena > 0) {
+        ProcesoStdin->cadenaLeida = buffer_read_string(buf, tamanioActualCadena);
+    } else {
+        ProcesoStdin->cadenaLeida = NULL;
+    }
     return ProcesoStdin;
 }
 
