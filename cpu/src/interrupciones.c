@@ -20,7 +20,7 @@ bool hay_interrupcion(uint32_t pidActual, int socketConexionScheduler) {
     //Si sigue es que hay datos para leer
     t_paquete *paquete = recibir_paquete(socketConexionScheduler);
     op_code interrupcionRecibida = paquete->codigo_operacion;
-    if ((interrupcionRecibida == FINALIZAR_POR_QUANTUM) || (interrupcionRecibida == PROCESO_BLOQUEADO) || (interrupcionRecibida == FIN_PROCESO) || (interrupcionRecibida == COMPACTACION) || (interrupcionRecibida == DESALOJO)) {
+    if ((interrupcionRecibida == FINALIZAR_POR_QUANTUM) || (interrupcionRecibida == COMPACTACION) || (interrupcionRecibida == DESALOJO)) {
         uint32_t pidInterrumpido = buffer_read_uint32(paquete->buffer);
         eliminar_paquete(paquete);
         if (pidInterrumpido == pidActual) {
