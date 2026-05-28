@@ -2,7 +2,7 @@
 
 
 t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
-    if(prioridad<cantidad_colas && prioridad>-1){
+    if(algoritmo!=RR || (prioridad<cantidad_colas && prioridad>-1)){
         t_pcb* pcb = malloc(sizeof(t_pcb));
         pcb->pid = pid;
         pcb->prioridad = prioridad;
@@ -34,7 +34,7 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
         }
     }
     else{
-        log_error(loggerScheduler, "prioridad fuera de rango del pid: %d", pid);
+        log_error(loggerScheduler, "prioridad fuera de rango el pid: %d", pid);
         return NULL;
     }
 }
@@ -440,7 +440,7 @@ void encolar_pcb_ready(t_pcb* pcb){
     if(algoritmo == CMN){
         pthread_mutex_lock(&mutex_cola_multinivel);
         queue_push(cola_multinivel[pcb->prioridad], pcb);
-        pthread_mutex_lock(&mutex_cola_multinivel);
+        pthread_mutex_unlock(&mutex_cola_multinivel);
     }else{
         pthread_mutex_lock(&ready_mutex);
         queue_push(ready_cola, pcb);
@@ -453,7 +453,7 @@ t_pcb* desencolar_pcb_ready(){
     if(algoritmo==CMN){
         pthread_mutex_lock(&mutex_cola_multinivel);
         for(int i = 0; i< cantidad_colas; i++){
-            if(cola_multinivel[i]!=NULL){
+            if(queue_is_empty(cola_multinivel[i])){
                 pcb = queue_pop(cola_multinivel[i]);
                 break;
             }

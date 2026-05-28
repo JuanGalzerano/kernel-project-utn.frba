@@ -84,9 +84,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             break; //cliente se desconecto
         }
 
-        switch(paquete->codigo_operacion){//le tengo que decir a viotti que cuando le notifico que corte por fin de quantum, me mande este paquete
-            case FINALIZAR_POR_QUANTUM://creo que lo tendria que cambiar a FINALIZAR_POR_QUANTUM
-            //ME PARECE QUE LO QUE ME TIENE QUE MANDAR VIOTTI ES EL PID Y YO AHI BUSCO LA CPU EN LA QUE ESTA EJECUTANDO. REVISAR
+        switch(paquete->codigo_operacion){
+            case FINALIZAR_POR_QUANTUM:
                 
                 uint32_t pidInterrumpido;
                 buffer_read(paquete->buffer, &pidInterrumpido, sizeof(uint32_t));
@@ -582,24 +581,13 @@ void* planificador(void* arg) {
 
             }else{
                 sem_wait(&sem_hay_cpu_libre);
-
                 t_pcb* elPcb = desencolar_pcb_ready();
-
-                //meter proceso
                 t_cpu_exec* cpuEncontrada = obtener_cpu_libre();
-
-                t_pcb* aux = cpuEncontrada->pcb;
-
-                cpuEncontrada->pcb = elPcb;
-
-                encolar_pcb_ready(aux);
-
                 enviar_proceso_a_cpu(cpuEncontrada, elPcb);
-
-                if (algoritmo_por_cola[elPcb->prioridad] == RR) {
-                iniciar_timer_quantum(cpuEncontrada);
-            }
-            }
+                if(algoritmo_por_cola[elPcb->prioridad] == RR) {
+                    iniciar_timer_quantum(cpuEncontrada);
+                }
+                            }
         }
         
     }
