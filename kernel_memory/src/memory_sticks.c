@@ -1,4 +1,5 @@
 #include "memory_sticks.h"
+#include "segmentacion.h"
 
 void agregar_memory_stick(int socket, uint32_t size) {
     t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
@@ -13,6 +14,11 @@ void agregar_memory_stick(int socket, uint32_t size) {
 
     memoria_total_size += size;
     memoria_libre_size += size;
+    //crear el hueco gigante que se generar al conectarse una memory stick
+    t_hueco* hueco = malloc(sizeof(t_hueco));
+    hueco->base = stick->base_acumulada;
+    hueco->limite = size;
+    insertar_hueco_y_fusionar(hueco);
 
     pthread_mutex_unlock(&memoria_mutex);
 }

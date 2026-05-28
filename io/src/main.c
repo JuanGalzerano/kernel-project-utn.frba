@@ -88,6 +88,7 @@ char* stdin_func(uint32_t cantBytes, uint32_t pid,t_log*logIO){
     char* mensaje;
     log_info(logIO, "## PID: %d - Ingrese %d caracteres:", pid, cantBytes);
     mensaje = leer_stdin(cantBytes);
+    return mensaje;
 }
 void stdout_func(char* mensaje, uint32_t pid, uint32_t cantBytes, t_log* logIO){
     fwrite(mensaje, sizeof(char), cantBytes, stdout);
