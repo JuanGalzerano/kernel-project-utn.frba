@@ -2,45 +2,41 @@
 
 
 t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
-    t_pcb* pcb = malloc(sizeof(t_pcb));
-    pcb->pid = pid;
-    pcb->prioridad = prioridad;
+    if(prioridad<cantidad_colas && prioridad>-1){
+        t_pcb* pcb = malloc(sizeof(t_pcb));
+        pcb->pid = pid;
+        pcb->prioridad = prioridad;
 
-    //Meterlo en NEW y loguear
-    //DESPUES VER POR QUE ESTA LISTA ES BASTANTE INNECESARIA
-    /*pthread_mutex_lock(&new_mutex);
-    list_add(new_lista, pcb); 
-    pthread_mutex_unlock(&new_mutex);*/
-    log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
+        //loguear que entro a NEW
+        log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
 
-    //Avisar al KM (mandar pid + path)
-    pthread_mutex_lock(&mutex_socket_memory);
-    enviar_path_proceso_memory(pcb->pid, path);
+        //Avisar al KM (mandar pid + path)
+        pthread_mutex_lock(&mutex_socket_memory);
+        enviar_path_proceso_memory(pcb->pid, path);
 
-    //Esperar respuesta OK del KM
-    int ok = recibir_ok_memory();
+        //Esperar respuesta OK del KM
+        int ok = recibir_ok_memory();
 
-    pthread_mutex_unlock(&mutex_socket_memory);
+        pthread_mutex_unlock(&mutex_socket_memory);
 
-    //Mover a READY y loguear
-    if(ok == 0){/*
-        pthread_mutex_lock(&new_mutex);
-        list_remove_element(new_lista, pcb);
-        pthread_mutex_unlock(&new_mutex);*/
-        free(pcb);
-        log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
-        return NULL;
+        //Mover a READY y loguear
+        if(ok == 0){
+            free(pcb);
+            log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
+            return NULL;
+        }
+        else{
+            encolar_pcb_ready(pcb);
+            sem_post(&sem_hay_proceso_ready);
+            log_info(loggerScheduler, "## (%d) Pasa del estado NEW al estado READY", pcb->pid);
+
+            return pcb;
+        }
     }
     else{
-        pthread_mutex_lock(&ready_mutex);
-        queue_push(ready_cola, pcb);
-        pthread_mutex_unlock(&ready_mutex);
-        sem_post(&sem_hay_proceso_ready);
-        log_info(loggerScheduler, "## (%d) Pasa del estado NEW al estado READY", pcb->pid);
-
-        return pcb;
+        log_error(loggerScheduler, "prioridad fuera de rango del pid: %d", pid);
+        return NULL;
     }
-    
 }
 
 
@@ -400,13 +396,13 @@ void manejar_bsod() {
     pthread_mutex_unlock(&exec_mutex);
 
     // READY
-    pthread_mutex_lock(&ready_mutex);
+    //capaz deberia clavar un mutex entero al while pero me generaria deadlock con el de desencolar_pcb_ready
     while(!queue_is_empty(ready_cola)) {
-        t_pcb* pcb = queue_pop(ready_cola);
+        t_pcb* pcb = desencolar_pcb_ready();
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
         free(pcb);
     }
-    pthread_mutex_unlock(&ready_mutex);
+    
 
     // BLOCK
     pthread_mutex_lock(&block_mutex);
@@ -439,3 +435,35 @@ void manejar_bsod() {
     log_info(loggerScheduler, "## Kernel Scheduler finalizado por BSOD");
     abort();
 }
+
+void encolar_pcb_ready(t_pcb* pcb){
+    if(algoritmo == CMN){
+        pthread_mutex_lock(&mutex_cola_multinivel);
+        queue_push(cola_multinivel[pcb->prioridad], pcb);
+        pthread_mutex_lock(&mutex_cola_multinivel);
+    }else{
+        pthread_mutex_lock(&ready_mutex);
+        queue_push(ready_cola, pcb);
+        pthread_mutex_unlock(&ready_mutex);
+    }
+}
+
+t_pcb* desencolar_pcb_ready(){
+    t_pcb* pcb=NULL;
+    if(algoritmo==CMN){
+        pthread_mutex_lock(&mutex_cola_multinivel);
+        for(int i = 0; i< cantidad_colas; i++){
+            if(cola_multinivel[i]!=NULL){
+                pcb = queue_pop(cola_multinivel[i]);
+                break;
+            }
+        }
+        pthread_mutex_unlock(&mutex_cola_multinivel);
+    }else{
+        pthread_mutex_lock(&ready_mutex);
+        pcb = queue_pop(ready_cola);
+        pthread_mutex_unlock(&ready_mutex);
+    }
+    return pcb;
+}
+

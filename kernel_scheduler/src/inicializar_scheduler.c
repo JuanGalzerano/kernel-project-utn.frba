@@ -23,6 +23,9 @@ void inicializar_configs(char* path){
     puertoMemory= config_get_string_value(configScheduler, "PUERTO_MEMORY");
     IPMemory = config_get_string_value(configScheduler, "IP_MEMORY");
     quantum = config_get_int_value(configScheduler, "RR_QUANTUM");
+    char* preemptionStr = config_get_string_value(configScheduler, "QUEUE_PREEMPTION");
+    desalojo_cola = (strcmp(preemptionStr, "TRUE") == 0);
+    free(preemptionStr);
     
     char* algoritmoDePlanificacion = config_get_string_value(configScheduler, "PLANIFICATION_ALGORITHM");
     if(strcmp(algoritmoDePlanificacion, "FIFO")==0) {
@@ -34,6 +37,10 @@ void inicializar_configs(char* path){
         algoritmo=CMN;
     }
     free(algoritmoDePlanificacion);
+
+    if(algoritmo == CMN){
+        inicializar_cola_multinivel();
+    }
 }
 
 void inicializar_semaforos(){
@@ -61,6 +68,9 @@ void inicializar_listas(){
     exec_lista   = list_create();
     pthread_mutex_init(&exec_mutex,NULL);
 
+    pthread_mutex_init(&mutex_cola_multinivel, NULL);
+
+
     cola_sleep  = queue_create();
     pthread_mutex_init(&mutex_cola_sleep,  NULL);
     cola_stdin  = queue_create();
@@ -71,4 +81,33 @@ void inicializar_listas(){
 
     lista_mutex = list_create();
     pthread_mutex_init(&mutex_lista_mutex, NULL);
+}
+
+void inicializar_cola_multinivel(){
+
+    //se inicializa el array algoritmo_por_cola
+    char** algoritmosArray = config_get_array_value(configScheduler, "QUEUES_ALGORITHMS");
+
+    cantidad_colas = 0;
+    while(algoritmosArray[cantidad_colas] != NULL) cantidad_colas++;
+
+    // guardar en un array de enums
+    algoritmo_por_cola = malloc(cantidad_colas * sizeof(t_planification_algorithm));
+
+    for(int i = 0; i < cantidad_colas; i++) {
+        if(strcmp(algoritmosArray[i], "FIFO") == 0)
+            algoritmo_por_cola[i] = FIFO;
+        else if(strcmp(algoritmosArray[i], "RR") == 0)
+            algoritmo_por_cola[i] = RR;
+        free(algoritmosArray[i]);
+    }
+    free(algoritmosArray);
+
+    //inicializar cola_multinivel
+
+    cola_multinivel = malloc(sizeof(t_queue*) * cantidad_colas);
+
+    for(int i = 0; i < cantidad_colas; i++) {
+        cola_multinivel[i] = queue_create();
+    }
 }

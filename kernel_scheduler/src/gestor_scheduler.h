@@ -44,6 +44,12 @@ extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 extern pthread_mutex_t mutex_socket_memory;
 
+extern bool desalojo_cola;
+extern int cantidad_colas;
+extern t_planification_algorithm* algoritmo_por_cola;
+extern pthread_mutex_t mutex_cola_multinivel;
+extern t_queue** cola_multinivel;
+
 
 //Variables del memory.config
 

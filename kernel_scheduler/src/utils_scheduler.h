@@ -46,4 +46,8 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc);
 void* hilo_escuchar_memory(void* arg);
 
 void manejar_bsod();
+
+void encolar_pcb_ready(t_pcb* pcb);
+
+t_pcb* desencolar_pcb_ready();
 #endif

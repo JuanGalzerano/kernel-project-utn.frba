@@ -11,4 +11,6 @@ void inicializar_semaforos();
 
 void inicializar_listas();
 
+void inicializar_cola_multinivel();
+
 #endif

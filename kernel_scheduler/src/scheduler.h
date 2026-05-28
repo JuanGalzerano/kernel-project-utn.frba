@@ -16,7 +16,10 @@
 //pthread_mutex_t new_mutex;
 t_queue* ready_cola;
 pthread_mutex_t ready_mutex;
-//t_queue** ready_colas_multinivel; implemnetar para el 3er check
+
+t_planification_algorithm* algoritmo_por_cola;
+pthread_mutex_t mutex_cola_multinivel;
+t_queue** cola_multinivel;
 
 t_list* block_lista;
 pthread_mutex_t block_mutex;
@@ -50,6 +53,9 @@ char* puertoMemory;
 char* IPMemory;
 t_planification_algorithm algoritmo;
 int quantum;
+bool desalojo_cola;
+int cantidad_colas;
+
 
 //Sockets del las diferentes IOs
 int socketSleep;

@@ -102,9 +102,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 cpuFinQuantum->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
-                pthread_mutex_lock(&ready_mutex);
-                queue_push(ready_cola, pcb);
-                pthread_mutex_unlock(&ready_mutex);
+                encolar_pcb_ready(pcb);
 
                 sem_post(&sem_hay_cpu_libre);
                 sem_post(&sem_hay_proceso_ready);
@@ -113,7 +111,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
                 uint32_t nuevoPid = generar_pid();
-                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+                t_pcb* error = crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+                if(error == NULL){
+                    break;
+                }
 
                 // INIT_PROC no bloquea al proceso padre: lo devolvemos a ejecutar
                 pthread_mutex_lock(&exec_mutex);
@@ -133,7 +134,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 uint32_t pid;
                 buffer_read(paquete->buffer, &pid, sizeof(uint32_t));
 
-                log_info("## (%d) - Solicitó syscall: EXIT", pid);
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: EXIT", pid);
 
                 // encontrar el pcb en exec_lista y liberarlo
                 pthread_mutex_lock(&exec_mutex);
@@ -224,7 +225,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&mutex_cola_stdout);
                     sem_post(&sem_hay_proc_esperando_stdout);
                 }else{
-                    log_error("no se pudieron leer los bytes que solicito el pid: (%d)", procesoStdout->pid);
+                    log_error(loggerScheduler ,"no se pudieron leer los bytes que solicito el pid: (%d)", procesoStdout->pid);
                 }
                 
                 break;
@@ -236,9 +237,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 t_pcb* pcbADesbloquear = buscar_y_sacar_de_block(pidTerminado);
                 
-                pthread_mutex_lock(&ready_mutex);
-                queue_push(ready_cola, pcbADesbloquear);
-                pthread_mutex_unlock(&ready_mutex);
+                encolar_pcb_ready(pcbADesbloquear);
 
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidTerminado);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidTerminado);
@@ -255,9 +254,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_pcb* pcbParaDesbloquear = buscar_y_sacar_de_block(pidFinalizado);
                 
                 if(pcbParaDesbloquear!=NULL){
-                    pthread_mutex_lock(&ready_mutex);
-                    queue_push(ready_cola, pcbParaDesbloquear);
-                    pthread_mutex_unlock(&ready_mutex);
+                    encolar_pcb_ready(pcbParaDesbloquear);
                     sem_post(&sem_hay_proceso_ready);
                 }
                 pthread_mutex_lock(&mutex_stdout_ocupado);
@@ -295,9 +292,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //mover proceso BLOCK -> READY
                 t_pcb* pcbDesblockeado = buscar_y_sacar_de_block(resultado->pid);
                 
-                pthread_mutex_lock(&ready_mutex);
-                queue_push(ready_cola, pcbDesblockeado);
-                pthread_mutex_unlock(&ready_mutex);
+                encolar_pcb_ready(pcbDesblockeado);
 
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
@@ -411,9 +406,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     // mover de BLOCK → READY
                     buscar_y_sacar_de_block(siguiente->pid);
-                    pthread_mutex_lock(&ready_mutex);
-                    queue_push(ready_cola, siguiente);
-                    pthread_mutex_unlock(&ready_mutex);
+                    encolar_pcb_ready(siguiente);
 
                     log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
                     sem_post(&sem_hay_proceso_ready);
@@ -493,7 +486,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(infoMemFree);
                 break;
             default:
-                log_error("------recibi %d , y no lo entiendo", paquete->codigo_operacion);
+                log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);
                 break;
             
             //agregar caso que no coincida con nada
@@ -561,20 +554,54 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
 void* planificador(void* arg) {
     while (1) {
         //hasta que no tengamos cpu disponible ni proceso, no continuamos
-        sem_wait(&sem_hay_proceso_ready); 
-        sem_wait(&sem_hay_cpu_libre);     
-        
-        pthread_mutex_lock(&ready_mutex);
-        t_pcb* pcb = queue_pop(ready_cola);
-        pthread_mutex_unlock(&ready_mutex);
+        sem_wait(&sem_hay_proceso_ready);
 
-        t_cpu_exec* cpu = obtener_cpu_libre();
-        enviar_proceso_a_cpu(cpu, pcb); 
+        if(algoritmo==FIFO || algoritmo == RR){ 
+            sem_wait(&sem_hay_cpu_libre);     
+            
+            
+            t_pcb* pcb =desencolar_pcb_ready();
+            
 
-        if (algoritmo == RR) {
-            iniciar_timer_quantum(cpu);
+            t_cpu_exec* cpu = obtener_cpu_libre();
+            enviar_proceso_a_cpu(cpu, pcb); 
+
+            if (algoritmo == RR) {
+                iniciar_timer_quantum(cpu);
+            }
         }
-        //Implementar mas adelante para CMN
+        if(algoritmo == CMN){
+            /*desalojo habilitado y hay uno de menor prior ejecutando*/
+            if(desalojo_cola /*&& hay alguno para desalojar*/){
+
+                //elegir_cpu_a_desalojar()
+
+                //desencolar_mas_prioritario();
+
+                //meter proceso y pasar a ready el otro
+
+            }else{
+                sem_wait(&sem_hay_cpu_libre);
+
+                t_pcb* elPcb = desencolar_pcb_ready();
+
+                //meter proceso
+                t_cpu_exec* cpuEncontrada = obtener_cpu_libre();
+
+                t_pcb* aux = cpuEncontrada->pcb;
+
+                cpuEncontrada->pcb = elPcb;
+
+                encolar_pcb_ready(aux);
+
+                enviar_proceso_a_cpu(cpuEncontrada, elPcb);
+
+                if (algoritmo_por_cola[elPcb->prioridad] == RR) {
+                iniciar_timer_quantum(cpuEncontrada);
+            }
+            }
+        }
+        
     }
     //cuando un proceso termina de ejcutar, hacer el log que se pasa a exit y volar el PCB de ese proceso (nose si es que va aca)
 }
