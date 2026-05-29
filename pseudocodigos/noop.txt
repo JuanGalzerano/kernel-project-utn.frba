@@ -1,14 +1,5 @@
-INIT_PROC hola.txt 0
-INIT_PROC hola.txt 0
-INIT_PROC hola.txt 0
-INIT_PROC hola.txt 0
-SLEEP 500
 NOOP
 NOOP
+INIT_PROC test_stdin.txt 1
 NOOP
-SET AX 6
-SET AX 6
-SET BX 2
-SUM AX BX
-SUB AX BX
 EXIT
