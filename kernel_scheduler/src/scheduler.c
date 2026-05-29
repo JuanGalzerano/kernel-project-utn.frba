@@ -39,9 +39,9 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     pthread_detach(hilo_stdout);
 
 //P/A ESCUCHAR A SCHEDULER
-    pthread_t hilo_memory;
-    pthread_create(&hilo_memory, NULL, hilo_escuchar_memory, NULL);
-    pthread_detach(hilo_memory);
+    //pthread_t hilo_memory;
+    //pthread_create(&hilo_memory, NULL, hilo_escuchar_memory, NULL);
+    //pthread_detach(hilo_memory);
 
     while(1){
         int socketCliente = aceptar_cliente_scheduler(socketEscucha, loggerScheduler);
@@ -269,7 +269,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //recibir pid, bytes, cadenaLeida y  del IO
                 
                 t_stdin_stdout* resultado = deserializar_stdin(paquete->buffer);
-
                 //pedirle al KM que escriba en memoria
                 pthread_mutex_lock(&mutex_socket_memory);
                 t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
@@ -277,22 +276,19 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(paqueteKM); // solo el paquete, no el buffer porque es del paquete original
 
                 //esperar OK del KM
-                int ok = recibir_ok_memory();
+                op_code ok = recibir_respuesta_memory(); //gestionar opcode ESCRITURA_EXITOSA O MEMORIA_CORRUPTA
                 pthread_mutex_unlock(&mutex_socket_memory);
-
-                if(!ok){
+                if(ok == MEMORIA_CORRUPTA){
                     //loguear error al escrribir en memoria
-                    log_error(loggerScheduler, "El proceso (%d) no pudo escribir en memoria", resultado->pid);
                     free(resultado->cadenaLeida);
                     free(resultado);
+                    manejar_bsod();
                     break;
                 }
 
                 //mover proceso BLOCK -> READY
                 t_pcb* pcbDesblockeado = buscar_y_sacar_de_block(resultado->pid);
-                
                 encolar_pcb_ready(pcbDesblockeado);
-
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
                 sem_post(&sem_stdin_disponible);

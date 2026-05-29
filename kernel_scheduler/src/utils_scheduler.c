@@ -2,7 +2,7 @@
 
 
 t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
-    if(algoritmo!=RR || (prioridad<cantidad_colas && prioridad>-1)){
+    if(algoritmo!=CMN || (prioridad<cantidad_colas && prioridad>-1)){
         t_pcb* pcb = malloc(sizeof(t_pcb));
         pcb->pid = pid;
         pcb->prioridad = prioridad;
@@ -47,6 +47,14 @@ int recibir_ok_memory(){
         return 0;
     }
     return 1;
+}
+
+op_code recibir_respuesta_memory(){
+
+    t_paquete* paquete = recibir_paquete(socketConexionMemory);
+    op_code codigo = paquete->codigo_operacion;
+    free(paquete);
+    return codigo;
 }
 
 t_cpu_exec* obtener_cpu_libre(){
@@ -284,9 +292,17 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
     char* cadena = malloc(bytes);// ver sy es bytes +1 y eso
 
     t_paquete* respuesta = recibir_paquete(socketConexionMemory);
+
+    
     if(respuesta->codigo_operacion == LECTURA_FALLIDA){
         cadena = NULL;
-    }else{
+    } else if (respuesta->codigo_operacion == MEMORIA_CORRUPTA) {
+        free(cadena);
+        eliminar_paquete(respuesta);
+        pthread_mutex_unlock(&mutex_socket_memory);
+        manejar_bsod();
+        return NULL;
+    } else {
         cadena = buffer_read_string(respuesta->buffer, bytes);
     }
 
@@ -355,7 +371,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
 
 
 //POR AHORA ES SOLO PARA LO DE BSOD, CREO QUE DESP SE SUMA LO DE QUE HAY MAS MEMORIA
-
+/*
 void* hilo_escuchar_memory(void* arg) {
     while(1) {
         t_paquete* paquete = recibir_paquete(socketConexionMemory);
@@ -379,11 +395,12 @@ void* hilo_escuchar_memory(void* arg) {
     }
     return NULL;
 }
-
+*/
 
 
 void manejar_bsod() {
     // EXEC
+    log_info(loggerScheduler, "## BSOD: Corrupcion de memoria detectada");
     pthread_mutex_lock(&exec_mutex);
     for(int i = 0; i < list_size(exec_lista); i++) {
         t_cpu_exec* cpu = list_get(exec_lista, i);

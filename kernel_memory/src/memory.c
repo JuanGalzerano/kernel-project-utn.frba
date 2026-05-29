@@ -136,12 +136,6 @@ int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
     return socket;
 }
 
-
-
-void compactar(void) {
-    //implementar compactacion real
-}
-
 // Loop que atiende al scheduler.
 // PATH_PROCESO → inicializar proceso, responde int ok
 // FIN_PROCESO → liberar proceso, sin respuesta
@@ -174,22 +168,37 @@ void* atender_scheduler(void* arg) {
                 eliminar_paquete(paquete);
 
                 t_proceso_memory* proc = buscar_proceso(req->pid);
-                int ok = -1;
+                op_code ok = MEMORIA_CORRUPTA;
+                if (proc == NULL) {
+                    log_error(loggerMemory, "PID: %d - proceso no encontrado en ESCRIBIR_BYTES", req->pid);
+                }
                 if (proc != NULL) {
                     pthread_mutex_lock(&memoria_mutex);
+                    log_info(loggerMemory, "PID: %d - ESCRIBIR_BYTES: tabla tiene %d segmentos, sticks: %d", req->pid, list_size(proc->contexto->tabla_segmentos), list_size(lista_memory_sticks));
+                    for (int _i = 0; _i < list_size(proc->contexto->tabla_segmentos); _i++) {
+                        t_segmento* _s = list_get(proc->contexto->tabla_segmentos, _i);
+                        log_info(loggerMemory, "  seg[%d]: id=%d base=%d limite=%d", _i, _s->id_segmento, _s->base, _s->limite);
+                    }
+                    uint32_t _seg_id = req->direccionLogica / segment_max_size;
+                    uint32_t _desp   = req->direccionLogica % segment_max_size;
+                    log_info(loggerMemory, "  busca seg_id=%d desp=%d bytes=%d segment_max_size=%d", _seg_id, _desp, req->bytesALeer, segment_max_size);
                     t_list* pedazos = traducir_logica_a_fisica(req->direccionLogica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, req->bytesALeer);
                     pthread_mutex_unlock(&memoria_mutex);
 
+                    if (pedazos == NULL) {
+                        log_error(loggerMemory, "PID: %d - traducir_logica_a_fisica retorno NULL para dir %d, bytes %d", req->pid, req->direccionLogica, req->bytesALeer);
+                    }
                     if (pedazos != NULL) {
                         ok = escribir_pedazos(pedazos, req->cadenaLeida);
-                        if (ok > 0)
+                        if (ok == ESCRIBIR_BYTES)
                             log_info(loggerMemory, "PID: %d - Escritura - Dir. Logica: %d - Tamanio: %d", req->pid, req->direccionLogica, req->bytesALeer);
                         list_destroy_and_destroy_elements(pedazos, free);
                     }
                 }
                 free(req->cadenaLeida);
                 free(req);
-                send(socket, &ok, sizeof(int), 0);
+                t_paquete* paqueteResp = crear_paquete(ok,NULL);
+                enviar_paquete(socket,paqueteResp);
                 break;
             }
             case LEER_BYTES: {
@@ -256,7 +265,7 @@ void* atender_scheduler(void* arg) {
             case PROCESOS_DESALOJADOS: {
                 eliminar_paquete(paquete);
                 usleep(compaction_delay * 1000);
-                compactar();
+                //compactar();
                 break;
             }
             default:

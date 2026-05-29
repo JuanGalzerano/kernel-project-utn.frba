@@ -3,7 +3,7 @@
 
 #include "gestor_scheduler.h"
 
-
+op_code recibir_respuesta_memory();
 
 t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad);
 

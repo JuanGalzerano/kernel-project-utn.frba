@@ -54,7 +54,7 @@ static void manejar_desconexion_stick(int socket) {
     close(socket);
 }
 
-int leer_pedazos(t_list* pedazos, char* buffer_out) {
+op_code leer_pedazos(t_list* pedazos, char* buffer_out) {
     uint32_t bytes_ya_procesados = 0;
     for (int i = 0; i < list_size(pedazos); i++) {
         struct_control_mmu* pedazo = list_get(pedazos, i);
@@ -69,16 +69,16 @@ int leer_pedazos(t_list* pedazos, char* buffer_out) {
         t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
         if (respuesta == NULL) {
             manejar_desconexion_stick(pedazo->socketMemoryStick);
-            return -1;
+            return MEMORIA_CORRUPTA;
         }
         buffer_read(respuesta->buffer, buffer_out + bytes_ya_procesados, pedazo->tamanio_a_leer_en_esta_memory_stick);
         eliminar_paquete(respuesta);
         bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
     }
-    return 1;
+    return LEER_BYTES;
 }
 
-int escribir_pedazos(t_list* pedazos, char* datos) {
+op_code escribir_pedazos(t_list* pedazos, char* datos) {
     uint32_t bytes_ya_procesados = 0;
     for (int i = 0; i < list_size(pedazos); i++) {
         struct_control_mmu* pedazo = list_get(pedazos, i);
@@ -94,10 +94,10 @@ int escribir_pedazos(t_list* pedazos, char* datos) {
         t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
         if (respuesta == NULL) {
             manejar_desconexion_stick(pedazo->socketMemoryStick);
-            return -1;
+            return MEMORIA_CORRUPTA;
         }
         eliminar_paquete(respuesta);
         bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
     }
-    return 1;
+    return ESCRIBIR_BYTES;
 }
