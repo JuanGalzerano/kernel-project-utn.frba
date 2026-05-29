@@ -480,6 +480,24 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);
                 break;
+            case DESALOJO:
+                uint32_t pidDesalojado;
+                buffer_read(paquete->buffer, &pidDesalojado, sizeof(uint32_t));
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu_exec* cpuDesalojada = encontrar_cpu_con_pid(pidDesalojado);
+                t_pcb* pcbDesalojado = cpuDesalojada->pcb;
+                uint32_t causante_pid = cpuDesalojada->pid_desalojador;
+                int causante_prioridad = cpuDesalojada->prioridad_desalojador;
+                cpuDesalojada->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex);
+
+                log_info(loggerScheduler, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso %d con prioridad %d", pcbDesalojado->pid, pcbDesalojado->prioridad, causante_pid, causante_prioridad);
+
+                encolar_pcb_ready(pcbDesalojado);
+                sem_post(&sem_hay_proceso_ready);
+                sem_post(&sem_hay_cpu_libre);
+                break;
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);
                 break;
@@ -522,6 +540,8 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         nueva_cpu->cpu_id = atoi(idCPU);//transforma a int
         nueva_cpu->socketConexion = socketCliente;
         nueva_cpu->pcb=NULL;
+        nueva_cpu->pid_desalojador = 0;
+        nueva_cpu->prioridad_desalojador = 0;
 
         //agrego CPU a lista de CPUs
         pthread_mutex_lock(&exec_mutex);
@@ -546,6 +566,8 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
 }
 
 
+
+//DESPUES VER XQ CREO QUE TIENE UNA RE ESPERA ACTIVA EL PLANIFICADOR
 void* planificador(void* arg) {
     while (1) {
         //hasta que no tengamos cpu disponible ni proceso, no continuamos
@@ -567,15 +589,45 @@ void* planificador(void* arg) {
         }
         if(algoritmo == CMN){
             /*desalojo habilitado y hay uno de menor prior ejecutando*/
-            if(desalojo_cola /*&& hay alguno para desalojar*/){
+            if(desalojo_cola){
 
-                //elegir_cpu_a_desalojar()
+                t_pcb* prox_pcb = pcb_mas_prioritario();
 
-                //desencolar_mas_prioritario();
+                t_cpu_exec* cpuDesalojable = hay_cpu_desalojable(prox_pcb);
 
-                //meter proceso y pasar a ready el otro
+                if((sem_trywait(&sem_hay_cpu_libre)==0) && (prox_pcb!=NULL)){
+                    t_pcb* unPcb = desencolar_pcb_ready();
+                    t_cpu_exec* cpuAUsar = obtener_cpu_libre();
+                    enviar_proceso_a_cpu(cpuAUsar, unPcb);
+                    if(algoritmo_por_cola[unPcb->prioridad] == RR) {
+                        iniciar_timer_quantum(cpuAUsar);
+                    }
+                
+                }else if ((cpuDesalojable!=NULL) && (prox_pcb!=NULL))
+                {
+                    t_pcb* otroPcb = desencolar_pcb_ready();
+                    
+                    pthread_mutex_lock(&exec_mutex);
+                    cpuDesalojable->pid_desalojador = otroPcb->pid;
+                    cpuDesalojable->prioridad_desalojador = otroPcb->prioridad;
+                    pthread_mutex_unlock(&exec_mutex);
+
+                    enviar_desalojo_cpu(cpuDesalojable);
+
+                    //esperamos a que selibere la CPU tras el desalojo
+                    sem_wait(&sem_hay_cpu_libre);
+                    t_cpu_exec* laCpu = obtener_cpu_libre();
+                    enviar_proceso_a_cpu(laCpu, otroPcb);
+                    if(algoritmo_por_cola[otroPcb->prioridad] == RR) {
+                        iniciar_timer_quantum(laCpu);
+                    }
+                }
+                else{
+                    sem_post(&sem_hay_proceso_ready);
+                }
 
             }else{
+                //NO HAY DESALOJO
                 sem_wait(&sem_hay_cpu_libre);
                 t_pcb* elPcb = desencolar_pcb_ready();
                 t_cpu_exec* cpuEncontrada = obtener_cpu_libre();
@@ -583,7 +635,7 @@ void* planificador(void* arg) {
                 if(algoritmo_por_cola[elPcb->prioridad] == RR) {
                     iniciar_timer_quantum(cpuEncontrada);
                 }
-                            }
+            }
         }
         
     }

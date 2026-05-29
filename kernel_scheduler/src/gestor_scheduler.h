@@ -21,6 +21,9 @@ typedef struct {
     int cpu_id;
     int socketConexion;
     t_pcb* pcb; // NULL si la CPU está libre
+    //estos de abajo solo los uso cuando hay desalojo habiliatdo
+    uint32_t pid_desalojador;       
+    int      prioridad_desalojador; 
 } t_cpu_exec; 
 
 typedef enum {

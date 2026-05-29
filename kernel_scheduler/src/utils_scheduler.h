@@ -50,4 +50,11 @@ void manejar_bsod();
 void encolar_pcb_ready(t_pcb* pcb);
 
 t_pcb* desencolar_pcb_ready();
+
+t_pcb* pcb_mas_prioritario();
+
+t_cpu_exec* hay_cpu_desalojable(t_pcb* pcbCandidato);
+
+void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable);
+
 #endif

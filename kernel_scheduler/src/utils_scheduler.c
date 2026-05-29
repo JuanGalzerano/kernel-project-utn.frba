@@ -371,6 +371,9 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
 
 
 //POR AHORA ES SOLO PARA LO DE BSOD, CREO QUE DESP SE SUMA LO DE QUE HAY MAS MEMORIA
+//LO SAQUE PQ SE ROBABA PAQUETES BASICAMENTE
+//SI LO LLEGO A CAMBIAR, ARRGLAR LAS STDINS
+//PODRIA HACER UN RECIBIR PAQUETE NO BLOQUEANTE Y USAR EL MUTEX DEL SOCKET
 /*
 void* hilo_escuchar_memory(void* arg) {
     while(1) {
@@ -470,7 +473,7 @@ t_pcb* desencolar_pcb_ready(){
     if(algoritmo==CMN){
         pthread_mutex_lock(&mutex_cola_multinivel);
         for(int i = 0; i< cantidad_colas; i++){
-            if(queue_is_empty(cola_multinivel[i])){
+            if(!queue_is_empty(cola_multinivel[i])){
                 pcb = queue_pop(cola_multinivel[i]);
                 break;
             }
@@ -484,3 +487,41 @@ t_pcb* desencolar_pcb_ready(){
     return pcb;
 }
 
+t_pcb* pcb_mas_prioritario(){
+    pthread_mutex_lock(&mutex_cola_multinivel);
+    t_pcb* pcb = NULL;
+    for(int i = 0; i < cantidad_colas; i++) {
+        if(!queue_is_empty(cola_multinivel[i])) {
+            pcb = queue_peek(cola_multinivel[i]);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_cola_multinivel);
+    return pcb;
+}
+
+t_cpu_exec* hay_cpu_desalojable(t_pcb* pcbCandidato){
+    if(pcbCandidato == NULL) return NULL;
+    pthread_mutex_lock(&exec_mutex);
+    t_cpu_exec* cpuADesalojar = NULL;
+    for(int i = 0; i < list_size(exec_lista); i++) {
+        t_cpu_exec* cpu = list_get(exec_lista, i);
+        if(cpu->pcb != NULL && cpu->pcb->prioridad > pcbCandidato->prioridad) {
+            cpuADesalojar = cpu;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&exec_mutex);
+    return cpuADesalojar;
+}
+
+void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable){
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, cpuDesalojable->pcb->pid);
+    t_paquete* paquete = crear_paquete(DESALOJO, buffer);
+    enviar_paquete(cpuDesalojable->socketConexion, paquete);
+
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
+}
