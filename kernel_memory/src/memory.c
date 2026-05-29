@@ -265,7 +265,7 @@ void* atender_scheduler(void* arg) {
             case PROCESOS_DESALOJADOS: {
                 eliminar_paquete(paquete);
                 usleep(compaction_delay * 1000);
-                //compactar();
+                compactar();
                 break;
             }
             default:

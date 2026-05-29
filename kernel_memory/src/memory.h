@@ -6,7 +6,7 @@
 #include "segmentacion.h"
 #include "memory_sticks.h"
 #include "serializacion_m.h"
-//#include "compactacion.h"
+#include "compactacion.h"
 
 // VARIABLES GLOBALES (definiciones — solo en memory.c)
 

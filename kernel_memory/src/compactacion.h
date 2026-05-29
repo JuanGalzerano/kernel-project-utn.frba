@@ -1,4 +1,3 @@
-/*
 #ifndef COMPACTACION_H_
 #define COMPACTACION_H_
 
@@ -8,4 +7,3 @@
 void compactar(void);
 
 #endif
-*/

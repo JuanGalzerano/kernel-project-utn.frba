@@ -1,5 +1,5 @@
 #include "compactacion.h"
-/*
+
 typedef struct {//estructura para cargar los segmentos si nperder su pid
     uint32_t    pid;
     t_segmento* seg;
@@ -18,11 +18,9 @@ t_list* pedazos_fisico(uint32_t dir_fisica, uint32_t tamanio) {//crea los pedazo
     uint32_t offset    = dir_fisica - stick->base_acumulada;
     uint32_t restantes = tamanio;
 
-
-//normalmente siempre va a ser menor a 0 en la segunda iteracion 
+//normalmente siempre va a ser menor a 0 en la segunda iteracion
 //ya que pocas veces va a coincidir que se haya pasado del limite de lstick, el segmento
     while (restantes > 0) {
-        ya que pocas veces va a coincidir que se haya pasado del li
         uint32_t espacio  = stick->size - offset;
         uint32_t a_copiar = espacio < restantes ? espacio : restantes;
 
@@ -107,4 +105,3 @@ void compactar() {
 
     log_info(loggerMemory, "Compactacion finalizada - datos hasta %d, hueco libre: %d bytes", cursor, memoria_total_size - cursor);
 }
-*/
