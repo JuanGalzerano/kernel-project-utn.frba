@@ -42,6 +42,7 @@ sem_t sem_hay_cpu_libre;
 t_log* loggerScheduler;
 t_config* configScheduler;
 int socketConexionMemory;
+int socketMemoryNotif;
 pthread_mutex_t mutex_socket_memory;
 uint32_t proximo_pid = 1;
 pthread_mutex_t mutex_pid;
@@ -50,6 +51,7 @@ pthread_mutex_t mutex_pid;
 
 char* puertoEscucha;
 char* puertoMemory;
+char* puertoMemoryNotif;
 char* IPMemory;
 t_planification_algorithm algoritmo;
 int quantum;

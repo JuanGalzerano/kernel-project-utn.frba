@@ -1,4 +1,5 @@
 #include "memory.h"
+#include <sys/epoll.h>
 
 
 int main(int argc, char* argv[]) {
@@ -11,6 +12,7 @@ int main(int argc, char* argv[]) {
     inicializar_log_y_config(argv[1]);
 
     puertoEscucha = config_get_string_value(configMemory, "PUERTO_MEMORY");
+    puertoEscuchaNotif = config_get_string_value(configMemory, "PUERTO_MEMORY_NOTIF");
     scriptsBasePath = config_get_string_value(configMemory, "SCRIPTS_BASEPATH");
     segment_max_size = (uint32_t)config_get_int_value(configMemory, "SEGMENT_MAX_SIZE");
     allocation_strategy = config_get_string_value(configMemory, "ALLOCATION_STRATEGY");
@@ -23,6 +25,9 @@ int main(int argc, char* argv[]) {
     memoria_total_size  = 0;
     memoria_libre_size  = 0;
     socketScheduler = -1;
+    socketSchedulerNotif = -1;
+    socketSwap = -1;
+    epoll_fd_sticks = -1;
     pthread_mutex_init(&memoria_mutex, NULL);
     pthread_mutex_init(&procesos_mutex, NULL);
 
@@ -33,11 +38,34 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemory, "Servidor iniciado en puerto %s", puertoEscucha);
 
-    // El scheduler y el swap son los primeros en conectarse (arranque del sistema)
-    // Ya sabemos quienes son, no necesitamos identificarlos
+    int socketEscuchaNotif = iniciar_servidor(puertoEscuchaNotif);
+    if (socketEscuchaNotif == EXIT_FAILURE) {
+        log_error(loggerMemory, "No se pudo iniciar el servidor de notificaciones");
+        return EXIT_FAILURE;
+    }
+    log_info(loggerMemory, "Servidor de notificaciones iniciado en puerto %s", puertoEscuchaNotif);
+
+    // El scheduler se conecta primero en ambos puertos (uno para tema procesos y otra para gestion de conexion o desconexion de sticks)
     socketScheduler = aceptar_cliente(socketEscucha, loggerMemory);
     log_info(loggerMemory, "## Kernel Scheduler Conectado - FD del socket: %d", socketScheduler);
-    // int socketSwap = aceptar_cliente(socketEscucha, loggerMemory); // descomentar cuando swap este implementado
+
+    socketSchedulerNotif = esperar_cliente(socketEscuchaNotif);
+    log_info(loggerMemory, "## Kernel Scheduler Conectado al canal de notificaciones - FD: %d", socketSchedulerNotif);
+
+    socketSwap = aceptar_cliente(socketEscucha, loggerMemory);
+    log_info(loggerMemory, "## Swap Conectado - FD del socket: %d", socketSwap);
+
+    // Inicializar epoll para monitoreo de desconexion de memory sticks sin espera activa
+    epoll_fd_sticks = epoll_create1(0);
+    if (epoll_fd_sticks < 0) {
+        log_error(loggerMemory, "No se pudo crear el epoll para memory sticks");
+        return EXIT_FAILURE;
+    }
+
+    // Thread monitor: detecta desconexion de sticks via epoll (EPOLLRDHUP)
+    pthread_t hilo_monitor;
+    pthread_create(&hilo_monitor, NULL, hilo_monitor_sticks, NULL);
+    pthread_detach(hilo_monitor);
 
     // Thread dedicado al scheduler: recibe nuevos procesos en loop
     int* argSched = malloc(sizeof(int));

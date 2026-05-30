@@ -1,5 +1,6 @@
 #include "memory_sticks.h"
 #include "segmentacion.h"
+#include <sys/epoll.h>
 
 void agregar_memory_stick(int socket, uint32_t size) {
     t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
@@ -14,13 +15,24 @@ void agregar_memory_stick(int socket, uint32_t size) {
 
     memoria_total_size += size;
     memoria_libre_size += size;
-    //crear el hueco gigante que se generar al conectarse una memory stick
     t_hueco* hueco = malloc(sizeof(t_hueco));
     hueco->base = stick->base_acumulada;
     hueco->limite = size;
     insertar_hueco_y_fusionar(hueco);
 
     pthread_mutex_unlock(&memoria_mutex);
+
+    // Registrar en epoll para detectar Ctrl+C del memory stick (cierra el socket de forma limpia para los tests)
+    struct epoll_event ev;
+    ev.events  = EPOLLRDHUP;
+    ev.data.fd = socket;
+    epoll_ctl(epoll_fd_sticks, EPOLL_CTL_ADD, socket, &ev);
+
+    // Notificar al scheduler que hay nueva memoria disponible
+    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, NULL);
+    enviar_paquete(socketSchedulerNotif, aviso);
+    eliminar_paquete(aviso);
+    log_info(loggerMemory, "## Notificado al Scheduler: NUEVA_MEMORIA_DISPONIBLE (%d bytes)", size);
 }
 
 t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {
@@ -32,26 +44,42 @@ t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {
     return NULL;
 }
 
-static void manejar_desconexion_stick(int socket) {
-    log_warning(loggerMemory, "Memory Stick desconectado (FD %d) - memoria corrupta", socket);
+// El kernel suspende este hilo en epoll_wait hasta que un stick cierra su socket.
+// No consume CPU mientras espera — sin espera activa.
+void* hilo_monitor_sticks(void* arg) {
+    (void)arg;
 
-    pthread_mutex_lock(&memoria_mutex);
-    for (int i = 0; i < list_size(lista_memory_sticks); i++) {
-        t_memory_stick_info* s = list_get(lista_memory_sticks, i);
-        if (s->socket == socket) {
-            list_remove_and_destroy_element(lista_memory_sticks, i, free);
+    struct epoll_event events[64];
+    while (1) {
+        int n = epoll_wait(epoll_fd_sticks, events, 64, -1);//ese -1 es el timeout q seteado en -1 hace q se bloquee hasta q se rompa algun socket de losq  administra el array events
+        if (n < 0) {
+            log_error(loggerMemory, "epoll_wait error: %s", strerror(errno));
             break;
         }
+        for (int i = 0; i < n; i++) {
+            if (!(events[i].events & EPOLLRDHUP)) continue;
+            int fd = events[i].data.fd;
+
+            pthread_mutex_lock(&memoria_mutex);
+            for (int j = 0; j < list_size(lista_memory_sticks); j++) {
+                t_memory_stick_info* s = list_get(lista_memory_sticks, j);
+                if (s->socket == fd) {
+                    list_remove_and_destroy_element(lista_memory_sticks, j, free);
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&memoria_mutex);
+
+            log_warning(loggerMemory, "Memory Stick desconectado (FD %d) - memoria corrupta", fd);
+
+            t_paquete* aviso = crear_paquete(MEMORIA_CORRUPTA, NULL);
+            enviar_paquete(socketSchedulerNotif, aviso);
+            eliminar_paquete(aviso);
+
+            close(fd);
+        }
     }
-    pthread_mutex_unlock(&memoria_mutex);
-
-    t_buffer* buf = buffer_create(0);
-    buffer_add_uint32(buf, (uint32_t)socket);
-    t_paquete* aviso = crear_paquete(MEMORIA_CORRUPTA, buf);
-    enviar_paquete(socketScheduler, aviso);
-    eliminar_paquete(aviso);
-
-    close(socket);
+    return NULL;
 }
 
 op_code leer_pedazos(t_list* pedazos, char* buffer_out) {
@@ -67,10 +95,7 @@ op_code leer_pedazos(t_list* pedazos, char* buffer_out) {
         eliminar_paquete(pedido);
 
         t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
-        if (respuesta == NULL) {
-            manejar_desconexion_stick(pedazo->socketMemoryStick);
-            return MEMORIA_CORRUPTA;
-        }
+        if (respuesta == NULL) return LECTURA_FALLIDA;
         buffer_read(respuesta->buffer, buffer_out + bytes_ya_procesados, pedazo->tamanio_a_leer_en_esta_memory_stick);
         eliminar_paquete(respuesta);
         bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
@@ -92,10 +117,7 @@ op_code escribir_pedazos(t_list* pedazos, char* datos) {
         eliminar_paquete(pedido);
 
         t_paquete* respuesta = recibir_paquete(pedazo->socketMemoryStick);
-        if (respuesta == NULL) {
-            manejar_desconexion_stick(pedazo->socketMemoryStick);
-            return MEMORIA_CORRUPTA;
-        }
+        if (respuesta == NULL) return ESCRITURA_FALLIDA;
         eliminar_paquete(respuesta);
         bytes_ya_procesados += pedazo->tamanio_a_leer_en_esta_memory_stick;
     }

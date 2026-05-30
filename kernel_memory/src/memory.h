@@ -14,6 +14,7 @@ t_log*    loggerMemory;
 t_config* configMemory;
 
 char*     puertoEscucha;
+char*     puertoEscuchaNotif;
 char*     scriptsBasePath;
 uint32_t  segment_max_size;
 char*     allocation_strategy;
@@ -30,6 +31,9 @@ pthread_mutex_t memoria_mutex;
 pthread_mutex_t procesos_mutex;
 
 int socketScheduler;
+int socketSchedulerNotif;
+int socketSwap;
+int epoll_fd_sticks;
 
 // FUNCIONES
 int   aceptar_cliente_memory(int socketEscucha, modulo* quien_out);

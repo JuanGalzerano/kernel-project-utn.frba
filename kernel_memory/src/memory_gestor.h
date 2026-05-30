@@ -40,5 +40,9 @@ extern pthread_mutex_t memoria_mutex;   //protege lista_huecos, lista_memory_sti
 extern pthread_mutex_t procesos_mutex;  //protege lista_procesos y proceso->contexto
 
 extern int socketScheduler;
+extern int socketSchedulerNotif;
+extern int socketSwap;
+extern int epoll_fd_sticks;
+extern char* puertoEscuchaNotif;
 
 #endif

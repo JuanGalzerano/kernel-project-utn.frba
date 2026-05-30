@@ -12,6 +12,17 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     }
     log_info(loggerScheduler, "Conectado a Kernel Memory");
     handshake_cliente_id(socketConexionMemory, loggerScheduler, SCHEDULER);
+
+    socketMemoryNotif = iniciar_conexion(IPMemory, puertoMemoryNotif);
+    if(socketMemoryNotif == EXIT_FAILURE){
+        log_error(loggerScheduler, "no se pudo conectar al canal de notificaciones de Kernel Memory");
+        abort();
+    }
+    log_info(loggerScheduler, "Conectado al canal de notificaciones de Kernel Memory");
+
+    pthread_t hilo_memory_notif;
+    pthread_create(&hilo_memory_notif, NULL, hilo_escuchar_memory, NULL);
+    pthread_detach(hilo_memory_notif);
    
 //LEVANTAR SERVIDOR
     int socketEscucha = iniciar_servidor(puertoEscucha);
@@ -276,13 +287,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(paqueteKM); // solo el paquete, no el buffer porque es del paquete original
 
                 //esperar OK del KM
-                op_code ok = recibir_respuesta_memory(); //gestionar opcode ESCRITURA_EXITOSA O MEMORIA_CORRUPTA
+                op_code ok = recibir_respuesta_memory();
                 pthread_mutex_unlock(&mutex_socket_memory);
-                if(ok == MEMORIA_CORRUPTA){
-                    //loguear error al escrribir en memoria
+                if(ok == ESCRITURA_FALLIDA){
+                    log_error(loggerScheduler, "## (%d) - Escritura fallida en KM", resultado->pid);
                     free(resultado->cadenaLeida);
                     free(resultado);
-                    manejar_bsod();
                     break;
                 }
 

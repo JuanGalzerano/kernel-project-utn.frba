@@ -43,6 +43,7 @@ typedef struct {
 extern t_log* loggerScheduler;
 extern t_config* configScheduler;
 extern int socketConexionMemory;
+extern int socketMemoryNotif;
 extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 extern pthread_mutex_t mutex_socket_memory;
@@ -58,6 +59,7 @@ extern t_queue** cola_multinivel;
 
 extern char* puertoEscucha;
 extern char* puertoMemory;
+extern char* puertoMemoryNotif;
 extern char* IPMemory;
 extern t_planification_algorithm algoritmo;
 extern int quantum;

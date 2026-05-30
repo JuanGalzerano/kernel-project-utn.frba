@@ -134,6 +134,8 @@ typedef enum {
     PROCESOS_DESALOJADOS = 41,
     LECTURA_FALLIDA = 42,
     MEMORIA_CORRUPTA = 43,
+    NUEVA_MEMORIA_DISPONIBLE = 44,
+    ESCRITURA_FALLIDA = 45,
 } op_code;
  
 typedef struct {

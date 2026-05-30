@@ -21,6 +21,7 @@ void inicializar_configs(char* path){
     configScheduler = config_create(path); // para que funcione en el launch.json en la linea 9 puse los parametros de lanzamiento adecuados para que se arme bien el config
     puertoEscucha= config_get_string_value(configScheduler, "PUERTO_SCHEDULER");
     puertoMemory= config_get_string_value(configScheduler, "PUERTO_MEMORY");
+    puertoMemoryNotif = config_get_string_value(configScheduler, "PUERTO_MEMORY_NOTIF");
     IPMemory = config_get_string_value(configScheduler, "IP_MEMORY");
     quantum = config_get_int_value(configScheduler, "RR_QUANTUM");
     char* preemptionStr = config_get_string_value(configScheduler, "QUEUE_PREEMPTION");

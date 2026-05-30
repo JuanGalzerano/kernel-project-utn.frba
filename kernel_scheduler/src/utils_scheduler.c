@@ -295,17 +295,13 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
 
     
     if(respuesta->codigo_operacion == LECTURA_FALLIDA){
-        cadena = NULL;
-    } else if (respuesta->codigo_operacion == MEMORIA_CORRUPTA) {
         free(cadena);
-        eliminar_paquete(respuesta);
-        pthread_mutex_unlock(&mutex_socket_memory);
-        manejar_bsod();
-        return NULL;
+        cadena = NULL;
     } else {
         cadena = buffer_read_string(respuesta->buffer, bytes);
     }
 
+    eliminar_paquete(respuesta);
     pthread_mutex_unlock(&mutex_socket_memory);
 
     return cadena;
@@ -370,35 +366,35 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
 
 
 
-//POR AHORA ES SOLO PARA LO DE BSOD, CREO QUE DESP SE SUMA LO DE QUE HAY MAS MEMORIA
-//LO SAQUE PQ SE ROBABA PAQUETES BASICAMENTE
-//SI LO LLEGO A CAMBIAR, ARRGLAR LAS STDINS
-//PODRIA HACER UN RECIBIR PAQUETE NO BLOQUEANTE Y USAR EL MUTEX DEL SOCKET
-/*
+// Escucha el canal dedicado de notificaciones de Kernel Memory (socketMemoryNotif).
+// Separado del socketConexionMemory para no interferir con el flujo request/reply.
 void* hilo_escuchar_memory(void* arg) {
+    (void)arg;
     while(1) {
-        t_paquete* paquete = recibir_paquete(socketConexionMemory);
+        t_paquete* paquete = recibir_paquete(socketMemoryNotif);
         if(paquete == NULL) {
+            log_error(loggerScheduler, "Se perdio la conexion con el canal de notificaciones de KM");
             break;
         }
 
         switch(paquete->codigo_operacion) {
             case MEMORIA_CORRUPTA:
-                log_info(loggerScheduler, "## BSOD: Corrupcion de memoria detectada");
-                free(paquete->buffer->stream);
-                free(paquete->buffer);
-                free(paquete);
+                eliminar_paquete(paquete);
                 manejar_bsod();
                 return NULL;
+            case NUEVA_MEMORIA_DISPONIBLE:
+                log_info(loggerScheduler, "## Nuevo Memory Stick conectado - hay memoria disponible");
+                eliminar_paquete(paquete);
+                // TODO: desbloquear procesos en BLOCK por MEMORIA_NO_DISPONIBLE o SUSPENDIDOS(?
+                break;
+            default:
+                log_warning(loggerScheduler, "Opcode desconocido en canal de notificaciones: %d", paquete->codigo_operacion);
+                eliminar_paquete(paquete);
+                break;
         }
-
-        free(paquete->buffer->stream);
-        free(paquete->buffer);
-        free(paquete);
     }
     return NULL;
 }
-*/
 
 
 void manejar_bsod() {
