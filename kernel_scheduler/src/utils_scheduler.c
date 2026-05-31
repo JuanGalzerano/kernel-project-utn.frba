@@ -347,20 +347,28 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
     t_paquete* paquete = crear_paquete(SOLICITAR_SEGMENTO, buffer);
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
+    eliminar_paquete(paquete);
 
-    t_paquete* otroPaquete = recibir_paquete(socketConexionMemory);
+    t_paquete* respuesta = recibir_paquete(socketConexionMemory);
+    op_code codigo = respuesta->codigo_operacion;
+    eliminar_paquete(respuesta);
 
-    op_code codigo = otroPaquete->codigo_operacion;
+    if(codigo == COMPACTACION) {
+        // Hay memoria pero fragmentada: pedir compactacion y esperar que termine
+        t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
+        enviar_paquete(socketConexionMemory, pacComp);
+        eliminar_paquete(pacComp);
+        t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);
+        eliminar_paquete(compactacionHecha);
+        pthread_mutex_unlock(&mutex_socket_memory);
+
+        // Post-compactacion DEBE poder alocar. Si no, BSOD.
+        op_code reintentar = solicitar_segmento_memory(infoMemAlloc);
+        if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul;xq sino es un bucle de solicitar_segmento_memory
+        return reintentar;
+    }
 
     pthread_mutex_unlock(&mutex_socket_memory);
-
-    free(buffer->stream);
-    free(buffer);
-    free(paquete);
-    //free(otroPaquete->buffer->stream); nose si van estos dos
-    //free(otroPaquete->buffer);
-    free(otroPaquete);
-
     return codigo;
 }
 
@@ -383,9 +391,9 @@ void* hilo_escuchar_memory(void* arg) {
                 manejar_bsod();
                 return NULL;
             case NUEVA_MEMORIA_DISPONIBLE:
-                log_info(loggerScheduler, "## Nuevo Memory Stick conectado - hay memoria disponible");
+                log_info(loggerScheduler, "Hay memoria disponible");
                 eliminar_paquete(paquete);
-                // TODO: desbloquear procesos en BLOCK por MEMORIA_NO_DISPONIBLE o SUSPENDIDOS(?
+                // TODO: desbloquear procesos en BLOCK por MEMORIA_NO_DISPONIBLE o SUSPENDIDOS(? , ESTE OPCODE te lo madno si se termina de hacer mem free, finaliza proceso, suspende proceso, captacion finalizada o se conecta un nuevo memory stick
                 break;
             default:
                 log_warning(loggerScheduler, "Opcode desconocido en canal de notificaciones: %d", paquete->codigo_operacion);

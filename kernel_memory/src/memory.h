@@ -7,6 +7,7 @@
 #include "memory_sticks.h"
 #include "serializacion_m.h"
 #include "compactacion.h"
+#include "swap_gestor.h"
 
 // VARIABLES GLOBALES (definiciones — solo en memory.c)
 
@@ -35,8 +36,13 @@ int socketSchedulerNotif;
 int socketSwap;
 int epoll_fd_sticks;
 
+t_bloque_swap* tabla_swap;
+uint32_t swap_total_size;
+uint32_t swap_block_size;
+uint32_t swap_num_bloques;
+pthread_mutex_t swap_mutex;
+
 // FUNCIONES
-int   aceptar_cliente_memory(int socketEscucha, modulo* quien_out);
 void* atender_scheduler(void* arg);
 void* atender_cpu(void* arg);
 

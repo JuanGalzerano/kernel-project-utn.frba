@@ -437,7 +437,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu_exec* cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
                 pthread_mutex_unlock(&exec_mutex);
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
-                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc);
+                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc);//aca dentro se gestiona las posibles compactaciones y reintentos
 
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
@@ -450,16 +450,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     bloquear_proceso(cpuAlloc->pcb);
                     sem_post(&sem_hay_cpu_libre);
                 }
-                if(rtaKM==COMPACTACION){
-                //HAY MEMORIA PERO NO DISPONIBLE => se dispara compactacion (todavia no lo implemente a eso)
-                    //compactacion();
-                    t_paquete* pacProcsDesalojados = crear_paquete(PROCESOS_DESALOJADOS, NULL);
-                    enviar_paquete(socketConexionMemory,pacProcsDesalojados);
-                    free(pacProcsDesalojados);
-                }
-                
-                
-                
                 free(infoMemAlloc);
 
                 break;

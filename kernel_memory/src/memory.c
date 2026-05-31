@@ -55,6 +55,13 @@ int main(int argc, char* argv[]) {
     socketSwap = aceptar_cliente(socketEscucha, loggerMemory);
     log_info(loggerMemory, "## Swap Conectado - FD del socket: %d", socketSwap);
 
+    // El swap envía su tamaño total y el tamaño de cada bloque al conectarse
+    t_paquete* swapInit = recibir_paquete(socketSwap);
+    swap_total_size = buffer_read_uint32(swapInit->buffer);
+    swap_block_size = buffer_read_uint32(swapInit->buffer);
+    eliminar_paquete(swapInit);
+    inicializar_swap();
+
     // Inicializar epoll para monitoreo de desconexion de memory sticks sin espera activa
     epoll_fd_sticks = epoll_create1(0);
     if (epoll_fd_sticks < 0) {
@@ -74,53 +81,36 @@ int main(int argc, char* argv[]) {
     pthread_create(&hilo_scheduler, NULL, atender_scheduler, argSched);
     pthread_detach(hilo_scheduler);
 
-    // Loop principal: acepta CPUs y Memory Sticks, identifica quien es y le da su thread
-    modulo quien;
+    // Loop principal: acepta CPUs y Memory Sticks
     while (1) {
-        int socket_cliente = aceptar_cliente_memory(socketEscucha, &quien);
+        int socket = esperar_cliente(socketEscucha);
+        int32_t id = handshake_servidor_id(socket, 0);
 
-        int* arg = malloc(sizeof(int));
-        *arg = socket_cliente;
-
-        pthread_t hilo;
-        switch (quien) {
-            case CPU:
+        switch (id) {
+            case CPU: {
+                int sizeCpuId;
+                recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
+                char* cpuId = malloc(sizeCpuId);
+                recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
+                log_info(loggerMemory, "## CPU %s Conectada", cpuId);
+                free(cpuId);
+                int* arg = malloc(sizeof(int));
+                *arg = socket;
+                pthread_t hilo;
                 pthread_create(&hilo, NULL, atender_cpu, arg);
                 pthread_detach(hilo);
                 break;
-            case MEMORY_STICK:
-                free(arg);
-                /*  EJEMPLO DE ESCRITURA Y LECTURA DE STICK TOTALMENTE FUNCIONAL DEW
-                log_info(loggerMemory, "TEST - case MEMORY_STICK alcanzado, sticks en lista: %d", list_size(lista_memory_sticks));
-
-                if (list_size(lista_memory_sticks) >= 1) {
-                    t_memory_stick_info* stick = list_get(lista_memory_sticks, 0);
-                    char* texto   = "Hola Memory Stick!";
-                    uint32_t tam  = strlen(texto) + 1;
-
-                    struct_control_mmu* pedazo = malloc(sizeof(struct_control_mmu));
-                    pedazo->socketMemoryStick = stick->socket;
-                    pedazo->desde_donde_leer = 0;
-                    pedazo->tamanio_a_leer_en_esta_memory_stick = tam;
-
-                    t_list* pedazos = list_create();
-                    list_add(pedazos, pedazo);
-
-                    escribir_pedazos(pedazos, texto);
-                    log_info(loggerMemory, "TEST escritura - '%s' (%d bytes en offset 0)", texto, tam);
-
-                    char* leido = calloc(tam, 1);
-                    leer_pedazos(pedazos, leido);
-                    log_info(loggerMemory, "TEST lectura  - '%s'", leido);
-                    free(leido);
-
-                    list_destroy_and_destroy_elements(pedazos, free);
-                }
-                */
+            }
+            case MEMORY_STICK: {
+                uint32_t stick_size = 0;
+                recv(socket, &stick_size, sizeof(uint32_t), MSG_WAITALL);
+                agregar_memory_stick(socket, stick_size);
+                log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", stick_size);
                 break;
+            }
             default:
-                log_warning(loggerMemory, "Modulo desconocido conectado: %d", quien);
-                free(arg);
+                log_warning(loggerMemory, "Modulo desconocido conectado: %d", id);
+                close(socket);
                 break;
         }
     }
@@ -128,45 +118,12 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-// Acepta un cliente, completa el handshake y devuelve quien se conecto via *quien_out.
-// Para CPU consume tambien el string de ID que el cliente manda (para no desincronizar el socket).
-// Usa loggerMemory directamente por ser global en este modulo.
-int aceptar_cliente_memory(int socketEscucha, modulo* quien_out) {
-    int socket = esperar_cliente(socketEscucha);
-
-    int32_t id = 0;
-    id = handshake_servidor_id(socket, id);
-    *quien_out = (modulo)id;
-
-    switch (id) {
-        case CPU: {
-            int sizeCpuId;
-            recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
-            char* cpuId = malloc(sizeCpuId);
-            recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
-            log_info(loggerMemory, "## CPU %s Conectada", cpuId);
-            free(cpuId);
-            break;
-        }
-        case MEMORY_STICK: {
-            uint32_t stick_size = 0;
-            recv(socket, &stick_size, sizeof(uint32_t), MSG_WAITALL);
-            agregar_memory_stick(socket, stick_size);
-            log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", stick_size);
-            break;
-        }
-        default:
-            log_error(loggerMemory, "Modulo inesperado intento conectarse al loop: %d", id);
-            close(socket);
-            break;
-    }
-
-    return socket;
+void avisar_nueva_memoria() {
+    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, NULL); // si te lo mando desp de q me hayas desalojado los procesos significa q tener que mandarme de nuevo un crear segmento
+    enviar_paquete(socketSchedulerNotif, aviso);
+    eliminar_paquete(aviso);
 }
 
-// Loop que atiende al scheduler.
-// PATH_PROCESO → inicializar proceso, responde int ok
-// FIN_PROCESO → liberar proceso, sin respuesta
 void* atender_scheduler(void* arg) {
     int socket = *(int*)arg;
     free(arg);
@@ -189,6 +146,7 @@ void* atender_scheduler(void* arg) {
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
                 finalizar_proceso(pid);
+                avisar_nueva_memoria();
                 break;
             }
             case ESCRIBIR_BYTES: {
@@ -196,7 +154,7 @@ void* atender_scheduler(void* arg) {
                 eliminar_paquete(paquete);
 
                 t_proceso_memory* proc = buscar_proceso(req->pid);
-                op_code ok = MEMORIA_CORRUPTA;
+                op_code ok = ESCRITURA_FALLIDA;
                 if (proc == NULL) {
                     log_error(loggerMemory, "PID: %d - proceso no encontrado en ESCRIBIR_BYTES", req->pid);
                 }
@@ -288,12 +246,35 @@ void* atender_scheduler(void* arg) {
                 eliminar_paquete(paquete);
                 eliminar_segmento(infoFree->pid, infoFree->segmentoId);
                 free(infoFree);
+                avisar_nueva_memoria();
                 break;
             }
             case PROCESOS_DESALOJADOS: {
                 eliminar_paquete(paquete);
                 usleep(compaction_delay * 1000);
                 compactar();
+                t_paquete* resp = crear_paquete(COMPACTACION_EXITOSA, NULL);
+                enviar_paquete(socket, resp);
+                eliminar_paquete(resp);
+                break;
+            }
+            case SUSPENDER_PROCESO: {
+                uint32_t pid = buffer_read_uint32(paquete->buffer);
+                eliminar_paquete(paquete);
+                op_code resultado = suspender_proceso(pid);
+                if (resultado == SUSPEND_OK) avisar_nueva_memoria();
+                t_paquete* resp = crear_paquete(resultado, NULL);//desp tendria q poner el caso donde no se pudo guiardar en swap, ahi nose que tendria q hacer
+                enviar_paquete(socket, resp);
+                eliminar_paquete(resp);
+                break;
+            }
+            case DESUSPENDER_PROCESO: {
+                uint32_t pid = buffer_read_uint32(paquete->buffer);
+                eliminar_paquete(paquete);
+                op_code resultado = desuspender_proceso(pid);
+                t_paquete* resp = crear_paquete(resultado, NULL);//desp tendria q poner el caso donde no se pudo guiardar en swap, ahi nose que tendria q hacer
+                enviar_paquete(socket, resp);
+                eliminar_paquete(resp);
                 break;
             }
             default:

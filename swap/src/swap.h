@@ -1,7 +1,10 @@
+#ifndef SWAP_H_
+#define SWAP_H_
+
 #include <utils/utils.h>
+#include <stdio.h>
 
-//VARIABLES 
+void  escribir_Bloque(uint32_t idBloque, FILE* archivo, void* contenido, uint32_t tamanio);
+char* leer_Bloque(uint32_t idBloque, FILE* archivo, uint32_t tamanio);
 
-//FUNCIONES
-void escribir_Bloque(uint32_t  idBloque, FILE* archivo, void* contenido, t_config* configSwap ); 
-uint32_t leer_Bloque(uint32_t  idBloque, FILE* archivo, t_config* configSwap );
+#endif

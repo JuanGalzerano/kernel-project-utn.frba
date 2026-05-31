@@ -10,6 +10,14 @@ typedef struct {
     uint32_t limite; // tamaño en bytes del hueco
 } t_hueco;
 
+//Entrada en la tabla de bloques del swap
+typedef struct {
+    bool ocupado;
+    uint32_t pid;
+    uint32_t segmento_id;
+    uint32_t tamanio;
+} t_bloque_swap;
+
 // Proceso residente en Kernel Memory
 typedef struct {
     uint32_t              pid;
@@ -44,5 +52,11 @@ extern int socketSchedulerNotif;
 extern int socketSwap;
 extern int epoll_fd_sticks;
 extern char* puertoEscuchaNotif;
+
+extern t_bloque_swap* tabla_swap;
+extern uint32_t swap_total_size;
+extern uint32_t swap_block_size;
+extern uint32_t swap_num_bloques;
+extern pthread_mutex_t swap_mutex;
 
 #endif
