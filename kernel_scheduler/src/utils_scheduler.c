@@ -393,7 +393,7 @@ void* hilo_escuchar_memory(void* arg) {
             case NUEVA_MEMORIA_DISPONIBLE: {
                 uint32_t bytes_libres = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
-                log_info(loggerScheduler, "## Nueva memoria disponible: %d bytes libres en KM", bytes_libres);
+                log_info(loggerScheduler, "Memoria disponible: %d bytes libres en KM", bytes_libres);
                 //con bytes_libres comparar contra bytes_suspendidos de procesos en SUSP para ver si podes desuspender
                 break;
             }
