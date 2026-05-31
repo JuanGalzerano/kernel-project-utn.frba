@@ -28,11 +28,13 @@ void agregar_memory_stick(int socket, uint32_t size) {
     ev.data.fd = socket;
     epoll_ctl(epoll_fd_sticks, EPOLL_CTL_ADD, socket, &ev);
 
-    // Notificar al scheduler que hay nueva memoria disponible
-    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, NULL);
+    // Notificar al scheduler que hay nueva memoria disponible, incluyendo el total libre actual
+    t_buffer* bufAviso = buffer_create(0);
+    buffer_add_uint32(bufAviso, memoria_libre_size);
+    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, bufAviso);
     enviar_paquete(socketSchedulerNotif, aviso);
     eliminar_paquete(aviso);
-    log_info(loggerMemory, "## Notificado al Scheduler: NUEVA_MEMORIA_DISPONIBLE (%d bytes)", size);
+    log_info(loggerMemory, "## Notificado al Scheduler: NUEVA_MEMORIA_DISPONIBLE (%d bytes libres)", memoria_libre_size);
 }
 
 t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica) {

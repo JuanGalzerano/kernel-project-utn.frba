@@ -44,7 +44,8 @@ char* swap_leer_bloque(int bloque, uint32_t tamanio) {
     return datos;
 }
 
-op_code suspender_proceso(uint32_t pid) {
+op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
+    *bytes_suspendidos = 0;
     t_proceso_memory* proc = buscar_proceso(pid);
     if (!proc) {
         log_error(loggerMemory, "SUSPEND: PID %d no encontrado", pid);
@@ -114,6 +115,7 @@ op_code suspender_proceso(uint32_t pid) {
 
         // Liberar solo la memoria fisica — el segmento queda en la tabla del proceso
         liberar_fisica_segmento(pid, seg_id);
+        *bytes_suspendidos += tamanio;
 
         log_info(loggerMemory, "## PID %d - Segmento %d -> Bloque swap %d", pid, seg_id, bloque);
     }

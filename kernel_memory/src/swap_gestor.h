@@ -7,7 +7,7 @@
 
 void inicializar_swap();
 int swap_bloque_libre();
-op_code suspender_proceso(uint32_t pid);
+op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos);
 op_code desuspender_proceso(uint32_t pid);
 
 #endif

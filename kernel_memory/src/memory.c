@@ -119,9 +119,11 @@ int main(int argc, char* argv[]) {
 }
 
 void avisar_nueva_memoria() {
-    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, NULL); // si te lo mando desp de q me hayas desalojado los procesos significa q tener que mandarme de nuevo un crear segmento
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, memoria_libre_size);
+    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, buf);
     enviar_paquete(socketSchedulerNotif, aviso);
-    eliminar_paquete(aviso);
+    eliminar_paquete(aviso); 
 }
 
 void* atender_scheduler(void* arg) {
@@ -261,9 +263,12 @@ void* atender_scheduler(void* arg) {
             case SUSPENDER_PROCESO: {
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
-                op_code resultado = suspender_proceso(pid);
+                uint32_t bytes_suspendidos = 0;
+                op_code resultado = suspender_proceso(pid, &bytes_suspendidos);//aca se suspende y se modifica el valor de bytes suspendidos
                 if (resultado == SUSPEND_OK) avisar_nueva_memoria();
-                t_paquete* resp = crear_paquete(resultado, NULL);//desp tendria q poner el caso donde no se pudo guiardar en swap, ahi nose que tendria q hacer
+                t_buffer* bufResp = buffer_create(0);
+                buffer_add_uint32(bufResp, bytes_suspendidos);
+                t_paquete* resp = crear_paquete(resultado, bufResp);
                 enviar_paquete(socket, resp);
                 eliminar_paquete(resp);
                 break;

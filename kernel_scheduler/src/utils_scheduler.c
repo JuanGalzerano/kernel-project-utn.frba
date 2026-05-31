@@ -390,11 +390,13 @@ void* hilo_escuchar_memory(void* arg) {
                 eliminar_paquete(paquete);
                 manejar_bsod();
                 return NULL;
-            case NUEVA_MEMORIA_DISPONIBLE:
-                log_info(loggerScheduler, "Hay memoria disponible");
+            case NUEVA_MEMORIA_DISPONIBLE: {
+                uint32_t bytes_libres = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
-                // TODO: desbloquear procesos en BLOCK por MEMORIA_NO_DISPONIBLE o SUSPENDIDOS(? , ESTE OPCODE te lo madno si se termina de hacer mem free, finaliza proceso, suspende proceso, captacion finalizada o se conecta un nuevo memory stick
+                log_info(loggerScheduler, "## Nueva memoria disponible: %d bytes libres en KM", bytes_libres);
+                //con bytes_libres comparar contra bytes_suspendidos de procesos en SUSP para ver si podes desuspender
                 break;
+            }
             default:
                 log_warning(loggerScheduler, "Opcode desconocido en canal de notificaciones: %d", paquete->codigo_operacion);
                 eliminar_paquete(paquete);
