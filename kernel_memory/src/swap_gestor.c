@@ -53,6 +53,14 @@ op_code suspender_proceso(uint32_t pid) {
 
     pthread_mutex_lock(&memoria_mutex);
     int n_segs = list_size(proc->contexto->tabla_segmentos);
+    pthread_mutex_unlock(&memoria_mutex);
+
+    if (n_segs == 0) {
+        log_info(loggerMemory, "## PID %d suspendido (sin segmentos)", pid);
+        return SUSPEND_OK;
+    }
+
+    pthread_mutex_lock(&memoria_mutex);
     t_segmento** segs = malloc(n_segs * sizeof(t_segmento*));
     for (int i = 0; i < n_segs; i++)
         segs[i] = list_get(proc->contexto->tabla_segmentos, i);
@@ -104,8 +112,8 @@ op_code suspender_proceso(uint32_t pid) {
 
         free(datos);
 
-        // Liberar el segmento de la memoria principal
-        eliminar_segmento(pid, seg_id);
+        // Liberar solo la memoria fisica — el segmento queda en la tabla del proceso
+        liberar_fisica_segmento(pid, seg_id);
 
         log_info(loggerMemory, "## PID %d - Segmento %d -> Bloque swap %d", pid, seg_id, bloque);
     }
@@ -128,7 +136,7 @@ op_code desuspender_proceso(uint32_t pid) {
         return DESUSPEND_OK;
     }
 
-    typedef struct { int bloque; uint32_t seg_id; uint32_t tamanio; } t_info;
+    typedef struct { int bloque; uint32_t seg_id; uint32_t tamanio; } t_info;//estructura para enlistar los segmentos leidos de los bloques
     t_info* info = malloc(cantidad * sizeof(t_info));
     int k = 0;
     for (int i = 0; i < (int)swap_num_bloques && k < cantidad; i++) {
@@ -150,8 +158,8 @@ op_code desuspender_proceso(uint32_t pid) {
             return MEMORIA_CORRUPTA;//supuesto imposible si el swap no se puede desconectar, pero bueno x las dudas
         }
 
-        // Crear el segmento en memoria principal
-        op_code resultado = crear_segmento(pid, info[i].seg_id, info[i].tamanio);
+        // Asignar nueva ubicacion fisica al segmento que ya existe en la tabla
+        op_code resultado = asignar_fisica_segmento(pid, info[i].seg_id, info[i].tamanio);
         if (resultado != MEMORIA_DISPONIBLE) {
             log_error(loggerMemory, "DESUSPEND: no hay memoria para PID %d seg %d", pid, info[i].seg_id);
             free(datos);
@@ -159,7 +167,7 @@ op_code desuspender_proceso(uint32_t pid) {
             return resultado;
         }
 
-        // Escribir datos en la memory stick
+        // Escribir datos en la memory stick en la nueva ubicacion
         t_proceso_memory* proc = buscar_proceso(pid);
         pthread_mutex_lock(&memoria_mutex);
         t_list* pedazos = traducir_logica_a_fisica(

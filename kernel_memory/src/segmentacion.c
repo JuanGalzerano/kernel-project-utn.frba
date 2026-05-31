@@ -134,3 +134,52 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
     pthread_mutex_unlock(&memoria_mutex);
     return 1;
 }
+
+// Libera la memoria fisica del segmento sin eliminarlo de la tabla.
+// Usado al suspender un proceso: el segmento sigue existiendo logicamente.
+void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id) {
+    t_proceso_memory* proceso = buscar_proceso(pid);
+    if (!proceso) return;
+
+    pthread_mutex_lock(&memoria_mutex);
+    t_segmento* seg = buscar_segmento_proceso(proceso, seg_id);
+    if (!seg) { pthread_mutex_unlock(&memoria_mutex); return; }
+
+    t_hueco* hueco = malloc(sizeof(t_hueco));
+    hueco->base   = seg->base;
+    hueco->limite = seg->limite;
+    memoria_libre_size += seg->limite;
+    insertar_hueco_y_fusionar(hueco);
+
+    pthread_mutex_unlock(&memoria_mutex);
+}
+
+// Asigna memoria fisica a un segmento que ya existe en la tabla (base desactualizada).
+// Usado al desuspender: encuentra un hueco y actualiza seg->base sin agregar nada a la tabla.
+op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio) {
+    t_proceso_memory* proceso = buscar_proceso(pid);
+    if (!proceso) return MEMORIA_NO_DISPONIBLE;
+
+    pthread_mutex_lock(&memoria_mutex);
+    t_segmento* seg = buscar_segmento_proceso(proceso, seg_id);
+    if (!seg) { pthread_mutex_unlock(&memoria_mutex); return MEMORIA_NO_DISPONIBLE; }
+
+    t_hueco* hueco = encontrar_hueco(tamanio);
+    if (!hueco) {
+        op_code ret = (memoria_libre_size >= tamanio) ? COMPACTACION : MEMORIA_NO_DISPONIBLE;
+        pthread_mutex_unlock(&memoria_mutex);
+        return ret;
+    }
+
+    seg->base = hueco->base;
+    hueco->base   += tamanio;
+    hueco->limite -= tamanio;
+    if (hueco->limite == 0) {
+        list_remove_element(lista_huecos, hueco);
+        free(hueco);
+    }
+    memoria_libre_size -= tamanio;
+
+    pthread_mutex_unlock(&memoria_mutex);
+    return MEMORIA_DISPONIBLE;
+}
