@@ -143,6 +143,9 @@ typedef struct {
     t_buffer* buffer;
 } t_paquete;
 
+
+
+
 // ----- Buffer -----
 
 t_buffer* buffer_create(uint32_t size);
