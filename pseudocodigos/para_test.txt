@@ -1,0 +1,21 @@
+# Kernel Memory
+./bin/kernel_memory src/memory.config
+
+# Kernel Scheduler
+./bin/kernel_scheduler src/kernel.config ../pseudocodigos/noop.txt
+
+# Swap
+./bin/swap src/swap.config
+
+# Memory Stick
+./bin/memory_stick src/memoryStick.config 512
+
+# IO
+./bin/io src/io.config SLEEP
+./bin/io src/io.config STDIN
+./bin/io src/io.config STDOUT
+
+# CPU
+./bin/cpu src/cpu.config 1
+
+
