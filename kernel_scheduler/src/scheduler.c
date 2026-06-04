@@ -114,14 +114,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 encolar_pcb_ready(pcb);
 
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
                 sem_post(&sem_hay_proceso_ready);
 
                 break;
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
                 uint32_t nuevoPid = generar_pid();
-                t_pcb* error = crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuPadre = encontrar_cpu_con_pid(proc->pid);
@@ -133,7 +133,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 encolar_pcb_ready(procPcb);
 
                 sem_post(&sem_hay_proceso_ready);
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
 
                 free(proc->pathArchivoInstrucciones);
                 free(proc);
@@ -166,7 +166,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 free(pcbFin);
 
                 // 4. la CPU quedó libre
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
                 break;
             case SLEEP://se recibe tiempo a dormir y pid
                 
@@ -185,7 +185,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&mutex_cola_sleep);
 
                 sem_post(&sem_hay_proc_esperando_sleep);
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
               
                 break;
             case STDIN:
@@ -206,7 +206,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 sem_post(&sem_hay_proc_esperando_stdin);
 
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
                 break;
             case STDOUT:
                 t_stdin_stdout* procesoStdout = deserializar_stdin(paquete->buffer); //cuando viotti me lo mande, cadenaLeida=NULL
@@ -229,7 +229,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     encolar_pcb_ready(stdoutPcb);
 
                     sem_post(&sem_hay_proceso_ready);
-                    sem_post(&sem_hay_cpu_libre);
+                    liberar_cpu_y_notificar();
                 }
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
@@ -346,7 +346,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&exec_mutex);
                 encolar_pcb_ready(pcbMutexCreate);
                 sem_post(&sem_hay_proceso_ready);
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
                 
                 //uint32_t existe=1;
                 //send(socketCliente, &existe, sizeof(uint32_t), 0);decidimos que no es necesario avisarle, ya que si ya esta creado, no realizamos nada y listo
@@ -377,7 +377,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     pthread_mutex_unlock(&mutex_lista_mutex);
 
-                    sem_post(&sem_hay_cpu_libre);
+                    liberar_cpu_y_notificar();
                 }
                 else{
                     //no esta tomado
@@ -391,7 +391,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&exec_mutex);
                     encolar_pcb_ready(pcbMutexLock);
                     sem_post(&sem_hay_proceso_ready);
-                    sem_post(&sem_hay_cpu_libre);
+                    liberar_cpu_y_notificar();
                 }
 
                 free(mutexABloquear->nombreMutex);
@@ -436,7 +436,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&exec_mutex);
                 encolar_pcb_ready(pcbMutexUnlock);
                 sem_post(&sem_hay_proceso_ready);
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
 
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
@@ -461,13 +461,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         pthread_mutex_unlock(&exec_mutex);
                         encolar_pcb_ready(pcbAlloc);
                         sem_post(&sem_hay_proceso_ready);
-                        sem_post(&sem_hay_cpu_libre);
+                        liberar_cpu_y_notificar();
                     }
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
                 //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
                     bloquear_proceso(cpuAlloc->pcb);
-                    sem_post(&sem_hay_cpu_libre);
+                    liberar_cpu_y_notificar();
                 }
                 free(infoMemAlloc);
 
@@ -495,7 +495,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&exec_mutex);
                 encolar_pcb_ready(pcbFree);
                 sem_post(&sem_hay_proceso_ready);
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
 
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);
@@ -516,7 +516,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 encolar_pcb_ready(pcbDesalojado);
                 sem_post(&sem_hay_proceso_ready);
-                sem_post(&sem_hay_cpu_libre);
+                liberar_cpu_y_notificar();
                 break;
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);
@@ -569,7 +569,7 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         pthread_mutex_unlock(&exec_mutex);
         
         //sem post cpu libre
-        sem_post(&sem_hay_cpu_libre);
+        liberar_cpu_y_notificar();//hace el sempost
 
         free(idCPU);
         break;
@@ -643,7 +643,11 @@ void* planificador(void* arg) {
                     }
                 }
                 else{
+                    //no hay CPU libre ni desalojable
                     sem_post(&sem_hay_proceso_ready);
+                    pthread_mutex_lock(&mutex_planificador);
+                    pthread_cond_wait(&cond_planificador, &mutex_planificador);
+                    pthread_mutex_unlock(&mutex_planificador);
                 }
 
             }else{

@@ -57,4 +57,6 @@ t_cpu_exec* hay_cpu_desalojable(t_pcb* pcbCandidato);
 
 void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable);
 
+void liberar_cpu_y_notificar();
+
 #endif

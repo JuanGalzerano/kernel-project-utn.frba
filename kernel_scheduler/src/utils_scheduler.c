@@ -533,3 +533,10 @@ void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable){
     free(buffer);
     free(paquete);
 }
+
+void liberar_cpu_y_notificar() {
+    sem_post(&sem_hay_cpu_libre);
+    pthread_mutex_lock(&mutex_planificador);
+    pthread_cond_signal(&cond_planificador);
+    pthread_mutex_unlock(&mutex_planificador);
+}

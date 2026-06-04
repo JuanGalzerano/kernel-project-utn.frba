@@ -82,6 +82,10 @@ extern pthread_mutex_t exec_mutex;
 extern sem_t sem_hay_proceso_ready;
 extern sem_t sem_hay_cpu_libre;
 
+// para eliminar espera activa de CMN DESALOJO
+extern pthread_cond_t  cond_planificador;
+extern pthread_mutex_t mutex_planificador;
+
 //sockets de las IOs
 
 extern int socketSleep;
