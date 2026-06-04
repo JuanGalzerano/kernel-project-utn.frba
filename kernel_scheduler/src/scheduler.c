@@ -122,18 +122,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
                 uint32_t nuevoPid = generar_pid();
                 t_pcb* error = crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
-                if(error == NULL){
-                    break;
-                }
 
-                // INIT_PROC no bloquea al proceso padre: lo devolvemos a ejecutar
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuPadre = encontrar_cpu_con_pid(proc->pid);
+
+                t_pcb* procPcb = cpuPadre->pcb;
+                cpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
-                if (cpuPadre != NULL) {
-                    reanudar_proceso_en_cpu(cpuPadre);
-                }
+                encolar_pcb_ready(procPcb);
+
+                sem_post(&sem_hay_proceso_ready);
+                sem_post(&sem_hay_cpu_libre);
 
                 free(proc->pathArchivoInstrucciones);
                 free(proc);
@@ -219,14 +219,21 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //ACA TENGO QUE DIFERENCIAR SI HAY IO DISPONIBLE O NO PARA VER SI BLOQUEEO O NO
                 pthread_mutex_lock(&mutex_stdout_ocupado);
                 if(stdout_ocupado){
+                    pthread_mutex_unlock(&exec_mutex);
                     bloquear_proceso(cpuUsadaStdout->pcb);
                 } else{
-                    reanudar_proceso_en_cpu(cpuUsadaStdout);
+                    t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
+                    cpuUsadaStdout->pcb = NULL;
+                    pthread_mutex_unlock(&exec_mutex);
+
+                    encolar_pcb_ready(stdoutPcb);
+
+                    sem_post(&sem_hay_proceso_ready);
                     sem_post(&sem_hay_cpu_libre);
                 }
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
-                pthread_mutex_unlock(&exec_mutex);
+                
 
                 procesoStdout->cadenaLeida = solicitar_cadena_a_memory(procesoStdout->pid, procesoStdout->direccionLogica, procesoStdout->bytesALeer);
                 if(procesoStdout->cadenaLeida != NULL){
@@ -334,11 +341,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* unaCpuPadre = encontrar_cpu_con_pid(mutexNuevo->pid);
+                t_pcb* pcbMutexCreate = unaCpuPadre->pcb;
+                unaCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
-
-                if (unaCpuPadre != NULL) {
-                    reanudar_proceso_en_cpu(unaCpuPadre);
-                }
+                encolar_pcb_ready(pcbMutexCreate);
+                sem_post(&sem_hay_proceso_ready);
+                sem_post(&sem_hay_cpu_libre);
                 
                 //uint32_t existe=1;
                 //send(socketCliente, &existe, sizeof(uint32_t), 0);decidimos que no es necesario avisarle, ya que si ya esta creado, no realizamos nada y listo
@@ -377,9 +385,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->pid = mutexABloquear->pid;
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", mutexABloquear->pid, mutexABloquear->nombreMutex);
-                    if(cpuALiberar!=NULL){
-                        reanudar_proceso_en_cpu(cpuALiberar);
-                    }
+                    pthread_mutex_lock(&exec_mutex);
+                    t_pcb* pcbMutexLock = cpuALiberar->pcb;
+                    cpuALiberar->pcb = NULL;
+                    pthread_mutex_unlock(&exec_mutex);
+                    encolar_pcb_ready(pcbMutexLock);
+                    sem_post(&sem_hay_proceso_ready);
+                    sem_post(&sem_hay_cpu_libre);
                 }
 
                 free(mutexABloquear->nombreMutex);
@@ -419,11 +431,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* otraCpuPadre = encontrar_cpu_con_pid(mutexALiberar->pid);
+                t_pcb* pcbMutexUnlock = otraCpuPadre->pcb;
+                otraCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
-
-                if (otraCpuPadre != NULL) {
-                    reanudar_proceso_en_cpu(otraCpuPadre);
-                }
+                encolar_pcb_ready(pcbMutexUnlock);
+                sem_post(&sem_hay_proceso_ready);
+                sem_post(&sem_hay_cpu_libre);
 
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
@@ -442,7 +455,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
                     if(cpuAlloc!=NULL){
-                        reanudar_proceso_en_cpu(cpuAlloc);
+                        pthread_mutex_lock(&exec_mutex);
+                        t_pcb* pcbAlloc = cpuAlloc->pcb;
+                        cpuAlloc->pcb = NULL;
+                        pthread_mutex_unlock(&exec_mutex);
+                        encolar_pcb_ready(pcbAlloc);
+                        sem_post(&sem_hay_proceso_ready);
+                        sem_post(&sem_hay_cpu_libre);
                     }
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
@@ -465,17 +484,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&mutex_socket_memory);
                 //No espero el OK de memory pq se puede liberar sin restriccion.
                 //confirmarle a CPU que se libero (no hay restriccion para liberar)
-                uint32_t okFree = 1;
-                send(socketCliente, &okFree,sizeof(uint32_t),0);
+                
 
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* CpuFree = encontrar_cpu_con_pid(infoMemFree->pid);
-                pthread_mutex_unlock(&exec_mutex);
 
-                if (CpuFree != NULL) {
-                    reanudar_proceso_en_cpu(CpuFree);
-                }
+                t_pcb* pcbFree = CpuFree->pcb;
+                CpuFree->pcb = NULL;
+                pthread_mutex_unlock(&exec_mutex);
+                encolar_pcb_ready(pcbFree);
+                sem_post(&sem_hay_proceso_ready);
+                sem_post(&sem_hay_cpu_libre);
 
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);

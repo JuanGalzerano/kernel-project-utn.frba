@@ -355,6 +355,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
 
     if(codigo == COMPACTACION) {
         // Hay memoria pero fragmentada: pedir compactacion y esperar que termine
+        //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
@@ -414,6 +415,7 @@ void manejar_bsod() {
     for(int i = 0; i < list_size(exec_lista); i++) {
         t_cpu_exec* cpu = list_get(exec_lista, i);
         if(cpu->pcb != NULL) {
+            //ACA ME FALTA AGREGAR AVIDARLE A LA CPU    
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
             free(cpu->pcb);
             cpu->pcb = NULL;
