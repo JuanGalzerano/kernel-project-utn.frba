@@ -518,6 +518,11 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 sem_post(&sem_hay_proceso_ready);
                 liberar_cpu_y_notificar();
                 break;
+            case DESALOJAR_POR_BSOD:
+                uint32_t pidBsod;
+                pidBsod = buffer_read_uint32(paquete->buffer);
+                log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
+                break;
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);
                 break;

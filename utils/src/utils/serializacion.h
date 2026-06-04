@@ -144,6 +144,7 @@ typedef enum {
     SUSPEND_OK = 51,
     DESUSPEND_OK = 52,
     COMPACTACION_EXITOSA = 53,
+    DESALOJAR_POR_BSOD = 54,
 } op_code;
  
 typedef struct {

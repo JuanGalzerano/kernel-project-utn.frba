@@ -416,6 +416,9 @@ void manejar_bsod() {
         t_cpu_exec* cpu = list_get(exec_lista, i);
         if(cpu->pcb != NULL) {
             //ACA ME FALTA AGREGAR AVIDARLE A LA CPU    
+            t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
+            enviar_paquete(cpu->socketConexion, paq);
+            eliminar_paquete(paq);
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
             free(cpu->pcb);
             cpu->pcb = NULL;
