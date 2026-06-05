@@ -17,6 +17,12 @@ uint32_t obtener_pid(int socketConexionScheduler) {//el cambio que hice es que s
             continue; // vuelve al inicio del while a esperar
         }
 
+        if(paquete->codigo_operacion == FIN_PROCESO ) {
+            // el proceso fue bloqueado, seguimos esperando un nuevo PID
+            eliminar_paquete(paquete);
+            continue; // vuelve al inicio del while a esperar
+        }
+
         // cualquier otro caso inesperado
         eliminar_paquete(paquete);
     }
