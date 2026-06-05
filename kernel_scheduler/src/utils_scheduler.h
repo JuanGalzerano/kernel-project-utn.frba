@@ -59,4 +59,6 @@ void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable);
 
 void liberar_cpu_y_notificar();
 
+t_pcb* buscar_pcb_por_pid(uint32_t pid);
+
 #endif

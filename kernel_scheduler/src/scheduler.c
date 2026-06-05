@@ -373,6 +373,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->contador--;
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
+                    t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid);
+                    if(pcbDueño != NULL && pcbDueño->prioridad > cpuALiberar->pcb->prioridad) {
+                        //el dueño tiene menor prioridad (número mayor = menor prioridad)
+                        log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
+                        pcbDueño->prioridad = cpuALiberar->pcb->prioridad;
+                    }
+
                     bloquear_proceso(cpuALiberar->pcb);
 
                     pthread_mutex_unlock(&mutex_lista_mutex);
@@ -421,7 +428,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", siguiente->pid, mutexALiberar->nombreMutex);
 
-                    // mover de BLOCK → READY
+                    // mover de BLOCK-> READY
                     buscar_y_sacar_de_block(siguiente->pid);
                     encolar_pcb_ready(siguiente);
 
@@ -434,6 +441,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_pcb* pcbMutexUnlock = otraCpuPadre->pcb;
                 otraCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
+                
+                pcbMutexUnlock->prioridad = pcbMutexUnlock->prioridadOriginal;
+                log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, pcbMutexUnlock->prioridad, pcbMutexUnlock->prioridadOriginal);
+
                 encolar_pcb_ready(pcbMutexUnlock);
                 sem_post(&sem_hay_proceso_ready);
                 liberar_cpu_y_notificar();

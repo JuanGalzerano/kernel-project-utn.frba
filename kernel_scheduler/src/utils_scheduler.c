@@ -6,6 +6,7 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
         t_pcb* pcb = malloc(sizeof(t_pcb));
         pcb->pid = pid;
         pcb->prioridad = prioridad;
+        pcb->prioridadOriginal=prioridad;
 
         //loguear que entro a NEW
         log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
@@ -542,4 +543,38 @@ void liberar_cpu_y_notificar() {
     pthread_mutex_lock(&mutex_planificador);
     pthread_cond_signal(&cond_planificador);
     pthread_mutex_unlock(&mutex_planificador);
+}
+
+
+t_pcb* buscar_pcb_por_pid(uint32_t pid) {
+    //buscar en exec_lista
+    pthread_mutex_lock(&exec_mutex);
+    for(int i = 0; i < list_size(exec_lista); i++) {
+        t_cpu_exec* cpu = list_get(exec_lista, i);
+        if(cpu->pcb != NULL && cpu->pcb->pid == pid) {
+            t_pcb* pcb = cpu->pcb;
+            pthread_mutex_unlock(&exec_mutex);
+            return pcb;
+        }
+    }
+    pthread_mutex_unlock(&exec_mutex);
+
+    //buscar en ready HACER CASO SI HAY CMN
+    pthread_mutex_lock(&ready_mutex);
+    
+
+    pthread_mutex_lock(&ready_mutex);
+   
+    //buscar en block
+    pthread_mutex_lock(&block_mutex);
+    for(int i = 0; i<list_size(block_lista);i++){
+        t_pcb* pcbBlock = list_get(block_lista, i);
+        if(pcbBlock!=NULL && pcbBlock->pid == pid){
+            pthread_mutex_unlock(&block_mutex);
+            return pcbBlock;
+        }
+    }
+    pthread_mutex_unlock(&block_mutex);
+    //HACER CASOS DE BUSCAR ENTRE LOS SUSPENDIDOS
+    return NULL;
 }

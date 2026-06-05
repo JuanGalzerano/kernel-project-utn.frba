@@ -3,6 +3,5 @@ NOOP
 INIT_PROC hola.txt 2
 SLEEP 2500
 INIT_PROC hola.txt 0
-INIT_PROC hola.txt 0
 NOOP
 EXIT

@@ -14,6 +14,7 @@
 typedef struct {
     uint32_t pid;
     uint32_t prioridad;//esto va para CMN
+    uint32_t prioridadOriginal;
     //despues se van a agregar cosas de mutex creo
 } t_pcb;
 
