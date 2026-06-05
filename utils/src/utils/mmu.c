@@ -28,7 +28,6 @@ t_list* traducir_logica_a_fisica(uint32_t direccion_logica, uint32_t segment_max
     uint32_t err = crear_lista_con_memories_stick_a_llamar(stick_base, base_del_segmento, desplazamiento_del_segmento, tamanio_dato, lista_de_memories_stick_a_llamar, lista_memory_stick);
 
     if (err != 0) {
-        // Liberamos la lista y todos los struct_control_mmu que ya se habian agregado
         list_destroy_and_destroy_elements(lista_de_memories_stick_a_llamar, free);
         return NULL;
     }
@@ -114,6 +113,71 @@ uint32_t crear_lista_con_memories_stick_a_llamar(t_memory_stick_info* stick, uin
             stick = siguiente;
             offset_en_stick = 0;
         }
+    }
+    return 0;
+}
+
+char* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar) {
+    uint32_t tamanio_total = 0;
+    for (int i = 0; i < list_size(lista_de_memories_stick_a_llamar); i++) {
+        struct_control_mmu* memoria_a_llamar = list_get(lista_de_memories_stick_a_llamar, i);
+        tamanio_total += memoria_a_llamar->tamanio_a_leer_en_esta_memory_stick;
+    }
+
+    char* valor_leido = malloc(tamanio_total);
+    uint32_t leido = 0;
+
+    for (int i = 0; i < list_size(lista_de_memories_stick_a_llamar); i++) {
+        struct_control_mmu* memoria_a_llamar = list_get(lista_de_memories_stick_a_llamar, i);
+
+        t_buffer* buf = buffer_create(0);
+        buffer_add_uint32(buf, memoria_a_llamar->desde_donde_leer);
+        buffer_add_uint32(buf, memoria_a_llamar->tamanio_a_leer_en_esta_memory_stick);
+        t_paquete* paquete_para_leer = crear_paquete(LEER_BYTES, buf);
+        enviar_paquete(memoria_a_llamar->socketMemoryStick, paquete_para_leer);
+        eliminar_paquete(paquete_para_leer);
+
+        t_paquete* paquete_con_lo_leido = recibir_paquete(memoria_a_llamar->socketMemoryStick);
+        if (paquete_con_lo_leido == NULL || paquete_con_lo_leido->codigo_operacion != LEER_BYTES) {
+            if (paquete_con_lo_leido != NULL) {
+                eliminar_paquete(paquete_con_lo_leido);
+            }
+            free(valor_leido);
+            return NULL;
+        }
+
+        buffer_read(paquete_con_lo_leido->buffer, valor_leido + leido, memoria_a_llamar->tamanio_a_leer_en_esta_memory_stick);
+        eliminar_paquete(paquete_con_lo_leido);
+
+        leido += memoria_a_llamar->tamanio_a_leer_en_esta_memory_stick;
+    }
+    return valor_leido;
+}
+
+uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_escribir) {
+    uint32_t escrito = 0;
+    for (int i = 0; i < list_size(lista_de_memories_stick_a_llamar); i++) {
+        struct_control_mmu* memoria_a_llamar = list_get(lista_de_memories_stick_a_llamar, i);
+        uint32_t tamanio = memoria_a_llamar->tamanio_a_leer_en_esta_memory_stick;
+
+        t_buffer* buf = buffer_create(0);
+        buffer_add_uint32(buf, memoria_a_llamar->desde_donde_leer);
+        buffer_add_uint32(buf, tamanio);
+        buffer_add(buf, valor_a_escribir + escrito, tamanio);
+        t_paquete* paquete_para_escribir = crear_paquete(ESCRIBIR_BYTES, buf);
+        enviar_paquete(memoria_a_llamar->socketMemoryStick, paquete_para_escribir);
+        eliminar_paquete(paquete_para_escribir);
+
+        t_paquete* respuesta = recibir_paquete(memoria_a_llamar->socketMemoryStick);
+        if (respuesta == NULL || respuesta->codigo_operacion != ESCRIBIR_BYTES) {
+            if (respuesta != NULL) {
+                eliminar_paquete(respuesta);
+            }
+            return 1;
+        }
+        eliminar_paquete(respuesta);
+
+        escrito += tamanio;
     }
     return 0;
 }

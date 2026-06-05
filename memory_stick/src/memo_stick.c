@@ -5,6 +5,7 @@ pthread_mutex_t mutex_memoria = PTHREAD_MUTEX_INITIALIZER;
 int delay;
 t_log* loggerMemoryStick;
 void* memoria;
+uint32_t tamanioMemoria;
 
 //prototipos
 void escribir_memoria(int fd, t_paquete* paquete);
@@ -20,10 +21,13 @@ int main(int argc, char* argv[]) {
     char* puertoMemory = config_get_string_value(configMemoryStick,"PUERTO_MEMORY");
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
     char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
+    char* ipCpu = config_get_string_value(configMemoryStick,"IP_CPU");
+    char* puertoCpu = config_get_string_value(configMemoryStick,"PUERTO_CPU");
     delay = config_get_int_value(configMemoryStick, "MEMORY_DELAY");
 
     //Reservo memoria dependiendo el tamaño recibido
     uint32_t tamano = (uint32_t)atoi (argv[2]);
+    tamanioMemoria = tamano;
     memoria =malloc(tamano);
     if (memoria==NULL)
     {   
@@ -50,6 +54,26 @@ int main(int argc, char* argv[]) {
     *fdMemory = socketconexionKernelMemory;
     pthread_create(&hiloMemory, NULL, atender_cliente, fdMemory);
     pthread_detach(hiloMemory);
+
+    //Me conecto tambien al CPU (despues de memoria, para respetar el mismo orden global)
+    int socketConexionCpu = iniciar_conexion(ipCpu, puertoCpu);
+    if (socketConexionCpu == EXIT_FAILURE)
+    {
+        log_info(loggerMemoryStick, "Memory Stick no se pudo conectar al CPU");
+        abort();
+    }
+    log_info(loggerMemoryStick, "Memory stick conectado al CPU");
+    handshake_cliente_id(socketConexionCpu, loggerMemoryStick, MEMORY_STICK);
+
+    //Le envio al CPU el tamaño del stick
+    send(socketConexionCpu, &tamano, sizeof(uint32_t), 0);
+
+    //hilo para atender escritura y lectura del CPU
+    pthread_t hiloCpu;
+    int* fdCpu = malloc(sizeof(int));
+    *fdCpu = socketConexionCpu;
+    pthread_create(&hiloCpu, NULL, atender_cliente, fdCpu);
+    pthread_detach(hiloCpu);
 
     //abrir socket de escucha para que se conecte la cpu
     int socketEscucha = iniciar_servidor(puertoEscucha);
@@ -84,7 +108,24 @@ int main(int argc, char* argv[]) {
 void escribir_memoria(int fd, t_paquete* paquete){
     uint32_t direccion = buffer_read_uint32(paquete->buffer);
     uint32_t tamanio = buffer_read_uint32(paquete->buffer);
+
+    // Validacion: la escritura no puede salirse del stick
+    if (direccion > tamanioMemoria || tamanio > tamanioMemoria - direccion) {
+        log_error(loggerMemoryStick, "Escritura fuera de rango: dir %d + tam %d > memoria %d", direccion, tamanio, tamanioMemoria);
+        t_paquete* respuesta = crear_paquete(ESCRITURA_FALLIDA, NULL);
+        enviar_paquete(fd, respuesta);
+        eliminar_paquete(respuesta);
+        return;
+    }
+
     void* datos = malloc(tamanio);
+    if (datos == NULL) {
+        log_error(loggerMemoryStick, "No se pudo reservar %d bytes para la escritura", tamanio);
+        t_paquete* respuesta = crear_paquete(ESCRITURA_FALLIDA, NULL);
+        enviar_paquete(fd, respuesta);
+        eliminar_paquete(respuesta);
+        return;
+    }
     buffer_read(paquete->buffer, datos, tamanio);
 
     pthread_mutex_lock(&mutex_memoria);
@@ -105,8 +146,25 @@ void leer_memoria(int fd, t_paquete* paquete){
     uint32_t direccion = buffer_read_uint32(paquete->buffer);
     uint32_t tamanio = buffer_read_uint32(paquete->buffer);
 
-    pthread_mutex_lock(&mutex_memoria);
+    // Validacion: la lectura no puede salirse del stick
+    if (direccion > tamanioMemoria || tamanio > tamanioMemoria - direccion) {
+        log_error(loggerMemoryStick, "Lectura fuera de rango: dir %d + tam %d > memoria %d", direccion, tamanio, tamanioMemoria);
+        t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
+        enviar_paquete(fd, respuesta);
+        eliminar_paquete(respuesta);
+        return;
+    }
+
     void* datos = malloc(tamanio);
+    if (datos == NULL) {
+        log_error(loggerMemoryStick, "No se pudo reservar %d bytes para la lectura", tamanio);
+        t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
+        enviar_paquete(fd, respuesta);
+        eliminar_paquete(respuesta);
+        return;
+    }
+
+    pthread_mutex_lock(&mutex_memoria);
     memcpy(datos, memoria + direccion, tamanio);
     pthread_mutex_unlock(&mutex_memoria);
 

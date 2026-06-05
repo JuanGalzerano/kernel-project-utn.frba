@@ -9,7 +9,7 @@
 //Variable para strtok_r
 char *cursor;
   
-int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionScheduler, uint32_t pid) {
+int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionScheduler, uint32_t pid, uint32_t segment_max_size, t_list* lista_segmentos) {
     uint32_t pc = registros_cpu.pc;
     log_info(loggerCpu, "## PID: %d - FETCH - Program Counter: %d", pid, pc);
 
@@ -33,7 +33,7 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionSc
     }
 
     uint32_t pc_antes = registros_cpu.pc;
-    int errorDecode = decode(tipoInstruccion, socketConexionScheduler, pid);
+    int errorDecode = decode(tipoInstruccion, socketConexionScheduler, pid, segment_max_size, lista_segmentos);
     free(inicioInstruccion);
 
     if (errorDecode == 1) {
@@ -76,7 +76,7 @@ int interpretar_token(char *token) {
     return resultado;
 }
 
-int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid) {
+int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid, uint32_t segment_max_size, t_list* lista_segmentos) {
     Codigo_registros_cpu tipoRegistro, registroDestino, registroOrigen, registroDirLogica, registroTamanio;
     uint32_t segmentoId, valor;
 
@@ -93,12 +93,12 @@ int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid) {
     case MOV_IN:
         tipoRegistro = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: MOV_IN - %s", pid, registro_a_string(tipoRegistro));
-        //ejecutar_mov_in(tipoRegistro);
+        ejecutar_mov_in(socketConexionScheduler, pid, tipoRegistro, segment_max_size, lista_segmentos);
         break;
     case MOV_OUT:
         tipoRegistro = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: MOV_OUT - %s", pid, registro_a_string(tipoRegistro));
-        //ejecutar_mov_out(tipoRegistro);
+        ejecutar_mov_out(socketConexionScheduler, pid, tipoRegistro, segment_max_size, lista_segmentos);
         break;
     case SUM:  
         registroDestino = interpretar_token(strtok_r(NULL, " ", &cursor));

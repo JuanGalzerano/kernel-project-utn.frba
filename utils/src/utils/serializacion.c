@@ -323,3 +323,4 @@ t_mem_free* deserializar_mem_free(t_buffer* buf){
     mem_free_struct->segmentoId = buffer_read_uint32(buf);
     return mem_free_struct;
 }
+

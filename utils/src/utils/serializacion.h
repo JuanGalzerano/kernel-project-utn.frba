@@ -75,7 +75,6 @@ typedef struct{
     uint32_t segmentoId;
 }t_mem_free;
 
-
 // Segmento de la tabla de segmentos de un proceso (compartido entre scheduler y CPU)
 typedef struct {
     uint32_t id_segmento;
@@ -145,6 +144,7 @@ typedef enum {
     DESUSPEND_OK = 52,
     COMPACTACION_EXITOSA = 53,
     DESALOJAR_POR_BSOD = 54,
+    SEG_FAULT = 55,
 } op_code;
  
 typedef struct {

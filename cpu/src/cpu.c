@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include "memory_sticks_cpu.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -23,6 +24,8 @@ int main(int argc, char *argv[]) {
     send(socketConexionMemory, &sizeIdCpu, sizeof(int), 0);
     send(socketConexionMemory, idCpu, sizeIdCpu, 0);
 
+    uint32_t segment_max_size = 0; //Esto que me lo pase juani siempre despues del handshake
+
     int socketConexionScheduler = iniciar_conexion(IPKernel, puertoKernel);
     if (socketConexionScheduler == EXIT_FAILURE) {
         log_info(loggerCpu, "CPU: No se pudo conectar con Kernel Scheduler");
@@ -32,6 +35,12 @@ int main(int argc, char *argv[]) {
     handshake_cliente_id(socketConexionScheduler, loggerCpu, CPU);
     send(socketConexionScheduler, &sizeIdCpu, sizeof(int), 0);
     send(socketConexionScheduler, idCpu, sizeIdCpu, 0);
+
+    // LEVANTO UN HILO SERVIDOR QUE ESCUCHA Y REGISTRA LOS MEMORY STICKS
+    inicializar_memory_sticks_cpu();
+    pthread_t hiloSticks;
+    pthread_create(&hiloSticks, NULL, hilo_servidor_memory_sticks, puertoEscuchaMemoryStick);
+    pthread_detach(hiloSticks);
 
 //2) LUEGO DE CONECTARME, CUMPLO LA FUNCION DE CPU REAL
     while (1) {
@@ -49,7 +58,7 @@ int main(int argc, char *argv[]) {
         // hay_interrupcion se llama entre instrucciones (select con timeout 0)
         int errorCiclo = 0;
         while (!hay_interrupcion(pid, socketConexionScheduler)) {
-            errorCiclo = ejecutar_ciclo_de_instruccion(socketConexionMemory, socketConexionScheduler, pid);
+            errorCiclo = ejecutar_ciclo_de_instruccion(socketConexionMemory, socketConexionScheduler, pid, segment_max_size, ctx->tabla_segmentos);
             if (errorCiclo < 0) {
                 log_info(loggerCpu, "CPU: Error en el ciclo de instruccion");
                 abort();

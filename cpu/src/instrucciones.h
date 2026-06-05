@@ -3,11 +3,11 @@
 
 #include <utils/serializacion.h>  
 typedef struct {
+    uint32_t pc;
     uint8_t ax;
     uint8_t bx;
     uint8_t cx;
     uint8_t dx;
-    uint32_t pc;
     uint32_t eax;
     uint32_t ebx;
     uint32_t ecx;
@@ -47,6 +47,8 @@ extern Registro registros[];
 extern Instruccion instrucciones[];
 
 void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor);
+void ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos);
+void ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos);
 void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
 void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen);
 void ejecutar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion);

@@ -9,6 +9,7 @@ char* puertoMemory;
 char* IPMemory;
 char* puertoMemoryStick;
 char* IPMemoryStick;
+char* puertoEscuchaMemoryStick;
 char* idCpu;
 
 void inicializar_log_y_config(char* path, char* idDeCpu) {
@@ -27,4 +28,5 @@ void inicializar_log_y_config(char* path, char* idDeCpu) {
     IPMemory = config_get_string_value(configCpu, "IP_MEMORY");
     puertoMemoryStick = config_get_string_value(configCpu, "PUERTO_MEMORYSTICK");
     IPMemoryStick = config_get_string_value(configCpu, "IP_MEMORYSTICK");
+    puertoEscuchaMemoryStick = config_get_string_value(configCpu, "PUERTO_ESCUCHA_MEMORYSTICK");
 }

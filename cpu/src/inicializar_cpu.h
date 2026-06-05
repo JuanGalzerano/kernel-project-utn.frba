@@ -12,6 +12,7 @@ extern char* puertoMemory;
 extern char* IPMemory;
 extern char* puertoMemoryStick;
 extern char* IPMemoryStick;
+extern char* puertoEscuchaMemoryStick;
 extern char* idCpu;
 
 void inicializar_log_y_config(char* path, char* idDeCpu);

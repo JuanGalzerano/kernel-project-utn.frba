@@ -1,4 +1,5 @@
 #include "instrucciones.h"
+#include "memory_sticks_cpu.h"
 #include <utils/mmu.h>
 
 Registros_cpu registros_cpu; //LOS REGISTROS DE LA CPU
@@ -23,28 +24,64 @@ Instruccion instrucciones[] = { //EXISTE PARA OBTENER INSTRUCCION A PARTIR DE ST
 void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor) {
     escribir_valor_en_registro(tipoRegistro, valor);
 }
-/*ejecutar_mov_in(tipoRegistro) {
+void ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
     uint32_t direccion_logica = leer_valor_en_registro(SI);
-    t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica, uint32_t segment_max_size, t_list* lista_segmentos, t_list* lista_memory_stick, uint32_t tamanio_dato);
-    if (tipoRegistro > 3) {
-        array = traducir_logica_a_fisica();
-        for (int i = 0; i <= length(array); i++) {
-            socketMemoryStick = array[i].socketMemoryStick
-            tamanioALeerEnEstaMemoryStick = array[i].tamanioALeerEnEstaMemoryStick
-            dato_leido = leer_memory(socketMemoryStick, direccion, tamanioALeerEnEstaMemoryStick);
-            //juntar bytes
-            //casteo a uint32_t
-            char* valor = leer_memoria(direccion_fisica, uint32_t);
-        }
+    uint32_t tamanio_dato;
+    if (tipoRegistro > 4) {
+        tamanio_dato = sizeof(uint32_t);
+    } else {
+        tamanio_dato = sizeof(uint8_t);
     }
-    else {
-        char* valor = leer_memoria(direccion_fisica, uint8_t);
-    }
-    escribir_valor_en_registro(tipoRegistro, valor);
-}*/
-/*ejecutar_mov_out(tipoRegistro) {
 
-}*/
+    pthread_mutex_lock(&mutex_lista_memory_stick);
+    t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
+    pthread_mutex_unlock(&mutex_lista_memory_stick);
+    if (lista_memory_sticks == NULL) {
+        t_buffer* buffer = buffer_create(0);
+        buffer_add_uint32(buffer, pid);
+        t_paquete* paquete_seg_fault =  crear_paquete(SEG_FAULT, buffer);
+        enviar_paquete(socketConexionScheduler, paquete_seg_fault);
+        eliminar_paquete(paquete_seg_fault);
+        return;
+    }
+
+    char* dato_leido = leer_en_memoria(lista_memory_sticks);
+    if (dato_leido != NULL) {
+        if (tipoRegistro > 4) {
+            escribir_valor_en_registro(tipoRegistro, *(uint32_t*)dato_leido);
+        } else {
+            escribir_valor_en_registro(tipoRegistro, *(uint8_t*)dato_leido);
+        }
+        free(dato_leido);
+    }
+
+    list_destroy_and_destroy_elements(lista_memory_sticks, free);
+}
+void ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
+    uint32_t direccion_logica = leer_valor_en_registro(DI);
+    uint32_t valor_del_registro = leer_valor_en_registro(tipoRegistro);
+    uint32_t tamanio_dato;
+    if (tipoRegistro > 4) {
+        tamanio_dato = sizeof(uint32_t);
+    } else {
+        tamanio_dato = sizeof(uint8_t);
+    }
+
+    pthread_mutex_lock(&mutex_lista_memory_stick);
+    t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
+    pthread_mutex_unlock(&mutex_lista_memory_stick);
+    if (lista_memory_sticks == NULL) {
+        t_buffer* buffer = buffer_create(0);
+        buffer_add_uint32(buffer, pid);
+        t_paquete* paquete_seg_fault =  crear_paquete(SEG_FAULT, buffer);
+        enviar_paquete(socketConexionScheduler, paquete_seg_fault);
+        eliminar_paquete(paquete_seg_fault);
+        return;
+    }
+
+    uint32_t err = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro);
+    list_destroy_and_destroy_elements(lista_memory_sticks, free);
+}
 void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen) {
     uint32_t valorDestino = leer_valor_en_registro(registroDestino);
     uint32_t valorOrigen = leer_valor_en_registro(registroOrigen);
