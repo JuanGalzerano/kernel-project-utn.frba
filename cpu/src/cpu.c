@@ -25,6 +25,11 @@ int main(int argc, char *argv[]) {
     send(socketConexionMemory, idCpu, sizeIdCpu, 0);
 
     uint32_t segment_max_size = 0; //Esto que me lo pase juani siempre despues del handshake
+    recv(socketConexionMemory, &segment_max_size, sizeof(uint32_t), MSG_WAITALL);
+    if (segment_max_size == 0) {
+        log_info(loggerCpu, "CPU: Error, recibi segment_max_size = 0");
+        abort();
+    }
 
     int socketConexionScheduler = iniciar_conexion(IPKernel, puertoKernel);
     if (socketConexionScheduler == EXIT_FAILURE) {
