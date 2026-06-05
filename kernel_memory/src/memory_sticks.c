@@ -20,7 +20,6 @@ void agregar_memory_stick(int socket, uint32_t size) {
     hueco->limite = size;
     insertar_hueco_y_fusionar(hueco);
 
-    // Si es el primer stick, desbloquear CPUs que estan esperando para ejecutar
     if (list_size(lista_memory_sticks) == 1)
         pthread_cond_broadcast(&cond_hay_stick);
 
