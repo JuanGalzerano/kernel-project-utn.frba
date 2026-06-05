@@ -373,11 +373,15 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->contador--;
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
-                    t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid);
+                    int estabaEnReady = 0;
+                    t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid,  &estabaEnReady);
                     if(pcbDueño != NULL && pcbDueño->prioridad > cpuALiberar->pcb->prioridad) {
                         //el dueño tiene menor prioridad (número mayor = menor prioridad)
                         log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
                         pcbDueño->prioridad = cpuALiberar->pcb->prioridad;
+                        if(estabaEnReady){
+                            encolar_pcb_ready(pcbDueño);
+                        }
                     }
 
                     bloquear_proceso(cpuALiberar->pcb);
@@ -417,18 +421,35 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) Libera el Mutex %s", mutexALiberar->pid, mutexALiberar->nombreMutex);
 
                 if(mutexALiberarEnLista->contador==1) {
-                    // nadie esperando, queda libre
+                    //nadie esperando, queda libre
                     pthread_mutex_unlock(&mutex_lista_mutex);
                 } else {
-                    // hay alguien esperando, le damos el mutex
+                    //hay alguien esperando, le damos el mutex
                     
                     t_pcb* siguiente = queue_pop(mutexALiberarEnLista->colaEspera);
                     mutexALiberarEnLista->pid = siguiente->pid;
-                    pthread_mutex_unlock(&mutex_lista_mutex);
-
+                    
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", siguiente->pid, mutexALiberar->nombreMutex);
 
-                    // mover de BLOCK-> READY
+                    if(!queue_is_empty(mutexALiberarEnLista->colaEspera)){
+                        uint32_t prioridadMaxima = siguiente->prioridad;
+
+                        for(int i=0; i<queue_size(mutexALiberarEnLista->colaEspera);i++){
+                            t_pcb* pcbTemporal = list_get(mutexALiberarEnLista->colaEspera->elements,i);
+                            if(prioridadMaxima > pcbTemporal->prioridad){
+                                prioridadMaxima = pcbTemporal->prioridad;
+                            }
+                        }
+                        if(siguiente->prioridad > prioridadMaxima){
+                            log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",siguiente->pid, siguiente->prioridad, prioridadMaxima);
+                            siguiente->prioridad = prioridadMaxima;
+                        }
+                        
+                    }
+
+
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+                    //mover de BLOCK-> READY
                     buscar_y_sacar_de_block(siguiente->pid);
                     encolar_pcb_ready(siguiente);
 

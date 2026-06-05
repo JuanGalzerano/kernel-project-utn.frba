@@ -546,8 +546,9 @@ void liberar_cpu_y_notificar() {
 }
 
 
-t_pcb* buscar_pcb_por_pid(uint32_t pid) {
+t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
     //buscar en exec_lista
+    estabaEnReady = 0; //incializamos en que no estaba
     pthread_mutex_lock(&exec_mutex);
     for(int i = 0; i < list_size(exec_lista); i++) {
         t_cpu_exec* cpu = list_get(exec_lista, i);
@@ -560,11 +561,36 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid) {
     pthread_mutex_unlock(&exec_mutex);
 
     //buscar en ready HACER CASO SI HAY CMN
-    pthread_mutex_lock(&ready_mutex);
     
-
-    pthread_mutex_lock(&ready_mutex);
-   
+    // buscar en ready (FIFO/RR)
+    if(algoritmo != CMN) {
+        //aca no tocamos estabaEnReady, pq no necesitariamos reencolar
+        pthread_mutex_lock(&ready_mutex);
+        for(int i = 0; i < queue_size(ready_cola); i++) {
+            t_pcb* pcb = list_get(ready_cola->elements, i);
+            if(pcb->pid == pid) {
+                pthread_mutex_unlock(&ready_mutex);
+                return pcb;
+            }
+        }
+        pthread_mutex_unlock(&ready_mutex);
+    } else {
+        // buscar en colas multinivel
+        pthread_mutex_lock(&mutex_cola_multinivel);
+        for(int i = 0; i < cantidad_colas; i++) {
+            for(int j = 0; j < queue_size(cola_multinivel[i]); j++) {
+                t_pcb* pcb = list_get(cola_multinivel[i]->elements, j);
+                if(pcb->pid == pid) {
+                    list_remove(cola_multinivel[i]->elements, j);
+                    *estabaEnReady=1;//hay que reencolar
+                    pthread_mutex_unlock(&mutex_cola_multinivel);
+                    return pcb;
+                }
+            }
+        }
+        pthread_mutex_unlock(&mutex_cola_multinivel);
+    }
+    
     //buscar en block
     pthread_mutex_lock(&block_mutex);
     for(int i = 0; i<list_size(block_lista);i++){
