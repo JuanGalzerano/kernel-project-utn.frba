@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
     epoll_fd_sticks = -1;
     pthread_mutex_init(&memoria_mutex, NULL);
     pthread_mutex_init(&procesos_mutex, NULL);
+    pthread_cond_init(&cond_hay_stick, NULL);
 
     int socketEscucha = iniciar_servidor(puertoEscucha);
     if (socketEscucha == EXIT_FAILURE) {
@@ -94,6 +95,7 @@ int main(int argc, char* argv[]) {
                 recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
                 log_info(loggerMemory, "## CPU %s Conectada", cpuId);
                 free(cpuId);
+                send(socket, &segment_max_size, sizeof(uint32_t), 0);
                 int* arg = malloc(sizeof(int));
                 *arg = socket;
                 pthread_t hilo;
@@ -314,6 +316,11 @@ void* atender_cpu(void* arg) {
                 break;
             case OBTENER_INSTRUCCION: {
                 uint32_t pc = buffer_read_uint32(paquete->buffer);
+                // Bloquear sin espera activa hasta que haya al menos un memory stick conectado
+                pthread_mutex_lock(&memoria_mutex);
+                while (list_size(lista_memory_sticks) == 0)
+                    pthread_cond_wait(&cond_hay_stick, &memoria_mutex);
+                pthread_mutex_unlock(&memoria_mutex);
                 usleep(instruction_delay * 1000);
                 enviar_instruccion_cpu(socket, pid, pc);
                 eliminar_paquete(paquete);

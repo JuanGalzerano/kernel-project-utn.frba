@@ -30,6 +30,7 @@ uint32_t  memoria_libre_size;
 
 pthread_mutex_t memoria_mutex;
 pthread_mutex_t procesos_mutex;
+pthread_cond_t  cond_hay_stick;
 
 int socketScheduler;
 int socketSchedulerNotif;

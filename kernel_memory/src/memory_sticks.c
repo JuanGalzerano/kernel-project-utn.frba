@@ -20,6 +20,10 @@ void agregar_memory_stick(int socket, uint32_t size) {
     hueco->limite = size;
     insertar_hueco_y_fusionar(hueco);
 
+    // Si es el primer stick, desbloquear CPUs que estan esperando para ejecutar
+    if (list_size(lista_memory_sticks) == 1)
+        pthread_cond_broadcast(&cond_hay_stick);
+
     pthread_mutex_unlock(&memoria_mutex);
 
     // Registrar en epoll para detectar Ctrl+C del memory stick (cierra el socket de forma limpia para los tests)
