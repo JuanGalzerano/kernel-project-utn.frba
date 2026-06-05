@@ -558,20 +558,17 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 cpuFault->pcb=NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
-                liberar_cpu_y_notificar();
-
                 //notificar al KM que libere los recursos del proceso
                 enviar_fin_proceso_memory(pidFault);
 
                 //revisar si va esta de aca abajo
                 enviar_fin_proceso_a_cpu(pidFault, socketCliente);
+                
+                log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Error: Segmentation Fault (SEG_FAULT)", pidFault);
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pidFault);
 
                 free(pcbFault);
-
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pidFault);
-                log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Error: Segmentation Fault (SEG_FAULT)", pidFault);
-
-
+                liberar_cpu_y_notificar();
                 break;
             case DESALOJAR_POR_BSOD:
                 uint32_t pidBsod;
