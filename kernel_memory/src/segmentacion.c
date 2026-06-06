@@ -1,6 +1,8 @@
 #include "segmentacion.h"
 #include "inicializar.h"
 
+//HUECOS
+
 static t_hueco* encontrar_hueco_best_fit(uint32_t tamaño) {
     t_hueco* mejor = NULL;
     for (int i = 0; i < list_size(lista_huecos); i++) {
@@ -61,6 +63,8 @@ t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segme
     }
     return NULL;
 }
+
+//ELIMINAR Y CREAR SEGMENTO
 
 op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamaño) {
     t_proceso_memory* proceso = buscar_proceso(pid);
@@ -134,6 +138,9 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
     pthread_mutex_unlock(&memoria_mutex);
     return 1;
 }
+
+//PARA SUSPENSION Y DESUSPENSION
+
 
 // Libera la memoria fisica del segmento sin eliminarlo de la tabla.
 // Usado al suspender un proceso: el segmento sigue existiendo logicamente.

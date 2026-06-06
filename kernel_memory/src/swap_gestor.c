@@ -15,6 +15,8 @@ int swap_bloque_libre() {
     return -1;
 }
 
+//ESCRIBIR Y LEER BLOQUE
+
 void swap_escribir_bloque(int bloque, char* datos, uint32_t tamanio) {
     t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, (uint32_t)bloque);
@@ -43,6 +45,8 @@ char* swap_leer_bloque(int bloque, uint32_t tamanio) {
     eliminar_paquete(resp);
     return datos;
 }
+
+//SUSPENDER O DESUSPENDER PROCESO
 
 op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
     *bytes_suspendidos = 0;
