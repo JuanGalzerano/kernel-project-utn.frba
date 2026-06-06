@@ -88,6 +88,13 @@ typedef struct {
     void*    stream;
 } t_buffer;
 
+typedef struct {
+    int      socket;
+    uint32_t size;
+    uint32_t base_acumulada;
+    uint32_t puerto;
+} t_memory_stick_info;
+
 typedef enum {
     OBTENER_CONTEXTO    = 0,
     ENVIAR_CONTEXTO     = 1,
@@ -145,6 +152,7 @@ typedef enum {
     COMPACTACION_EXITOSA = 53,
     DESALOJAR_POR_BSOD = 54,
     SEG_FAULT = 55,
+    AVISO_NUEVO_STICK = 56,
 } op_code;
  
 typedef struct {
@@ -212,5 +220,13 @@ t_mem_alloc* deserializar_mem_alloc(t_buffer* buf);
 t_buffer* serializar_mem_free(t_mem_free* mem_free_struct);
 
 t_mem_free* deserializar_mem_free(t_buffer* buf);
+
+t_buffer* serializar_memory_stick_info(t_memory_stick_info* stick);
+
+t_memory_stick_info* deserializar_memory_stick_info(t_buffer* buf);
+
+t_buffer* serializar_aviso_nuevo_stick(t_list* lista_memory_sticks);
+
+t_list* deserializar_aviso_nuevo_stick(t_buffer* buf);
 
 #endif // SERIALIZACION_H

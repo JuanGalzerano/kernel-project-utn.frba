@@ -14,6 +14,7 @@
 t_log*    loggerMemory;
 t_config* configMemory;
 
+char*     puertoMemoryStick;
 char*     puertoEscucha;
 char*     puertoEscuchaNotif;
 char*     scriptsBasePath;
@@ -24,17 +25,20 @@ uint32_t  compaction_delay;
 
 t_list*   lista_procesos;
 t_list*   lista_memory_sticks;
+t_list*   lista_sockets_cpu_notif;
 t_list*   lista_huecos;
 uint32_t  memoria_total_size;
 uint32_t  memoria_libre_size;
 
 pthread_mutex_t memoria_mutex;
+pthread_mutex_t mutex_sockets_cpu_notif;
 pthread_mutex_t procesos_mutex;
 pthread_cond_t  cond_hay_stick;
 
 int socketScheduler;
 int socketSchedulerNotif;
 int socketSwap;
+int socketEscuchaNotif;
 int epoll_fd_sticks;
 
 t_bloque_swap* tabla_swap;
@@ -46,5 +50,6 @@ pthread_mutex_t swap_mutex;
 // FUNCIONES
 void* atender_scheduler(void* arg);
 void* atender_cpu(void* arg);
+void* hilo_notificaciones_cpu(void* arg);
 
 #endif

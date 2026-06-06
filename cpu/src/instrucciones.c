@@ -1,6 +1,6 @@
 #include "instrucciones.h"
-#include "memory_sticks_cpu.h"
 #include <utils/mmu.h>
+#include "kernel_memory_avisos.h"
 
 Registros_cpu registros_cpu; //LOS REGISTROS DE LA CPU
 

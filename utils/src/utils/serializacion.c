@@ -324,3 +324,46 @@ t_mem_free* deserializar_mem_free(t_buffer* buf){
     return mem_free_struct;
 }
 
+//Memory sticks
+// El campo socket es local a cada proceso (fd de su propia conexion), por eso no se serializa.
+t_buffer* serializar_memory_stick_info(t_memory_stick_info* stick){
+    t_buffer* buf = buffer_create(0);
+    buffer_add_uint32(buf, stick->puerto);
+    buffer_add_uint32(buf, stick->size);
+    buffer_add_uint32(buf, stick->base_acumulada);
+    return buf;
+}
+
+t_memory_stick_info* deserializar_memory_stick_info(t_buffer* buf){
+    t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
+    stick->puerto         = buffer_read_uint32(buf);
+    stick->size           = buffer_read_uint32(buf);
+    stick->base_acumulada = buffer_read_uint32(buf);
+    stick->socket         = -1; // lo setea el receptor al conectarse al stick
+    return stick;
+}
+
+// Serializa la lista completa de memory sticks (lista de t_memory_stick_info*)
+t_buffer* serializar_aviso_nuevo_stick(t_list* lista_memory_sticks){
+    t_buffer* buf = buffer_create(0);
+    uint32_t n = lista_memory_sticks != NULL ? list_size(lista_memory_sticks) : 0;
+    buffer_add_uint32(buf, n);
+    for (uint32_t i = 0; i < n; i++){
+        t_memory_stick_info* stick = list_get(lista_memory_sticks, i);
+        buffer_add_uint32(buf, stick->puerto);
+        buffer_add_uint32(buf, stick->size);
+        buffer_add_uint32(buf, stick->base_acumulada);
+    }
+    return buf;
+}
+
+// Devuelve una lista nueva de t_memory_stick_info* (el caller la libera)
+t_list* deserializar_aviso_nuevo_stick(t_buffer* buf){
+    t_list* lista = list_create();
+    uint32_t n = buffer_read_uint32(buf);
+    for (uint32_t i = 0; i < n; i++){
+        list_add(lista, deserializar_memory_stick_info(buf));
+    }
+    return lista;
+}
+

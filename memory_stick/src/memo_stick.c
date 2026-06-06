@@ -1,4 +1,5 @@
 #include <utils/utils.h>
+#include <commons/string.h>
 
 //declaro las variables usadas fuera del main
 pthread_mutex_t mutex_memoria = PTHREAD_MUTEX_INITIALIZER;
@@ -21,8 +22,6 @@ int main(int argc, char* argv[]) {
     char* puertoMemory = config_get_string_value(configMemoryStick,"PUERTO_MEMORY");
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
     char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
-    char* ipCpu = config_get_string_value(configMemoryStick,"IP_CPU");
-    char* puertoCpu = config_get_string_value(configMemoryStick,"PUERTO_CPU");
     delay = config_get_int_value(configMemoryStick, "MEMORY_DELAY");
 
     //Reservo memoria dependiendo el tamaño recibido
@@ -48,6 +47,10 @@ int main(int argc, char* argv[]) {
     //Le envio a la memory el tamaño del stick
     send(socketconexionKernelMemory,&tamano,sizeof(uint32_t),0);
 
+    //Recibo el puerto correcto;
+    uint32_t puertoAsignado;
+    recv(socketconexionKernelMemory, &puertoAsignado, sizeof(uint32_t), MSG_WAITALL);
+
     //hilo para atender escritura y lectura de la memory
     pthread_t hiloMemory;
     int* fdMemory = malloc(sizeof(int));
@@ -55,28 +58,8 @@ int main(int argc, char* argv[]) {
     pthread_create(&hiloMemory, NULL, atender_cliente, fdMemory);
     pthread_detach(hiloMemory);
 
-    //Me conecto tambien al CPU (despues de memoria, para respetar el mismo orden global)
-    int socketConexionCpu = iniciar_conexion(ipCpu, puertoCpu);
-    if (socketConexionCpu == EXIT_FAILURE)
-    {
-        log_info(loggerMemoryStick, "Memory Stick no se pudo conectar al CPU");
-        abort();
-    }
-    log_info(loggerMemoryStick, "Memory stick conectado al CPU");
-    handshake_cliente_id(socketConexionCpu, loggerMemoryStick, MEMORY_STICK);
-
-    //Le envio al CPU el tamaño del stick
-    send(socketConexionCpu, &tamano, sizeof(uint32_t), 0);
-
-    //hilo para atender escritura y lectura del CPU
-    pthread_t hiloCpu;
-    int* fdCpu = malloc(sizeof(int));
-    *fdCpu = socketConexionCpu;
-    pthread_create(&hiloCpu, NULL, atender_cliente, fdCpu);
-    pthread_detach(hiloCpu);
-
     //abrir socket de escucha para que se conecte la cpu
-    int socketEscucha = iniciar_servidor(puertoEscucha);
+    int socketEscucha = iniciar_servidor(string_itoa(puertoAsignado)); //string_itoa convierte 7 en "7"
     if(socketEscucha == EXIT_FAILURE){
         log_info(loggerMemoryStick, "no se pudo iniciar servidor");
         abort();

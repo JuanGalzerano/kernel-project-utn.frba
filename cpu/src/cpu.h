@@ -7,6 +7,5 @@
 #include "contexto.h"
 #include "ciclo.h"
 #include "interrupciones.h"
-#include "memory_sticks_cpu.h"
 
 #endif

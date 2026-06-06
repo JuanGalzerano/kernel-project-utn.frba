@@ -7,10 +7,10 @@ char* puertoKernel;
 char* IPKernel;
 char* puertoMemory;
 char* IPMemory;
+char* idCpu;
+char* puertoKernelMemoryNotificaciones;
 char* puertoMemoryStick;
 char* IPMemoryStick;
-char* puertoEscuchaMemoryStick;
-char* idCpu;
 
 void inicializar_log_y_config(char* path, char* idDeCpu) {
     idCpu = malloc(strlen(idDeCpu) + 1);
@@ -26,7 +26,7 @@ void inicializar_log_y_config(char* path, char* idDeCpu) {
     IPKernel = config_get_string_value(configCpu, "IP_SCHEDULER");
     puertoMemory = config_get_string_value(configCpu, "PUERTO_MEMORY");
     IPMemory = config_get_string_value(configCpu, "IP_MEMORY");
+    puertoKernelMemoryNotificaciones = config_get_string_value(configCpu, "PUERTO_KERNEL_MEMORY_AVISOS");
     puertoMemoryStick = config_get_string_value(configCpu, "PUERTO_MEMORYSTICK");
-    IPMemoryStick = config_get_string_value(configCpu, "IP_MEMORYSTICK");
-    puertoEscuchaMemoryStick = config_get_string_value(configCpu, "PUERTO_ESCUCHA_MEMORYSTICK");
+    IPMemoryStick = config_get_string_value(configCpu, "IP_MEMORY_STICK");
 }

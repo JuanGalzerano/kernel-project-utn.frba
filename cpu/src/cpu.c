@@ -1,5 +1,5 @@
 #include "cpu.h"
-#include "memory_sticks_cpu.h"
+#include "kernel_memory_avisos.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -41,11 +41,28 @@ int main(int argc, char *argv[]) {
     send(socketConexionScheduler, &sizeIdCpu, sizeof(int), 0);
     send(socketConexionScheduler, idCpu, sizeIdCpu, 0);
 
-    // LEVANTO UN HILO SERVIDOR QUE ESCUCHA Y REGISTRA LOS MEMORY STICKS
-    inicializar_memory_sticks_cpu();
-    pthread_t hiloSticks;
-    pthread_create(&hiloSticks, NULL, hilo_servidor_memory_sticks, puertoEscuchaMemoryStick);
-    pthread_detach(hiloSticks);
+    int socketConexionMemoryAvisos = iniciar_conexion(IPMemory, puertoKernelMemoryNotificaciones);
+    if (socketConexionMemoryAvisos == EXIT_FAILURE) {
+        log_info(loggerCpu, "CPU: No se pudo conectar con Kernel Memory de Avisos");
+        abort();
+    }
+    log_info(loggerCpu, "CPU: Conexion establecida con Kernel Memory Avisos");
+    handshake_cliente_id(socketConexionMemoryAvisos, loggerCpu, CPU);
+    send(socketConexionMemoryAvisos, &sizeIdCpu, sizeof(int), 0);
+    send(socketConexionMemoryAvisos, idCpu, sizeIdCpu, 0);
+
+    lista_memory_stick = list_create();
+    pthread_mutex_init(&mutex_lista_memory_stick, NULL);
+    sem_init(&sem_lista_cargada, 0, 0);
+
+    // Levanto un hilo para escuchar al kernel_memory para que me avise de las memory sticks
+    int* argSocketAvisos = malloc(sizeof(int));
+    *argSocketAvisos = socketConexionMemoryAvisos;
+    pthread_t hiloKernelMemoryAvisos;
+    pthread_create(&hiloKernelMemoryAvisos, NULL, hilo_kernel_memory_avisos, argSocketAvisos);
+    pthread_detach(hiloKernelMemoryAvisos);
+
+    sem_wait(&sem_lista_cargada); //Espero a cargar la lista de memories sticks
 
 //2) LUEGO DE CONECTARME, CUMPLO LA FUNCION DE CPU REAL
     while (1) {

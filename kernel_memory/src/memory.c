@@ -18,9 +18,11 @@ int main(int argc, char* argv[]) {
     allocation_strategy = config_get_string_value(configMemory, "ALLOCATION_STRATEGY");
     instruction_delay = (uint32_t)config_get_int_value(configMemory, "INSTRUCTION_DELAY");
     compaction_delay = (uint32_t)config_get_int_value(configMemory, "COMPACTION_DELAY");
+    puertoMemoryStick = config_get_string_value(configMemory, "PUERTO_MEMORYSTICK");
 
     lista_procesos = list_create();
     lista_memory_sticks = list_create();
+    lista_sockets_cpu_notif = list_create();
     lista_huecos = list_create();
     memoria_total_size  = 0;
     memoria_libre_size  = 0;
@@ -29,6 +31,7 @@ int main(int argc, char* argv[]) {
     socketSwap = -1;
     epoll_fd_sticks = -1;
     pthread_mutex_init(&memoria_mutex, NULL);
+    pthread_mutex_init(&mutex_sockets_cpu_notif, NULL);
     pthread_mutex_init(&procesos_mutex, NULL);
     pthread_cond_init(&cond_hay_stick, NULL);
 
@@ -39,7 +42,7 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemory, "Servidor iniciado en puerto %s", puertoEscucha);
 
-    int socketEscuchaNotif = iniciar_servidor(puertoEscuchaNotif);
+    socketEscuchaNotif = iniciar_servidor(puertoEscuchaNotif);
     if (socketEscuchaNotif == EXIT_FAILURE) {
         log_error(loggerMemory, "No se pudo iniciar el servidor de notificaciones");
         return EXIT_FAILURE;
@@ -82,6 +85,11 @@ int main(int argc, char* argv[]) {
     pthread_create(&hilo_scheduler, NULL, atender_scheduler, argSched);
     pthread_detach(hilo_scheduler);
 
+    // Thread Notificaciones
+    pthread_t hilo_notif_cpu;
+    pthread_create(&hilo_notif_cpu, NULL, hilo_notificaciones_cpu, NULL);
+    pthread_detach(hilo_notif_cpu);
+
     // Loop principal: acepta CPUs y Memory Sticks
     while (1) {
         int socket = esperar_cliente(socketEscucha);
@@ -106,7 +114,7 @@ int main(int argc, char* argv[]) {
             case MEMORY_STICK: {
                 uint32_t stick_size = 0;
                 recv(socket, &stick_size, sizeof(uint32_t), MSG_WAITALL);
-                agregar_memory_stick(socket, stick_size);
+                agregar_memory_stick(socket, stick_size, puertoMemoryStick);
                 log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", stick_size);
                 break;
             }
@@ -334,4 +342,24 @@ void* atender_cpu(void* arg) {
 
     log_warning(loggerMemory, "CPU desconectado");
     return NULL;
+}
+
+void* hilo_notificaciones_cpu(void* arg) {
+    while (1) {
+        int socket = esperar_cliente(socketEscuchaNotif);
+        int32_t id = handshake_servidor_id(socket, 0);
+        int sizeCpuId;
+        recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
+        char* cpuId = malloc(sizeCpuId);
+        recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
+        log_info(loggerMemory, "## CPU %s Conectada a Kernel Memory Notificaciones", cpuId);
+        free(cpuId);
+
+        // Guardo el socket de notificaciones de esta CPU para poder avisarle de nuevos sticks
+        int* socketGuardado = malloc(sizeof(int));
+        *socketGuardado = socket;
+        pthread_mutex_lock(&mutex_sockets_cpu_notif);
+        list_add(lista_sockets_cpu_notif, socketGuardado);
+        pthread_mutex_unlock(&mutex_sockets_cpu_notif);
+    }
 }

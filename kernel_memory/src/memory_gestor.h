@@ -40,10 +40,12 @@ extern uint32_t  compaction_delay;
 
 extern t_list*   lista_procesos;       //ista de t_proceso_memory*
 extern t_list*   lista_memory_sticks;  // lista de t_memory_stick_info*
+extern t_list*   lista_sockets_cpu_notif; // sockets del canal de notificaciones de cada CPU conectada
 extern t_list*   lista_huecos;         // lista de t_hueco* ordenada por base física
 extern uint32_t  memoria_total_size;   // suma de tamaños de todos los sticks conectados
 extern uint32_t  memoria_libre_size;   // suma de bytes libres en todos los huecos (se mantiene actualizada)
 
+extern pthread_mutex_t mutex_sockets_cpu_notif; //protege lista_sockets_cpu_notif
 extern pthread_mutex_t memoria_mutex;   //protege lista_huecos, lista_memory_sticks y tablas de segmentos
 extern pthread_mutex_t procesos_mutex;  //protege lista_procesos y proceso->contexto
 extern pthread_cond_t  cond_hay_stick;  //se senializa cuando se conecta el primer memory stick
@@ -51,6 +53,7 @@ extern pthread_cond_t  cond_hay_stick;  //se senializa cuando se conecta el prim
 extern int socketScheduler;
 extern int socketSchedulerNotif;
 extern int socketSwap;
+extern int socketEscuchaNotif;
 extern int epoll_fd_sticks;
 extern char* puertoEscuchaNotif;
 

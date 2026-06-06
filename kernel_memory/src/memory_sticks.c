@@ -2,12 +2,16 @@
 #include "segmentacion.h"
 #include <sys/epoll.h>
 
-void agregar_memory_stick(int socket, uint32_t size) {
+void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick) {
     t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
     stick->socket = socket;
     stick->size   = size;
 
     pthread_mutex_lock(&memoria_mutex);
+
+    uint32_t puertoDeNuevaStick = (list_size(lista_memory_sticks) + atoi(puertoMemoryStick));
+    stick->puerto = puertoDeNuevaStick;
+    send(socket,&puertoDeNuevaStick,sizeof(uint32_t),0);
 
     stick->base_acumulada = memoria_total_size;
 
@@ -23,7 +27,22 @@ void agregar_memory_stick(int socket, uint32_t size) {
     if (list_size(lista_memory_sticks) == 1)
         pthread_cond_broadcast(&cond_hay_stick);
 
+    // Serializo la lista actualizada mientras tengo el lock (protege lista_memory_sticks)
+    t_buffer* bufSticks = serializar_aviso_nuevo_stick(lista_memory_sticks);
+
     pthread_mutex_unlock(&memoria_mutex);
+
+    // Aviso a todas las CPUs conectadas la lista actualizada de memory sticks
+    t_paquete* avisoStick = crear_paquete(AVISO_NUEVO_STICK, bufSticks);
+    pthread_mutex_lock(&mutex_sockets_cpu_notif);
+    int cantCpus = list_size(lista_sockets_cpu_notif);
+    for (int i = 0; i < cantCpus; i++) {
+        int socketCpu = *(int*)list_get(lista_sockets_cpu_notif, i);
+        enviar_paquete(socketCpu, avisoStick);
+    }
+    pthread_mutex_unlock(&mutex_sockets_cpu_notif);
+    eliminar_paquete(avisoStick);
+    log_info(loggerMemory, "## Notificado a %d CPU(s): AVISO_NUEVO_STICK", cantCpus);
 
     // Registrar en epoll para detectar Ctrl+C del memory stick (cierra el socket de forma limpia para los tests)
     struct epoll_event ev;
