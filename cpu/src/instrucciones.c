@@ -55,7 +55,7 @@ void ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros
             valor_leido = *(uint8_t*)dato_leido;
             escribir_valor_en_registro(tipoRegistro, valor_leido);
         }
-        log_info(loggerCpu, "\nPID: %d - MOV_IN exitoso - Dir. Logica: %d - Valor leido: %d\n", pid, direccion_logica, valor_leido);
+        log_info(loggerCpu, "\n\n\nPID: %d - MOV_IN exitoso - Dir. Logica: %d - Valor leido: %d\n\n", pid, direccion_logica, valor_leido);
         free(dato_leido);
     }
 
