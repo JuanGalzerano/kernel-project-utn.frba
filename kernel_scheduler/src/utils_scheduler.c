@@ -428,11 +428,24 @@ void manejar_bsod() {
     pthread_mutex_unlock(&exec_mutex);
 
     // READY
-    //capaz deberia clavar un mutex entero al while pero me generaria deadlock con el de desencolar_pcb_ready
-    while(!queue_is_empty(ready_cola)) {
-        t_pcb* pcb = desencolar_pcb_ready();
-        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
-        free(pcb);
+    if(algoritmo != CMN) {
+        pthread_mutex_lock(&ready_mutex);
+        while(!queue_is_empty(ready_cola)) {
+            t_pcb* pcb = queue_pop(ready_cola);
+            log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+            free(pcb);
+        }
+        pthread_mutex_unlock(&ready_mutex);
+    } else {
+        pthread_mutex_lock(&mutex_cola_multinivel);
+        for(int i = 0; i < cantidad_colas; i++) {
+            while(!queue_is_empty(cola_multinivel[i])) {
+                t_pcb* pcb = queue_pop(cola_multinivel[i]);
+                log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+                free(pcb);
+            }
+        }
+        pthread_mutex_unlock(&mutex_cola_multinivel);
     }
     
 

@@ -121,6 +121,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             case INIT_PROC:
                 t_init_proc* proc = deserializar_init_proc(paquete->buffer);
                 uint32_t nuevoPid = generar_pid();
+
+                log_info(loggerScheduler, "## (%d) - Solicitó syscall: INIT_PROC", proc->pid);
+
                 crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
 
                 pthread_mutex_lock(&exec_mutex);
@@ -462,9 +465,13 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_pcb* pcbMutexUnlock = otraCpuPadre->pcb;
                 otraCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
-                
+
+                uint32_t prioridadAnterior = pcbMutexUnlock->prioridad;
                 pcbMutexUnlock->prioridad = pcbMutexUnlock->prioridadOriginal;
-                log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, pcbMutexUnlock->prioridad, pcbMutexUnlock->prioridadOriginal);
+
+                if(prioridadAnterior != pcbMutexUnlock->prioridadOriginal) {
+                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, prioridadAnterior, pcbMutexUnlock->prioridadOriginal);
+                }
 
                 encolar_pcb_ready(pcbMutexUnlock);
                 sem_post(&sem_hay_proceso_ready);

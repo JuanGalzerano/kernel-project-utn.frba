@@ -1,7 +1,10 @@
-NOOP
-NOOP
+INIT_PROC hola.txt 2
+INIT_PROC hola.txt 2
+INIT_PROC hola.txt 2
+INIT_PROC hola.txt 2
+INIT_PROC hola.txt 2
+INIT_PROC hola.txt 2
 INIT_PROC hola.txt 2
 SLEEP 2500
-INIT_PROC hola.txt 0
-NOOP
+INIT_PROC chau.txt 0
 EXIT

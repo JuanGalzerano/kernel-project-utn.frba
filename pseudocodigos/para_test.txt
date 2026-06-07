@@ -2,7 +2,7 @@
 ./bin/kernel_memory src/memory.config
 
 # Kernel Scheduler
-./bin/kernel_scheduler src/kernel.config ../pseudocodigos/loop_mem.txt
+./bin/kernel_scheduler src/kernel.config ../pseudocodigos/noop.txt
 
 # Swap
 ./bin/swap src/swap.config
