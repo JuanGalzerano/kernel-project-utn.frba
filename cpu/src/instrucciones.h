@@ -1,7 +1,9 @@
 #ifndef INSTRUCCIONES_H_  
 #define INSTRUCCIONES_H_
 
-#include <utils/serializacion.h>  
+#include <utils/serializacion.h>
+#include "inicializar_cpu.h"
+
 typedef struct {
     uint32_t pc;
     uint8_t ax;

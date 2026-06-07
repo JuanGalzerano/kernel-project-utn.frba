@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
 
     //aceptar cpus
     while(1){
-        int socketParaCpu = aceptar_cliente(socketEscucha, loggerMemoryStick); //MAL creo
+        int socketParaCpu = esperar_cliente(socketEscucha);
         if (socketParaCpu== EXIT_FAILURE)
         {
         log_info(loggerMemoryStick, "Error al aceptar conexion con la cpu");

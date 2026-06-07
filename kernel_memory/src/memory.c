@@ -197,6 +197,7 @@ void* atender_scheduler(void* arg) {
                 free(req);
                 t_paquete* paqueteResp = crear_paquete(ok,NULL);
                 enviar_paquete(socket,paqueteResp);
+                eliminar_paquete(paqueteResp);
                 break;
             }
             case LEER_BYTES: {
@@ -361,5 +362,13 @@ void* hilo_notificaciones_cpu(void* arg) {
         pthread_mutex_lock(&mutex_sockets_cpu_notif);
         list_add(lista_sockets_cpu_notif, socketGuardado);
         pthread_mutex_unlock(&mutex_sockets_cpu_notif);
+
+        // Mando la lista actual de sticks para que la CPU no se pierda los que ya estaban conectados
+        pthread_mutex_lock(&memoria_mutex);
+        t_buffer* bufSticks = serializar_aviso_nuevo_stick(lista_memory_sticks);
+        pthread_mutex_unlock(&memoria_mutex);
+        t_paquete* avisoInicial = crear_paquete(AVISO_NUEVO_STICK, bufSticks);
+        enviar_paquete(socket, avisoInicial);
+        eliminar_paquete(avisoInicial);
     }
 }

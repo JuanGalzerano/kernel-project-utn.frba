@@ -47,11 +47,15 @@ void ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros
 
     char* dato_leido = leer_en_memoria(lista_memory_sticks);
     if (dato_leido != NULL) {
+        uint32_t valor_leido;
         if (tipoRegistro > 4) {
-            escribir_valor_en_registro(tipoRegistro, *(uint32_t*)dato_leido);
+            valor_leido = *(uint32_t*)dato_leido;
+            escribir_valor_en_registro(tipoRegistro, valor_leido);
         } else {
-            escribir_valor_en_registro(tipoRegistro, *(uint8_t*)dato_leido);
+            valor_leido = *(uint8_t*)dato_leido;
+            escribir_valor_en_registro(tipoRegistro, valor_leido);
         }
+        log_info(loggerCpu, "\nPID: %d - MOV_IN exitoso - Dir. Logica: %d - Valor leido: %d\n", pid, direccion_logica, valor_leido);
         free(dato_leido);
     }
 

@@ -47,8 +47,7 @@ void enviar_instruccion_cpu(int socket, uint32_t pid, uint32_t pc) {
     char* instruccion = leer_instruccion(proceso, pc);
     if (!instruccion) return;
 
-    log_info(loggerMemory, "## PID: %d - Obtener instrucción: %d - Instrucción: %s",
-             pid, pc, instruccion);
+    log_info(loggerMemory, "## PID: %d - Obtener instrucción: %d - Instrucción: %s", pid, pc, instruccion);
 
     t_buffer* buffer = buffer_create(0);
     buffer_add_string(buffer, strlen(instruccion), instruccion);
