@@ -48,7 +48,6 @@ extern uint32_t  memoria_libre_size;   // suma de bytes libres en todos los huec
 extern pthread_mutex_t mutex_sockets_cpu_notif; //protege lista_sockets_cpu_notif
 extern pthread_mutex_t memoria_mutex;   //protege lista_huecos, lista_memory_sticks y tablas de segmentos
 extern pthread_mutex_t procesos_mutex;  //protege lista_procesos y proceso->contexto
-extern pthread_cond_t  cond_hay_stick;  //se senializa cuando se conecta el primer memory stick
 
 extern int socketScheduler;
 extern int socketSchedulerNotif;

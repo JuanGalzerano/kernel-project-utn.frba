@@ -13,6 +13,10 @@ void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick) {
     stick->puerto = puertoDeNuevaStick;
     send(socket,&puertoDeNuevaStick,sizeof(uint32_t),0);
 
+    //Espero confirmacion de que el stick abrio su servidor antes de notificar a las CPUs
+    uint32_t listo = 0;
+    recv(socket, &listo, sizeof(uint32_t), MSG_WAITALL);
+
     stick->base_acumulada = memoria_total_size;
 
     list_add(lista_memory_sticks, stick);
@@ -23,9 +27,6 @@ void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick) {
     hueco->base = stick->base_acumulada;
     hueco->limite = size;
     insertar_hueco_y_fusionar(hueco);
-
-    if (list_size(lista_memory_sticks) == 1)
-        pthread_cond_broadcast(&cond_hay_stick);
 
     // Serializo la lista actualizada mientras tengo el lock (protege lista_memory_sticks)
     t_buffer* bufSticks = serializar_aviso_nuevo_stick(lista_memory_sticks);

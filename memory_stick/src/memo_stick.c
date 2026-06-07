@@ -51,13 +51,6 @@ int main(int argc, char* argv[]) {
     uint32_t puertoAsignado;
     recv(socketconexionKernelMemory, &puertoAsignado, sizeof(uint32_t), MSG_WAITALL);
 
-    //hilo para atender escritura y lectura de la memory
-    pthread_t hiloMemory;
-    int* fdMemory = malloc(sizeof(int));
-    *fdMemory = socketconexionKernelMemory;
-    pthread_create(&hiloMemory, NULL, atender_cliente, fdMemory);
-    pthread_detach(hiloMemory);
-
     //abrir socket de escucha para que se conecte la cpu
     int socketEscucha = iniciar_servidor(string_itoa(puertoAsignado)); //string_itoa convierte 7 en "7"
     if(socketEscucha == EXIT_FAILURE){
@@ -65,6 +58,17 @@ int main(int argc, char* argv[]) {
         abort();
     }
     log_info(loggerMemoryStick, "Servidor iniciado");
+
+    // Aviso a KM que el servidor ya esta abierto, recien ahi puede notificar a las CPUs
+    uint32_t listo = 1;
+    send(socketconexionKernelMemory, &listo, sizeof(uint32_t), 0);
+
+    //hilo para atender escritura y lectura de la memory
+    pthread_t hiloMemory;
+    int* fdMemory = malloc(sizeof(int));
+    *fdMemory = socketconexionKernelMemory;
+    pthread_create(&hiloMemory, NULL, atender_cliente, fdMemory);
+    pthread_detach(hiloMemory);
 
     //aceptar cpus
     while(1){
