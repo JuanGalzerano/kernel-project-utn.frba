@@ -420,6 +420,7 @@ void manejar_bsod() {
             t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
             enviar_paquete(cpu->socketConexion, paq);
             eliminar_paquete(paq);
+            log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pcb->pid);
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
             free(cpu->pcb);
             cpu->pcb = NULL;
@@ -432,6 +433,7 @@ void manejar_bsod() {
         pthread_mutex_lock(&ready_mutex);
         while(!queue_is_empty(ready_cola)) {
             t_pcb* pcb = queue_pop(ready_cola);
+            log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado EXIT", pcb->pid);
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
             free(pcb);
         }
@@ -441,7 +443,9 @@ void manejar_bsod() {
         for(int i = 0; i < cantidad_colas; i++) {
             while(!queue_is_empty(cola_multinivel[i])) {
                 t_pcb* pcb = queue_pop(cola_multinivel[i]);
+                log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado EXIT", pcb->pid);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
+
                 free(pcb);
             }
         }
@@ -453,6 +457,7 @@ void manejar_bsod() {
     pthread_mutex_lock(&block_mutex);
     while(!list_is_empty(block_lista)) {
         t_pcb* pcb = list_remove(block_lista, 0);
+        log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado EXIT", pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
         free(pcb);
     }
@@ -463,6 +468,7 @@ void manejar_bsod() {
     pthread_mutex_lock(&susp_block_mutex);
     while(!list_is_empty(susp_block)) {
         t_pcb* pcb = list_remove(susp_block, 0);
+        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado EXIT", pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
         free(pcb);
     }
@@ -472,6 +478,7 @@ void manejar_bsod() {
     pthread_mutex_lock(&susp_ready_mutex);
     while(!list_is_empty(susp_ready)) {
         t_pcb* pcb = list_remove(susp_ready, 0);
+        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP READY al estado EXIT", pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
         free(pcb);
     }
