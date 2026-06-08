@@ -420,7 +420,7 @@ void manejar_bsod() {
             t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
             enviar_paquete(cpu->socketConexion, paq);
             eliminar_paquete(paq);
-            log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pcb->pid);
+            log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
             free(cpu->pcb);
             cpu->pcb = NULL;
