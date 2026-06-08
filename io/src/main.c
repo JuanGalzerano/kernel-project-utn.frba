@@ -67,9 +67,9 @@ int main(int argc, char* argv[]) {
         
             t_stdin_stdout* out;
             out = deserializar_stdin(paquete->buffer);
-            pid=sl->pid;
+            pid=out->pid;
             log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
-            stdout_func(out->cadenaLeida,out->bytesALeer,out->pid,loggerIO);
+            stdout_func(out->cadenaLeida,out->pid,out->bytesALeer,loggerIO);
             paquete->buffer=serializar_stdin(out);
             paquete->codigo_operacion=FINALIZAR_STDOUT;
             enviar_paquete(socketConScheduler,paquete);
