@@ -568,7 +568,7 @@ void liberar_cpu_y_notificar() {
 
 t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
     //buscar en exec_lista
-    estabaEnReady = 0; //incializamos en que no estaba
+    *estabaEnReady = 0; //incializamos en que no estaba
     pthread_mutex_lock(&exec_mutex);
     for(int i = 0; i < list_size(exec_lista); i++) {
         t_cpu_exec* cpu = list_get(exec_lista, i);

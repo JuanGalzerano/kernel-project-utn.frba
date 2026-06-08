@@ -364,10 +364,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 
                 pthread_mutex_lock(&mutex_lista_mutex);
                 t_mutex_syscall* mutexABloquearEnLista = buscar_mutex(mutexABloquear->nombreMutex);
+                //log_debug(loggerScheduler, "encontro el mutex: %s", mutexABloquearEnLista->nombreMutex);
                 
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
+                //log_debug(loggerScheduler, "encontro la cpu id: %d   con el pid:  %d", cpuALiberar->cpu_id, cpuALiberar->pcb->pid);
                 pthread_mutex_unlock(&exec_mutex);
 
                 if(mutexABloquearEnLista->contador < 1){
@@ -404,6 +406,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     cpuALiberar->pcb = NULL;
                     pthread_mutex_unlock(&exec_mutex);
                     encolar_pcb_ready(pcbMutexLock);
+                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexLock->pid);
                     sem_post(&sem_hay_proceso_ready);
                     liberar_cpu_y_notificar();
                 }
