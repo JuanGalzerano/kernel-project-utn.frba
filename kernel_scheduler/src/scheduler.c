@@ -473,6 +473,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, prioridadAnterior, pcbMutexUnlock->prioridadOriginal);
                 }
 
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexUnlock->pid);
+
                 encolar_pcb_ready(pcbMutexUnlock);
                 sem_post(&sem_hay_proceso_ready);
                 liberar_cpu_y_notificar();
