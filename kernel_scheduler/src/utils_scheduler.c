@@ -420,7 +420,7 @@ void manejar_bsod() {
             t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
             enviar_paquete(cpu->socketConexion, paq);
             eliminar_paquete(paq);
-            log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pcb->pid);
+            log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
             free(cpu->pcb);
             cpu->pcb = NULL;
@@ -568,7 +568,7 @@ void liberar_cpu_y_notificar() {
 
 t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
     //buscar en exec_lista
-    estabaEnReady = 0; //incializamos en que no estaba
+    *estabaEnReady = 0; //incializamos en que no estaba
     pthread_mutex_lock(&exec_mutex);
     for(int i = 0; i < list_size(exec_lista); i++) {
         t_cpu_exec* cpu = list_get(exec_lista, i);
