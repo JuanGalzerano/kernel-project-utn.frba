@@ -61,4 +61,6 @@ void liberar_cpu_y_notificar();
 
 t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady);
 
+void despertar_planificador();
+
 #endif

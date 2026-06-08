@@ -624,3 +624,11 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
     //HACER CASOS DE BUSCAR ENTRE LOS SUSPENDIDOS
     return NULL;
 }
+
+void despertar_planificador(){
+    if((algoritmo == CMN) && desalojo_cola){
+        pthread_mutex_lock(&mutex_planificador);
+        pthread_cond_signal(&cond_planificador);
+        pthread_mutex_unlock(&mutex_planificador);
+    }
+}

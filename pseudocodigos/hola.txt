@@ -1,4 +1,3 @@
 MUTEX_LOCK "semaforo"
-SLEEP 12000
 MUTEX_UNLOCK "semaforo"
 EXIT

@@ -264,6 +264,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 sem_post(&sem_sleep_disponible);
                 sem_post(&sem_hay_proceso_ready);
 
+                despertar_planificador();
+
                 break;
             case FINALIZAR_STDOUT: 
                 
@@ -284,6 +286,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
                 sem_post(&sem_stdout_disponible);
+
+                despertar_planificador();
                 
                 break;
             case FINALIZAR_STDIN:
@@ -313,6 +317,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
                 sem_post(&sem_stdin_disponible);
                 sem_post(&sem_hay_proceso_ready);
+
+                despertar_planificador();
 
                 free(resultado->cadenaLeida);
                 free(resultado);

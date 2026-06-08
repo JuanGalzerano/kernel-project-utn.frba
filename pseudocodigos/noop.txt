@@ -1,7 +1,8 @@
 MUTEX_CREATE "semaforo"
 INIT_PROC hola.txt 2
-SLEEP 1000
-INIT_PROC chau.txt 2
+SLEEP 100
+INIT_PROC chau.txt 1
+SLEEP 10000
 MUTEX_LOCK "semaforo"
 MUTEX_UNLOCK "semaforo"
 EXIT
