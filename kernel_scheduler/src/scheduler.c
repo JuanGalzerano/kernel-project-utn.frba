@@ -496,13 +496,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
                     if(cpuAlloc!=NULL){
-                        pthread_mutex_lock(&exec_mutex);
-                        t_pcb* pcbAlloc = cpuAlloc->pcb;
-                        cpuAlloc->pcb = NULL;
-                        pthread_mutex_unlock(&exec_mutex);
-                        encolar_pcb_ready(pcbAlloc);
-                        sem_post(&sem_hay_proceso_ready);
-                        liberar_cpu_y_notificar();
+                        if(cpuAlloc!=NULL){
+                            reanudar_proceso_en_cpu(cpuAlloc);
+                    }
                     }
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
@@ -530,13 +526,11 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu_exec* CpuFree = encontrar_cpu_con_pid(infoMemFree->pid);
-
-                t_pcb* pcbFree = CpuFree->pcb;
-                CpuFree->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
-                encolar_pcb_ready(pcbFree);
-                sem_post(&sem_hay_proceso_ready);
-                liberar_cpu_y_notificar();
+
+                if (CpuFree != NULL) {
+                    reanudar_proceso_en_cpu(CpuFree);
+                }
 
                 free(paqueteFree);//no libero el buffer pq es del otro paquete
                 free(infoMemFree);
