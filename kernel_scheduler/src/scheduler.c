@@ -505,9 +505,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
                     if(cpuAlloc!=NULL){
-                        if(cpuAlloc!=NULL){
                             reanudar_proceso_en_cpu(cpuAlloc);
-                    }
                     }
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
