@@ -71,27 +71,36 @@ void compactar(){
 
         if(e->seg->base != cursor){//esto es porque si un segmento ya esta bien posicionado, no tiene sentido leerlo y escribirlo donde esta el cursor
             char* contenido = malloc(tamanio);
-            //LEO LOS PEDAZOS DE UN SEGMENTO (generalmente solo va a ser uno)
             t_list* a_leer = pedazos_fisico(e->seg->base, tamanio);
-            leer_pedazos(a_leer, contenido); 
+            if(a_leer==NULL){
+                log_error(loggerMemory, "Compactacion: pedazos_fisico NULL en base=%d", e->seg->base);
+                free(contenido);
+                continue;
+            }
+            leer_pedazos(a_leer, contenido);
             list_destroy_and_destroy_elements(a_leer, free);
             t_list* a_escribir = pedazos_fisico(cursor, tamanio);
+            if(a_escribir ==NULL){
+                log_error(loggerMemory, "Compactacion: pedazos_fisico NULL en cursor=%d", cursor);
+                free(contenido);
+                continue;
+            }
             escribir_pedazos(a_escribir, contenido);
             list_destroy_and_destroy_elements(a_escribir, free);
-
             free(contenido);
 
             log_info(loggerMemory, "Compactacion - PID %d seg %d: base %d -> %d",
                      e->pid, e->seg->id_segmento, e->seg->base, cursor);
             e->seg->base = cursor; //ACA ES DONDE MODIFICO LA TABLA DE SEGMENTOS, PORQUE e->seg apunta al t_segmento, entonces modifica su dato de "base"
         }
-        cursor += tamanio;//MUEVO EL CURSOR PARA QUE EL PROX SEGMENTO ESTE PEGADO AL ANTERIOR
+        cursor += tamanio;//MUEVO EL CURSOR PARA QUE EL PROXSEGMENTO ESTE PEGADO AL ANTERIOR
     }
 
     list_destroy_and_destroy_elements(todos, free);
 
     //Borro la lista de huecos y agrego el hueco grande que hay al final, en el cual va a estar esa mem dispo continua
     list_destroy_and_destroy_elements(lista_huecos, free);
+    lista_huecos =list_create();
     if(cursor < memoria_total_size){//chequea q no haya sido que lit mem total size es == al cursor, en ese caso habria 0 huecos
         t_hueco* hueco  = malloc(sizeof(t_hueco));
         hueco->base = cursor;

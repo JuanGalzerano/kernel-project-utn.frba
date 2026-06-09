@@ -43,10 +43,10 @@ int main(int argc, char* argv[]) {
 
     //atender LEER_SWAP y ESCRIBIR_SWAP
     t_paquete* paquete;
-    while ((paquete = recibir_paquete(socketConMemory)) != NULL) {
+    while((paquete = recibir_paquete(socketConMemory)) != NULL){
         switch ((op_code)paquete->codigo_operacion) {
 
-            case ESCRIBIR_SWAP: {
+            case ESCRIBIR_SWAP:{
                 uint32_t bloque = buffer_read_uint32(paquete->buffer);
                 uint32_t tamanio = buffer_read_uint32(paquete->buffer);
                 void*    datos = malloc(tamanio);
@@ -96,14 +96,14 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void escribir_Bloque(uint32_t idBloque, FILE* archivo, void* contenido, uint32_t tamanio) {
+void escribir_Bloque(uint32_t idBloque, FILE* archivo, void* contenido, uint32_t tamanio){
     long offset = idBloque * blockSize;
     fseek(archivo, offset, SEEK_SET);
     fwrite(contenido, 1, tamanio, archivo);
     fflush(archivo);
 }
 
-char* leer_Bloque(uint32_t idBloque, FILE* archivo, uint32_t tamanio) {
+char* leer_Bloque(uint32_t idBloque, FILE* archivo, uint32_t tamanio){
     char* buffer = malloc(tamanio);
     long offset  = idBloque * blockSize;
     fseek(archivo, offset, SEEK_SET);
