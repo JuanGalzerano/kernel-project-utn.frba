@@ -617,14 +617,14 @@ void despertar_planificador(){
 
 void timer_tiempo_bloqueado(t_pcb* pcb){
     uint32_t *pid = malloc(sizeof(uint32_t));
-    pthread hiloTimer;
+    pthread_t hiloTimer;
     pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pcb->pid);
     pthread_detach(hiloTimer);
 }
 
 void* hilo_timer_bloqueado(void* arg){
     uint32_t* argu = (uint32_t*) arg;
-    uinnt32_t pid = *argu;
+    uint32_t pid = *argu;
     free(argu);
 
     usleep(suspensionTimeout*1000);
@@ -656,7 +656,7 @@ void suspender_proceso(t_pcb* pcb){
     enviar_paquete(socketConexionMemory, paquete);
     eliminar_paquete(paquete);
     t_paquete* resp = recibir_paquete(socketConexionMemory);
-    uitn32_t bytesSuspendidos = buffer_read_uint32(resp->buffer);
+    uint32_t bytesSuspendidos = buffer_read_uint32(resp->buffer);
     eliminar_paquete(resp);
     //ver que tengo que hacer con bytes suspendidos
 
