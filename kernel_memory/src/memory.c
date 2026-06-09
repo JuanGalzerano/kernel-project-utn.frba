@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     }
     log_info(loggerMemory, "Servidor de notificaciones iniciado en puerto %s", puertoEscuchaNotif);
 
-    // El scheduler se conecta primero en ambos puertos (uno para tema procesos y otra para gestion de conexion o desconexion de sticks)
+    //El scheduler se conecta primero en ambos puertos (uno para tema procesos y otra para gestion de conexion o desconexion de sticks)
     socketScheduler = aceptar_cliente(socketEscucha, loggerMemory);
     log_info(loggerMemory, "## Kernel Scheduler Conectado - FD del socket: %d", socketScheduler);
 
@@ -58,14 +58,13 @@ int main(int argc, char* argv[]) {
     socketSwap = aceptar_cliente(socketEscucha, loggerMemory);
     log_info(loggerMemory, "## Swap Conectado - FD del socket: %d", socketSwap);
 
-    // El swap envía su tamaño total y el tamaño de cada bloque al conectarse
     t_paquete* swapInit = recibir_paquete(socketSwap);
     swap_total_size = buffer_read_uint32(swapInit->buffer);
     swap_block_size = buffer_read_uint32(swapInit->buffer);
     eliminar_paquete(swapInit);
     inicializar_swap();
 
-    // Inicializar epoll para monitoreo de desconexion de memory sticks sin espera activa
+    //monitoreo de desconexion de memory sticks sin espera activa
     epoll_fd_sticks = epoll_create1(0);
     if (epoll_fd_sticks < 0) {
         log_error(loggerMemory, "No se pudo crear el epoll para memory sticks");
@@ -94,7 +93,7 @@ int main(int argc, char* argv[]) {
         int socket = esperar_cliente(socketEscucha);
         int32_t id = handshake_servidor_id(socket, 0);
 
-        switch (id) {
+        switch (id){
             case CPU: {
                 int sizeCpuId;
                 recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
@@ -127,7 +126,7 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void avisar_nueva_memoria() {
+void avisar_nueva_memoria(){
     t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, memoria_libre_size);
     t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, buf);
@@ -135,7 +134,7 @@ void avisar_nueva_memoria() {
     eliminar_paquete(aviso); 
 }
 
-void* atender_scheduler(void* arg) {
+void* atender_scheduler(void* arg){
     int socket = *(int*)arg;
     free(arg);
 
@@ -206,7 +205,7 @@ void* atender_scheduler(void* arg) {
                 eliminar_paquete(paquete);
 
                 t_proceso_memory* proc = buscar_proceso(pid);
-                if (proc == NULL) {
+                if (proc== NULL) {
                     t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
                     enviar_paquete(socket, respuesta);
                     eliminar_paquete(respuesta);
@@ -217,7 +216,7 @@ void* atender_scheduler(void* arg) {
                 t_list* pedazos = traducir_logica_a_fisica(dir_logica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, bytes);
                 pthread_mutex_unlock(&memoria_mutex);
 
-                if (pedazos == NULL) {
+                if (pedazos ==NULL) {
                     t_paquete* respuesta = crear_paquete(LECTURA_FALLIDA, NULL);
                     enviar_paquete(socket, respuesta);
                     eliminar_paquete(respuesta);
@@ -304,7 +303,7 @@ void* atender_scheduler(void* arg) {
 }
 
 // Loop que atiende a un CPU: todos los mensajes llegan como paquete con pid en el buffer.
-void* atender_cpu(void* arg) {
+void* atender_cpu(void* arg){
     int socket = *(int*)arg;
     free(arg);
 
@@ -322,7 +321,7 @@ void* atender_cpu(void* arg) {
                 recibir_contexto_cpu(pid, paquete->buffer);
                 eliminar_paquete(paquete);
                 break;
-            case OBTENER_INSTRUCCION: {
+            case OBTENER_INSTRUCCION:{
                 uint32_t pc = buffer_read_uint32(paquete->buffer);
                 usleep(instruction_delay * 1000);
                 enviar_instruccion_cpu(socket, pid, pc);
@@ -340,10 +339,10 @@ void* atender_cpu(void* arg) {
     return NULL;
 }
 
-void* hilo_notificaciones_cpu(void* arg) {
+void* hilo_notificaciones_cpu(void* arg){
     while (1) {
         int socket = esperar_cliente(socketEscuchaNotif);
-        int32_t id = handshake_servidor_id(socket, 0);
+        handshake_servidor_id(socket, 0);
         int sizeCpuId;
         recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
         char* cpuId = malloc(sizeCpuId);
