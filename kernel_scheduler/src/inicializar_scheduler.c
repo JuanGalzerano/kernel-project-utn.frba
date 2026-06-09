@@ -26,6 +26,7 @@ void inicializar_configs(char* path){
     quantum = config_get_int_value(configScheduler, "RR_QUANTUM");
     char* hayDesalojo = config_get_string_value(configScheduler, "QUEUE_PREEMPTION");
     hay_desalojo = (strcmp(hayDesalojo, "TRUE") == 0);
+    suspensionTimeout = config_get_int_value(configScheduler, "SUSPENSION_TIMEOUT");
     free(hayDesalojo);
     
     char* algoritmoDePlanificacion = config_get_string_value(configScheduler, "PLANIFICATION_ALGORITHM");

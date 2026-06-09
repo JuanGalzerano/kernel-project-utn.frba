@@ -63,4 +63,12 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady);
 
 void despertar_planificador();
 
+void despertar_planificador();
+
+void* hilo_timer_bloqueado(void* arg);
+
+void timer_tiempo_bloqueado(t_pcb* pcb);
+
+void suspender_proceso(t_pcb* pcb);
+
 #endif

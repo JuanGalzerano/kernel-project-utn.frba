@@ -163,6 +163,8 @@ void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&block_mutex);
     list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
+
+    timer_tiempo_bloqueado(pcbBlock);
     
     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
 
@@ -611,4 +613,58 @@ void despertar_planificador(){
         pthread_cond_signal(&cond_planificador);
         pthread_mutex_unlock(&mutex_planificador);
     }
+}
+
+void timer_tiempo_bloqueado(t_pcb* pcb){
+    uint32_t *pid = malloc(sizeof(uint32_t));
+    pthread_t hiloTimer;
+    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pcb->pid);
+    pthread_detach(hiloTimer);
+}
+
+void* hilo_timer_bloqueado(void* arg){
+    uint32_t* argu = (uint32_t*) arg;
+    uint32_t pid = *argu;
+    free(argu);
+
+    usleep(suspensionTimeout*1000);
+
+    pthread_mutex_lock(&block_mutex);
+    t_pcb* pcb = buscar_y_sacar_de_block(pid);
+    pthread_mutex_unlock(&block_mutex);
+
+    if(pcb==NULL){
+        return NULL;
+    }
+    suspender_proceso(pcb);
+    return NULL;
+}
+
+void suspender_proceso(t_pcb* pcb){
+    //(creo q siempre va a ser de block a susp bloc)
+    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado SUSP BLOCK", pcb->pid);
+
+    pthread_mutex_lock(&mutex_susp_block);
+    list_add(susp_block, pcb);
+    pthread_mutex_unlock(&mutex_susp_block);
+
+    //avisarle a juai
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pcb->pid);
+    t_paquete* paquete = crear_paquete(SUSPENDER_PROCESO, buffer);
+    pthread_mutex_lock(&mutex_socket_memory);
+    enviar_paquete(socketConexionMemory, paquete);
+    eliminar_paquete(paquete);
+    t_paquete* resp = recibir_paquete(socketConexionMemory);
+    uint32_t bytesSuspendidos = buffer_read_uint32(resp->buffer);
+    eliminar_paquete(resp);
+    //ver que tengo que hacer con bytes suspendidos
+
+
+
+    //ver lo de que se libero memoria => podria entrar otro proceso
+
+    /*para lo de que hay 2 de igual prioridad suspendidos y necesito desempatar por el q esta hace mas tiempo, 
+    lo que voy a hacer es usar el orden en el qe estan en la lista para desempatar, pq creo q se insertan por orden con list add*/
+    //IGUAL ESO LO VOY A VER EN EL HILO DE ESCUCHA A MEMORY
 }

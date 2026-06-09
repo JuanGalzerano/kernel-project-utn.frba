@@ -62,6 +62,7 @@ t_algortimo_planificacion algoritmo;
 int quantum;
 bool hay_desalojo;
 int cantidad_colas;
+int suspensionTimeout;
 
 
 //Sockets del las diferentes IOs
