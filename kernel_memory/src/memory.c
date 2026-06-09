@@ -128,7 +128,8 @@ int main(int argc, char* argv[]) {
 
 void avisar_nueva_memoria(){
     t_buffer* buf = buffer_create(0);
-    buffer_add_uint32(buf, memoria_libre_size);
+    t_hueco* huecoMasGrande = encontrar_hueco_worst_fit(1);
+    buffer_add_uint32(buf, huecoMasGrande->limite);//dice limite pero es el tamanio de ese hueco
     t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, buf);
     enviar_paquete(socketSchedulerNotif, aviso);
     eliminar_paquete(aviso); 
