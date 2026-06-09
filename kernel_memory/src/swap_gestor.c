@@ -51,31 +51,28 @@ char* swap_leer_bloque(int bloque, uint32_t tamanio) {
 op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
     *bytes_suspendidos = 0;
     t_proceso_memory* proc = buscar_proceso(pid);
-    if (!proc) {
-        log_error(loggerMemory, "SUSPEND: PID %d no encontrado", pid);
-        return MEMORIA_CORRUPTA;
-    }
 
     pthread_mutex_lock(&memoria_mutex);
     int n_segs = list_size(proc->contexto->tabla_segmentos);
     pthread_mutex_unlock(&memoria_mutex);
 
-    if (n_segs == 0) {
+    if(n_segs == 0){
         log_info(loggerMemory, "## PID %d suspendido (sin segmentos)", pid);
         return SUSPEND_OK;
     }
 
     pthread_mutex_lock(&memoria_mutex);
     t_segmento** segs = malloc(n_segs * sizeof(t_segmento*));
-    for (int i = 0; i < n_segs; i++)
+    for (int i = 0; i < n_segs; i++){
         segs[i] = list_get(proc->contexto->tabla_segmentos, i);
+    }
     pthread_mutex_unlock(&memoria_mutex);
 
-    for (int i = 0; i < n_segs; i++) {
+    for(int i = 0; i < n_segs; i++){
         uint32_t seg_id  = segs[i]->id_segmento;
         uint32_t tamanio = segs[i]->limite;
 
-        if (tamanio > swap_block_size) {
+        if (tamanio > swap_block_size){
             log_error(loggerMemory, "SUSPEND: PID %d - segmento %d (%d bytes) excede el block size del swap (%d bytes)", pid, seg_id, tamanio, swap_block_size);
             free(segs);
             return MEMORIA_NO_DISPONIBLE;
@@ -109,15 +106,15 @@ op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
         // Escribir en el bloque del swap y registrar en la tabla
         pthread_mutex_lock(&swap_mutex);
         swap_escribir_bloque(bloque, datos, tamanio);
-        tabla_swap[bloque].ocupado     = true;
-        tabla_swap[bloque].pid         = pid;
+        tabla_swap[bloque].ocupado = true;
+        tabla_swap[bloque].pid = pid;
         tabla_swap[bloque].segmento_id = seg_id;
-        tabla_swap[bloque].tamanio     = tamanio;
+        tabla_swap[bloque].tamanio = tamanio;
         pthread_mutex_unlock(&swap_mutex);
 
         free(datos);
 
-        // Liberar solo la memoria fisica — el segmento queda en la tabla del proceso
+        //Liberar solo la memoria fisica — el segmento queda en la tabla del proceso
         liberar_fisica_segmento(pid, seg_id);
         *bytes_suspendidos += tamanio;
 
@@ -147,26 +144,20 @@ op_code desuspender_proceso(uint32_t pid) {
     int k = 0;
     for (int i = 0; i < (int)swap_num_bloques && k < cantidad; i++) {
         if (tabla_swap[i].ocupado && tabla_swap[i].pid == pid) {
-            info[k].bloque  = i;
-            info[k].seg_id  = tabla_swap[i].segmento_id;
+            info[k].bloque = i;
+            info[k].seg_id = tabla_swap[i].segmento_id;
             info[k].tamanio = tabla_swap[i].tamanio;
             k++;
         }
     }
     pthread_mutex_unlock(&swap_mutex);
 
-    for (int i = 0; i < cantidad; i++) {
+    for(int i = 0; i < cantidad; i++){
         // Leer datos del swap
         char* datos = swap_leer_bloque(info[i].bloque, info[i].tamanio);
-        if (!datos) {
-            log_error(loggerMemory, "DESUSPEND: error leyendo bloque %d del swap", info[i].bloque);
-            free(info);
-            return MEMORIA_CORRUPTA;//supuesto imposible si el swap no se puede desconectar, pero bueno x las dudas
-        }
 
-        // Asignar nueva ubicacion fisica al segmento que ya existe en la tabla
         op_code resultado = asignar_fisica_segmento(pid, info[i].seg_id, info[i].tamanio);
-        if (resultado != MEMORIA_DISPONIBLE) {
+        if (resultado != MEMORIA_DISPONIBLE){
             log_error(loggerMemory, "DESUSPEND: no hay memoria para PID %d seg %d", pid, info[i].seg_id);
             free(datos);
             free(info);
@@ -189,7 +180,6 @@ op_code desuspender_proceso(uint32_t pid) {
         list_destroy_and_destroy_elements(pedazos, free);
         free(datos);
 
-        // Liberar bloque en swap
         pthread_mutex_lock(&swap_mutex);
         tabla_swap[info[i].bloque].ocupado = false;
         pthread_mutex_unlock(&swap_mutex);
