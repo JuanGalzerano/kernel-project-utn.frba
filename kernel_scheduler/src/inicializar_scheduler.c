@@ -24,12 +24,12 @@ void inicializar_configs(char* path){
     puertoMemoryNotif = config_get_string_value(configScheduler, "PUERTO_MEMORY_NOTIF");
     IPMemory = config_get_string_value(configScheduler, "IP_MEMORY");
     quantum = config_get_int_value(configScheduler, "RR_QUANTUM");
-    char* preemptionStr = config_get_string_value(configScheduler, "QUEUE_PREEMPTION");
-    desalojo_cola = (strcmp(preemptionStr, "TRUE") == 0);
-    free(preemptionStr);
+    char* hayDesalojo = config_get_string_value(configScheduler, "QUEUE_PREEMPTION");
+    hay_desalojo = (strcmp(hayDesalojo, "TRUE") == 0);
+    free(hayDesalojo);
     
     char* algoritmoDePlanificacion = config_get_string_value(configScheduler, "PLANIFICATION_ALGORITHM");
-    if(strcmp(algoritmoDePlanificacion, "FIFO")==0) {
+    if(strcmp(algoritmoDePlanificacion, "FIFO")==0){
         algoritmo = FIFO;}
     else if(strcmp(algoritmoDePlanificacion, "RR")==0){
         algoritmo=RR;
@@ -45,14 +45,14 @@ void inicializar_configs(char* path){
 }
 
 void inicializar_semaforos(){
-    sem_init(&sem_hay_proceso_ready, 0, 0); // 0 procesos al inicio
-    sem_init(&sem_hay_cpu_libre,     0, 0); // 0 CPUs al inicio
-    sem_init(&sem_sleep_disponible,          0, 0);
-    sem_init(&sem_stdin_disponible,          0, 0);
-    sem_init(&sem_stdout_disponible,         0, 0);
-    sem_init(&sem_hay_proc_esperando_sleep,  0, 0);
-    sem_init(&sem_hay_proc_esperando_stdin,  0, 0);
-    sem_init(&sem_hay_proc_esperando_stdout, 0, 0);
+    sem_init(&sem_hay_proceso_ready,0, 0); 
+    sem_init(&sem_hay_cpu_libre,0, 0); 
+    sem_init(&sem_sleep_disponible, 0, 0);
+    sem_init(&sem_stdin_disponible,0, 0);
+    sem_init(&sem_stdout_disponible,0, 0);
+    sem_init(&sem_hay_proc_esperando_sleep, 0, 0);
+    sem_init(&sem_hay_proc_esperando_stdin,0, 0);
+    sem_init(&sem_hay_proc_esperando_stdout,0, 0);
 
     pthread_mutex_init(&mutex_stdout_ocupado, NULL);
 
@@ -61,30 +61,30 @@ void inicializar_semaforos(){
 }
 
 void inicializar_listas(){
-    //new_lista    = list_create();
+    //new_lista =list_create();
     //pthread_mutex_init(&new_mutex, NULL);
-    ready_cola   = queue_create();
+    ready_cola= queue_create();
     pthread_mutex_init(&ready_mutex, NULL);
-    block_lista    = list_create();
+    block_lista = list_create();
     pthread_mutex_init(&block_mutex, NULL);
-    susp_block   = list_create();
-    susp_ready   = list_create();
-    exec_lista   = list_create();
+    susp_block = list_create();
+    pthread_mutex_init(&mutex_susp_block,NULL);
+    susp_ready = list_create();
+    pthread_mutex_init(&mutex_susp_ready,NULL);
+    exec_lista =list_create();
     pthread_mutex_init(&exec_mutex,NULL);
-
     pthread_mutex_init(&mutex_cola_multinivel, NULL);
 
-
-    cola_sleep  = queue_create();
-    pthread_mutex_init(&mutex_cola_sleep,  NULL);
-    cola_stdin  = queue_create();
-    pthread_mutex_init(&mutex_cola_stdin,  NULL);
+    cola_sleep= queue_create();
+    pthread_mutex_init(&mutex_cola_sleep,NULL);
+    cola_stdin = queue_create();
+    pthread_mutex_init(&mutex_cola_stdin,NULL);
     cola_stdout = queue_create();
     pthread_mutex_init(&mutex_cola_stdout, NULL);
-    pthread_mutex_init(&mutex_pid,         NULL);
+    pthread_mutex_init(&mutex_pid, NULL);
 
     lista_mutex = list_create();
-    pthread_mutex_init(&mutex_lista_mutex, NULL);
+    pthread_mutex_init(&mutex_lista_mutex,NULL);
 }
 
 void inicializar_cola_multinivel(){
@@ -96,9 +96,9 @@ void inicializar_cola_multinivel(){
     while(algoritmosArray[cantidad_colas] != NULL) cantidad_colas++;
 
     // guardar en un array de enums
-    algoritmo_por_cola = malloc(cantidad_colas * sizeof(t_planification_algorithm));
+    algoritmo_por_cola = malloc(cantidad_colas * sizeof(t_algortimo_planificacion));
 
-    for(int i = 0; i < cantidad_colas; i++) {
+    for(int i = 0; i < cantidad_colas; i++){
         if(strcmp(algoritmosArray[i], "FIFO") == 0)
             algoritmo_por_cola[i] = FIFO;
         else if(strcmp(algoritmosArray[i], "RR") == 0)
@@ -108,10 +108,8 @@ void inicializar_cola_multinivel(){
     free(algoritmosArray);
 
     //inicializar cola_multinivel
-
     cola_multinivel = malloc(sizeof(t_queue*) * cantidad_colas);
-
-    for(int i = 0; i < cantidad_colas; i++) {
+    for(int i = 0; i < cantidad_colas; i++){
         cola_multinivel[i] = queue_create();
     }
 }

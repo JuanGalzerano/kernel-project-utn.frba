@@ -9,15 +9,15 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad);
 
 int recibir_ok_memory();
 
-t_cpu_exec* obtener_cpu_libre();
+t_cpu* obtener_cpu_libre();
 
-void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb);
+void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb);
 
-void reanudar_proceso_en_cpu(t_cpu_exec* cpu);
+void reanudar_proceso_en_cpu(t_cpu* cpu);
 
 uint32_t generar_pid();
 
-t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid);
+t_cpu* encontrar_cpu_con_pid(uint32_t pid);
 
 void recibir_tipo_IO(int socketCliente);
 
@@ -31,7 +31,7 @@ void enviar_fin_proceso_a_cpu(uint32_t pid, int socketCPU);
 
 void* hilo_timer_quantum(void* arg);
 
-void iniciar_timer_quantum(t_cpu_exec* cpu);
+void iniciar_timer_quantum(t_cpu* cpu);
 
 void enviar_path_proceso_memory(uint32_t pid,char* path);
 
@@ -53,9 +53,9 @@ t_pcb* desencolar_pcb_ready();
 
 t_pcb* pcb_mas_prioritario();
 
-t_cpu_exec* hay_cpu_desalojable(t_pcb* pcbCandidato);
+t_cpu* hay_cpu_desalojable(t_pcb* pcbCandidato);
 
-void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable);
+void enviar_desalojo_cpu(t_cpu* cpuDesalojable);
 
 void liberar_cpu_y_notificar();
 

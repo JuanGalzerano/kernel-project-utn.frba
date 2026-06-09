@@ -17,7 +17,7 @@
 t_queue* ready_cola;
 pthread_mutex_t ready_mutex;
 
-t_planification_algorithm* algoritmo_por_cola;
+t_algortimo_planificacion* algoritmo_por_cola;
 pthread_mutex_t mutex_cola_multinivel;
 t_queue** cola_multinivel;
 
@@ -26,17 +26,19 @@ pthread_mutex_t block_mutex;
 
 //despues aplicarle mutex a estas 2 cuando las use
 t_list* susp_block;
+pthread_mutex_t mutex_susp_block;
 t_list* susp_ready; 
+pthread_mutex_t mutex_susp_ready;
 
 t_list* exec_lista;
-pthread_mutex_t exec_mutex; // lista de t_cpu_exec*, aca estan todas las cpus que tenga, esten ejecutando o no.
+pthread_mutex_t exec_mutex; //lista de t_cpu*, aca estan todas las cpus que tenga, esten ejecutando o no.
 //para exit no declamos estructura
 
 //SEMAFOROS CPUs LIBRES Y PROCESOS EN READY 
 
 sem_t sem_hay_proceso_ready;
 sem_t sem_hay_cpu_libre;
-// para espera activa de planificador en CMN con DESALOJO
+//para espera activa de planificador en CMN con DESALOJO
 pthread_cond_t  cond_planificador;
 pthread_mutex_t mutex_planificador;
 
@@ -56,9 +58,9 @@ char* puertoEscucha;
 char* puertoMemory;
 char* puertoMemoryNotif;
 char* IPMemory;
-t_planification_algorithm algoritmo;
+t_algortimo_planificacion algoritmo;
 int quantum;
-bool desalojo_cola;
+bool hay_desalojo;
 int cantidad_colas;
 
 
@@ -75,7 +77,7 @@ t_queue* cola_sleep;
 t_queue* cola_stdin;
 t_queue* cola_stdout;
 
-// lista gestion de MUTEX
+//lista de MUTEX
 t_list* lista_mutex;
 pthread_mutex_t mutex_lista_mutex;
 
@@ -84,7 +86,7 @@ pthread_mutex_t mutex_cola_sleep;
 pthread_mutex_t mutex_cola_stdin;
 pthread_mutex_t mutex_cola_stdout;
 
-// semáforos de disponibilidad de IO 
+//semáforos de disponibilidad de IO 
 sem_t sem_sleep_disponible;
 sem_t sem_stdin_disponible;
 sem_t sem_stdout_disponible;

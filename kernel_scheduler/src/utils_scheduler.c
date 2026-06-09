@@ -58,14 +58,14 @@ op_code recibir_respuesta_memory(){
     return codigo;
 }
 
-t_cpu_exec* obtener_cpu_libre(){
+t_cpu* obtener_cpu_libre(){
     pthread_mutex_lock(&exec_mutex);
-    t_cpu_exec* cpu = NULL;
+    t_cpu* cpu = NULL;
 
     for(int i = 0; i<list_size(exec_lista); i++){
-        t_cpu_exec* entrada = list_get(exec_lista, i);
-        if (entrada->pcb == NULL) {
-            cpu= entrada;
+        t_cpu* cpuTemporal = list_get(exec_lista, i);
+        if (cpuTemporal->pcb == NULL){
+            cpu= cpuTemporal;
             break;
         }
     }
@@ -74,10 +74,9 @@ t_cpu_exec* obtener_cpu_libre(){
 }
 
 
-void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
+void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb){//el socket esta en la cpu
     cpu->pcb = pcb;
 
-    //se le comunica a la CPU que debe correr este proceso
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, cpu->pcb->pid);
     t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
@@ -92,10 +91,8 @@ void enviar_proceso_a_cpu(t_cpu_exec* cpu,t_pcb* pcb){//el socket esta en la cpu
     free(paquete);
 }
 
-// Re-despacha al mismo CPU el PID que ya tiene asignado, sin cambiar su estado.
-// Se usa para syscalls no bloqueantes (ej. INIT_PROC) donde el proceso padre
-// debe seguir ejecutando inmediatamente.
-void reanudar_proceso_en_cpu(t_cpu_exec* cpu) {
+
+void reanudar_proceso_en_cpu(t_cpu* cpu){
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, cpu->pcb->pid);
     t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
@@ -106,19 +103,19 @@ void reanudar_proceso_en_cpu(t_cpu_exec* cpu) {
     free(paquete);
 }
 
-uint32_t generar_pid() {
+uint32_t generar_pid(){
     pthread_mutex_lock(&mutex_pid);
     uint32_t pid = proximo_pid++;
     pthread_mutex_unlock(&mutex_pid);
     return pid;
 }
 
-t_cpu_exec* encontrar_cpu_con_pid(uint32_t pid){//entiendo que si se llama a esta funcion, es xq la cpu esta ejecutando, por lo que no contemplo el caso en las lamadas a la funcion que se pueda retornar NULL
-    t_cpu_exec* cpu = NULL;
+t_cpu* encontrar_cpu_con_pid(uint32_t pid){//entiendo que si se llama a esta funcion, es xq la cpu esta ejecutando, por lo que no contemplo el caso en las lamadas a la funcion que se pueda retornar NULL
+    t_cpu* cpu = NULL;
         for(int i = 0; i < list_size(exec_lista); i++){
-            t_cpu_exec* entrada = list_get(exec_lista, i);
-            if(entrada->pcb != NULL && entrada->pcb->pid == pid){
-                cpu = entrada;
+            t_cpu* cpuEncontrada = list_get(exec_lista, i);
+            if(cpuEncontrada->pcb != NULL && cpuEncontrada->pcb->pid == pid){
+                cpu = cpuEncontrada;
                 break;
             }
         }
@@ -144,23 +141,23 @@ void recibir_tipo_IO(int socketCliente){
     }
 
     //no se usa mutex aunque sean globales xq solo se conectara 1 IO x cada tipo
-    //tampoco se contempla que una CPU solicite un tipo de IO que no esta corriendo, ya que se dijo que en caso de ser necesaria, esta estara corriendo
+    //tampoco se contempla que una CPU solicite un tipo de IO que no esta corriendo, ypq vi en un issue que se se va a necesitar, va a estar corriendo
 
 }
 
 
 void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
-    t_cpu_exec* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
+    t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
     
     //t_pcb* pcbBlockeado = cpu->pcb; comentado pq por ahora creo que no se usa, creo qie en el list add es lo mismo cual use.
     cpu->pcb = NULL;
     pthread_mutex_unlock(&exec_mutex);
 
     //le avisamos a la cpu que se bloqueo el proceso
-    t_buffer* buf = buffer_create(0);
-    buffer_add_uint32(buf, pcbBlock->pid);
-    t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buf);
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pcbBlock->pid);
+    t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buffer);
     enviar_paquete(cpu->socketConexion, unPaquete);//cuidado con la race condition del cpu->socketConexion
 
     pthread_mutex_lock(&block_mutex);
@@ -169,8 +166,8 @@ void bloquear_proceso(t_pcb* pcbBlock){
     
     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
 
-    free(buf->stream);
-    free(buf);
+    free(buffer->stream);
+    free(buffer);
     free(unPaquete);
 }
 
@@ -179,19 +176,18 @@ t_pcb* buscar_y_sacar_de_block(uint32_t pid){
     
     t_pcb* pcb = NULL;
     for(int i = 0; i < list_size(block_lista); i++){
-        t_pcb* entrada = list_get(block_lista, i);
-        if(entrada->pid == pid){
-            pcb = entrada;
+        t_pcb* pcbDeLista = list_get(block_lista, i);
+        if(pcbDeLista->pid == pid){
+            pcb = pcbDeLista;
             list_remove(block_lista, i);
             break;
         }
     }
-    
     pthread_mutex_unlock(&block_mutex);
     return pcb;
 }
 
-void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el de READY->EXIT Y BLOCK -> EXIT
+void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el de READY->EXIT Y BLOCK -> EXIT creeeo
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, pid);
     t_paquete* paquete = crear_paquete(FIN_PROCESO, buffer); //avisarle a juani que haga este case para  que libere todos los segmentos y estructuras asociadas a ese PID
@@ -216,10 +212,10 @@ void enviar_fin_proceso_a_cpu(uint32_t pid, int socketCPU){
 }
 
 void* hilo_timer_quantum(void* arg){
-    t_timer_args* argumento = (t_timer_args*) arg;
+    t_parametros_hilo_quantum* argumento = (t_parametros_hilo_quantum*) arg; //recibo pid original y la cpu
 
     uint32_t pidCpuOriginal = argumento->pid_original;
-    t_cpu_exec* cpu = argumento->cpu;
+    t_cpu* cpu = argumento->cpu;
     free(argumento);
 
     usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
@@ -244,22 +240,22 @@ void* hilo_timer_quantum(void* arg){
 }
 
 
-void iniciar_timer_quantum(t_cpu_exec* cpu){
-    t_timer_args* args = malloc(sizeof(t_timer_args));
-    args->cpu = cpu;
-    args->pid_original=cpu->pcb->pid;
+void iniciar_timer_quantum(t_cpu* cpu){
+    t_parametros_hilo_quantum* argus = malloc(sizeof(t_parametros_hilo_quantum));
+    argus->cpu = cpu;
+    argus->pid_original=cpu->pcb->pid;
 
     pthread_t hiloQuantum;
-    pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, args);
+    pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, argus);
     pthread_detach(hiloQuantum);
 }
 
 void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que esta va a haber que hacerla con paquete y eso xq sino solo funca para el proceso 0
-    uint32_t sizePath = strlen(path)+1;
+    uint32_t tamanioPath = strlen(path)+1;
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, pid);
-    buffer_add_uint32(buffer, sizePath);
-    buffer_add_string(buffer, sizePath, path);
+    buffer_add_uint32(buffer, tamanioPath);
+    buffer_add_string(buffer, tamanioPath, path);
     t_paquete* paquete = crear_paquete(PATH_PROCESO, buffer);
     enviar_paquete(socketConexionMemory, paquete);
     free(buffer->stream);
@@ -274,14 +270,10 @@ void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que 
 
 char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t bytes){
     t_buffer* buffer = buffer_create(0);
-
     buffer_add_uint32(buffer, pid);
     buffer_add_uint32(buffer, direccionLogica);
     buffer_add_uint32(buffer, bytes);
-
     t_paquete* unPaquete = crear_paquete(LEER_BYTES, buffer);
-
-
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, unPaquete);
 
@@ -293,7 +285,6 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
     char* cadena = malloc(bytes);// ver sy es bytes +1 y eso
 
     t_paquete* respuesta = recibir_paquete(socketConexionMemory);
-
     
     if(respuesta->codigo_operacion == LECTURA_FALLIDA){
         free(cadena);
@@ -308,7 +299,7 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
     return cadena;
 }
 
-void liberar_mutex_y_semaforos(){
+void liberar_mutex_y_semaforos(){//si no me equivoxo, nunca se deberia llamar a esto
 
     //pthread_mutex_destroy(&new_mutex);
     pthread_mutex_destroy(&ready_mutex);
@@ -320,7 +311,6 @@ void liberar_mutex_y_semaforos(){
     pthread_mutex_destroy(&mutex_cola_stdin);
     pthread_mutex_destroy(&mutex_cola_stdout);
 
-    
     sem_destroy(&sem_hay_proceso_ready);
     sem_destroy(&sem_hay_cpu_libre);
     sem_destroy(&sem_sleep_disponible);
@@ -354,8 +344,8 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
     op_code codigo = respuesta->codigo_operacion;
     eliminar_paquete(respuesta);
 
-    if(codigo == COMPACTACION) {
-        // Hay memoria pero fragmentada: pedir compactacion y esperar que termine
+    if(codigo == COMPACTACION){
+        //Hay memoria pero no continua => pedir compactacion y esperar que termine
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
@@ -364,9 +354,9 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
         eliminar_paquete(compactacionHecha);
         pthread_mutex_unlock(&mutex_socket_memory);
 
-        // Post-compactacion DEBE poder alocar. Si no, BSOD.
+        //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI
         op_code reintentar = solicitar_segmento_memory(infoMemAlloc);
-        if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul;xq sino es un bucle de solicitar_segmento_memory
+        if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul.xq sino es un bucle de solicitar_segmento_memory
         return reintentar;
     }
 
@@ -375,19 +365,17 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
 }
 
 
-
-// Escucha el canal dedicado de notificaciones de Kernel Memory (socketMemoryNotif).
-// Separado del socketConexionMemory para no interferir con el flujo request/reply.
-void* hilo_escuchar_memory(void* arg) {
-    (void)arg;
-    while(1) {
+//heste es un hilo con socket aparte pq sino el hilo que escuchaba cuando me avisaba juani que habia memoria nueva se robaba paquetes que no le correspondian
+void* hilo_escuchar_memory(void* arg){
+    //(void)arg; CREO Q INNECESARIO
+    while(1){
         t_paquete* paquete = recibir_paquete(socketMemoryNotif);
-        if(paquete == NULL) {
-            log_error(loggerScheduler, "Se perdio la conexion con el canal de notificaciones de KM");
+        if(paquete == NULL){
+            log_error(loggerScheduler, "conexion perdida con el socket de escuha a memory");
             break;
         }
 
-        switch(paquete->codigo_operacion) {
+        switch(paquete->codigo_operacion){
             case MEMORIA_CORRUPTA:
                 eliminar_paquete(paquete);
                 manejar_bsod();
@@ -395,12 +383,12 @@ void* hilo_escuchar_memory(void* arg) {
             case NUEVA_MEMORIA_DISPONIBLE: {
                 uint32_t bytes_libres = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
-                log_info(loggerScheduler, "Memoria disponible: %d bytes libres en KM", bytes_libres);
+                log_info(loggerScheduler, "Memoria disponible: %d bytes libres en memory", bytes_libres);//desp borrar este log
                 //con bytes_libres comparar contra bytes_suspendidos de procesos en SUSP para ver si podes desuspender
                 break;
             }
             default:
-                log_warning(loggerScheduler, "Opcode desconocido en canal de notificaciones: %d", paquete->codigo_operacion);
+                log_warning(loggerScheduler, "Opcode desconocido en hilo de exucha a memory: %d", paquete->codigo_operacion);
                 eliminar_paquete(paquete);
                 break;
         }
@@ -409,13 +397,13 @@ void* hilo_escuchar_memory(void* arg) {
 }
 
 
-void manejar_bsod() {
-    // EXEC
+void manejar_bsod(){
+
     log_info(loggerScheduler, "## BSOD: Corrupcion de memoria detectada");
     pthread_mutex_lock(&exec_mutex);
-    for(int i = 0; i < list_size(exec_lista); i++) {
-        t_cpu_exec* cpu = list_get(exec_lista, i);
-        if(cpu->pcb != NULL) {
+    for(int i = 0; i < list_size(exec_lista); i++){
+        t_cpu* cpu = list_get(exec_lista, i);
+        if(cpu->pcb != NULL){
             //ACA ME FALTA AGREGAR AVIDARLE A LA CPU    
             t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
             enviar_paquete(cpu->socketConexion, paq);
@@ -428,10 +416,9 @@ void manejar_bsod() {
     }
     pthread_mutex_unlock(&exec_mutex);
 
-    // READY
-    if(algoritmo != CMN) {
+    if(algoritmo != CMN){
         pthread_mutex_lock(&ready_mutex);
-        while(!queue_is_empty(ready_cola)) {
+        while(!queue_is_empty(ready_cola)){
             t_pcb* pcb = queue_pop(ready_cola);
             log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado EXIT", pcb->pid);
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
@@ -440,22 +427,19 @@ void manejar_bsod() {
         pthread_mutex_unlock(&ready_mutex);
     } else {
         pthread_mutex_lock(&mutex_cola_multinivel);
-        for(int i = 0; i < cantidad_colas; i++) {
-            while(!queue_is_empty(cola_multinivel[i])) {
+        for(int i = 0; i < cantidad_colas; i++){
+            while(!queue_is_empty(cola_multinivel[i])){
                 t_pcb* pcb = queue_pop(cola_multinivel[i]);
                 log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado EXIT", pcb->pid);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
-
                 free(pcb);
             }
         }
         pthread_mutex_unlock(&mutex_cola_multinivel);
     }
     
-
-    // BLOCK
     pthread_mutex_lock(&block_mutex);
-    while(!list_is_empty(block_lista)) {
+    while(!list_is_empty(block_lista)){
         t_pcb* pcb = list_remove(block_lista, 0);
         log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado EXIT", pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
@@ -464,9 +448,9 @@ void manejar_bsod() {
     pthread_mutex_unlock(&block_mutex);
 
 /*DESCOMENTAR CUANDO HAGA PLANI A MEDIO PLAZO
-    // SUSP_BLOCK
+
     pthread_mutex_lock(&susp_block_mutex);
-    while(!list_is_empty(susp_block)) {
+    while(!list_is_empty(susp_block)){
         t_pcb* pcb = list_remove(susp_block, 0);
         log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado EXIT", pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
@@ -474,9 +458,9 @@ void manejar_bsod() {
     }
     pthread_mutex_unlock(&susp_block_mutex);
 
-    // SUSP_READY
+
     pthread_mutex_lock(&susp_ready_mutex);
-    while(!list_is_empty(susp_ready)) {
+    while(!list_is_empty(susp_ready)){
         t_pcb* pcb = list_remove(susp_ready, 0);
         log_info(loggerScheduler, "## (%d) Pasa del estado SUSP READY al estado EXIT", pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
@@ -522,8 +506,8 @@ t_pcb* desencolar_pcb_ready(){
 t_pcb* pcb_mas_prioritario(){
     pthread_mutex_lock(&mutex_cola_multinivel);
     t_pcb* pcb = NULL;
-    for(int i = 0; i < cantidad_colas; i++) {
-        if(!queue_is_empty(cola_multinivel[i])) {
+    for(int i = 0; i < cantidad_colas; i++){
+        if(!queue_is_empty(cola_multinivel[i])){
             pcb = queue_peek(cola_multinivel[i]);
             break;
         }
@@ -532,13 +516,13 @@ t_pcb* pcb_mas_prioritario(){
     return pcb;
 }
 
-t_cpu_exec* hay_cpu_desalojable(t_pcb* pcbCandidato){
+t_cpu* hay_cpu_desalojable(t_pcb* pcbCandidato){
     if(pcbCandidato == NULL) return NULL;
     pthread_mutex_lock(&exec_mutex);
-    t_cpu_exec* cpuADesalojar = NULL;
-    for(int i = 0; i < list_size(exec_lista); i++) {
-        t_cpu_exec* cpu = list_get(exec_lista, i);
-        if(cpu->pcb != NULL && cpu->pcb->prioridad > pcbCandidato->prioridad) {
+    t_cpu* cpuADesalojar = NULL;
+    for(int i = 0; i < list_size(exec_lista); i++){
+        t_cpu* cpu = list_get(exec_lista, i);
+        if(cpu->pcb != NULL && cpu->pcb->prioridad > pcbCandidato->prioridad){
             cpuADesalojar = cpu;
             break;
         }
@@ -547,7 +531,7 @@ t_cpu_exec* hay_cpu_desalojable(t_pcb* pcbCandidato){
     return cpuADesalojar;
 }
 
-void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable){
+void enviar_desalojo_cpu(t_cpu* cpuDesalojable){
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, cpuDesalojable->pcb->pid);
     t_paquete* paquete = crear_paquete(DESALOJO, buffer);
@@ -558,7 +542,7 @@ void enviar_desalojo_cpu(t_cpu_exec* cpuDesalojable){
     free(paquete);
 }
 
-void liberar_cpu_y_notificar() {
+void liberar_cpu_y_notificar(){
     sem_post(&sem_hay_cpu_libre);
     pthread_mutex_lock(&mutex_planificador);
     pthread_cond_signal(&cond_planificador);
@@ -566,13 +550,12 @@ void liberar_cpu_y_notificar() {
 }
 
 
-t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
-    //buscar en exec_lista
-    *estabaEnReady = 0; //incializamos en que no estaba
+t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady){
+    *estabaEnReady = 0; 
     pthread_mutex_lock(&exec_mutex);
-    for(int i = 0; i < list_size(exec_lista); i++) {
-        t_cpu_exec* cpu = list_get(exec_lista, i);
-        if(cpu->pcb != NULL && cpu->pcb->pid == pid) {
+    for(int i = 0; i < list_size(exec_lista); i++){
+        t_cpu* cpu = list_get(exec_lista, i);
+        if(cpu->pcb != NULL && cpu->pcb->pid == pid){
             t_pcb* pcb = cpu->pcb;
             pthread_mutex_unlock(&exec_mutex);
             return pcb;
@@ -580,29 +563,27 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
     }
     pthread_mutex_unlock(&exec_mutex);
 
-    //buscar en ready HACER CASO SI HAY CMN
+    //HACER CASO SI HAY CMN
     
-    // buscar en ready (FIFO/RR)
-    if(algoritmo != CMN) {
-        //aca no tocamos estabaEnReady, pq no necesitariamos reencolar
+    
+    if(algoritmo != CMN){
         pthread_mutex_lock(&ready_mutex);
-        for(int i = 0; i < queue_size(ready_cola); i++) {
+        for(int i = 0; i < queue_size(ready_cola); i++){
             t_pcb* pcb = list_get(ready_cola->elements, i);
-            if(pcb->pid == pid) {
+            if(pcb->pid == pid){
                 pthread_mutex_unlock(&ready_mutex);
                 return pcb;
             }
         }
         pthread_mutex_unlock(&ready_mutex);
     } else {
-        // buscar en colas multinivel
         pthread_mutex_lock(&mutex_cola_multinivel);
-        for(int i = 0; i < cantidad_colas; i++) {
-            for(int j = 0; j < queue_size(cola_multinivel[i]); j++) {
+        for(int i = 0; i < cantidad_colas; i++){
+            for(int j = 0; j < queue_size(cola_multinivel[i]); j++){
                 t_pcb* pcb = list_get(cola_multinivel[i]->elements, j);
-                if(pcb->pid == pid) {
+                if(pcb->pid == pid){
                     list_remove(cola_multinivel[i]->elements, j);
-                    *estabaEnReady=1;//hay que reencolar
+                    *estabaEnReady=1;
                     pthread_mutex_unlock(&mutex_cola_multinivel);
                     return pcb;
                 }
@@ -611,7 +592,6 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
         pthread_mutex_unlock(&mutex_cola_multinivel);
     }
     
-    //buscar en block
     pthread_mutex_lock(&block_mutex);
     for(int i = 0; i<list_size(block_lista);i++){
         t_pcb* pcbBlock = list_get(block_lista, i);
@@ -626,7 +606,7 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady) {
 }
 
 void despertar_planificador(){
-    if((algoritmo == CMN) && desalojo_cola){
+    if((algoritmo == CMN) && hay_desalojo){
         pthread_mutex_lock(&mutex_planificador);
         pthread_cond_signal(&cond_planificador);
         pthread_mutex_unlock(&mutex_planificador);
