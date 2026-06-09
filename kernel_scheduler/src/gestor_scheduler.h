@@ -64,6 +64,7 @@ extern char* puertoMemoryNotif;
 extern char* IPMemory;
 extern t_algortimo_planificacion algoritmo;
 extern int quantum;
+extern int suspensionTimeout;
 
 //listas de los 7 estados
 //extern t_list* new_lista;
