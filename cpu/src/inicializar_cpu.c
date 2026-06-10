@@ -16,11 +16,20 @@ void inicializar_log_y_config(char* path, char* idDeCpu) {
     idCpu = malloc(strlen(idDeCpu) + 1);
     strcpy(idCpu, idDeCpu);
 
+    configCpu = config_create(path);
+    if (configCpu == NULL) {
+        fprintf(stderr, "CPU: No se pudo cargar el archivo de configuracion: %s", path);
+        abort();
+    }
+
     char configNombre[64];
     snprintf(configNombre, sizeof(configNombre), "cpu_%s.log", idCpu); //Esta funcion escribe al string
 
-    loggerCpu = log_create(configNombre, "cpu.c", true, LOG_LEVEL_INFO);
-    configCpu = config_create(path);
+    loggerCpu = log_create(configNombre, "cpu.c", true, log_level_from_string(config_get_string_value(configCpu, "LOG_LEVEL")));
+    if (loggerCpu == NULL) {
+        fprintf(stderr, "CPU: No se pudo crear el logger");
+        abort();
+    }
 
     puertoKernel = config_get_string_value(configCpu, "PUERTO_SCHEDULER");
     IPKernel = config_get_string_value(configCpu, "IP_SCHEDULER");

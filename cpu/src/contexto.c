@@ -1,29 +1,27 @@
 #include "contexto.h"
 #include "instrucciones.h"
 
-uint32_t obtener_pid(int socketConexionScheduler) {//el cambio que hice es que si scheduler te bloquea (manda pid tmb) no se siga ejecutando el bloqueado, sino que vuelve a pedir hasta que lo manden a ejecutar
+uint32_t obtener_pid(int socketConexionScheduler) {
     while(1) {
         t_paquete *paquete = recibir_paquete(socketConexionScheduler);
-        
+        if(paquete == NULL) {
+            log_error(loggerCpu, "CPU: Se desconecto el Scheduler al solicitar PID");
+            abort();
+        }
+
         if(paquete->codigo_operacion == EJECUTAR_PROCESO) {
             uint32_t pid = buffer_read_uint32(paquete->buffer);
             eliminar_paquete(paquete);
-            return pid; // solo retorna cuando es un proceso real a ejecutar
+            return pid;
         }
-        
         if(paquete->codigo_operacion == PROCESO_BLOQUEADO) {
-            // el proceso fue bloqueado, seguimos esperando un nuevo PID
             eliminar_paquete(paquete);
-            continue; // vuelve al inicio del while a esperar
+            continue;
         }
-
         if(paquete->codigo_operacion == FIN_PROCESO ) {
-            // el proceso fue bloqueado, seguimos esperando un nuevo PID
             eliminar_paquete(paquete);
-            continue; // vuelve al inicio del while a esperar
+            continue;
         }
-
-        // cualquier otro caso inesperado
         eliminar_paquete(paquete);
     }
 }
@@ -36,6 +34,10 @@ t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory) {
     eliminar_paquete(paqueteConContexto);
 
     t_paquete *paquete = recibir_paquete(socketConexionMemory);
+    if (paquete == NULL) {
+        log_error(loggerCpu, "CPU: Se desconecto Kernel Memory al solicitar contexto del PID: %d", pid);
+        abort();
+    }
     t_contexto_ejecucion *ctx = deserializar_contexto_ctx(paquete->buffer);
     eliminar_paquete(paquete);
     return ctx;
@@ -61,10 +63,7 @@ void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory, ui
     t_paquete* paquete_con_contexto = crear_paquete(ACTUALIZAR_CONTEXTO, buf);
     enviar_paquete(socketConexionMemory, paquete_con_contexto);
     eliminar_paquete(paquete_con_contexto);
-    if (ctx->tabla_segmentos != NULL) {
-        list_destroy_and_destroy_elements(ctx->tabla_segmentos, free);
-    }
-    free(ctx);
+    liberar_contexto(ctx);
 }
 
 void actualizar_registros_cpu(t_contexto_ejecucion *ctx) {
@@ -79,4 +78,14 @@ void actualizar_registros_cpu(t_contexto_ejecucion *ctx) {
     registros_cpu.edx = ctx->edx;
     registros_cpu.si = ctx->si;
     registros_cpu.di = ctx->di;
+}
+
+void liberar_contexto(t_contexto_ejecucion *ctx) {
+    if (ctx == NULL) {
+        return;
+    }
+    if (ctx->tabla_segmentos != NULL) {
+        list_destroy_and_destroy_elements(ctx->tabla_segmentos, free);
+    }
+    free(ctx);
 }

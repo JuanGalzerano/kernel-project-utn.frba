@@ -6,7 +6,7 @@ uint32_t motivo_interrupcion = -1;
 
 // select() es un recv() con timeout 0, es decir, no bloqueante.
 bool hay_interrupcion(uint32_t pidActual, int socketConexionScheduler) {
-    fd_set readfds; //Lista e sockets donde escuchar
+    fd_set readfds; //Lista de sockets donde escuchar
     FD_ZERO(&readfds); //Limpio la lista
     FD_SET(socketConexionScheduler, &readfds); //Agrego el socket de scheduler pq quiero escuchar ahi
     struct timeval tv = {0, 0}; //Timeout 0, es decir, no bloqueante
@@ -17,8 +17,11 @@ bool hay_interrupcion(uint32_t pidActual, int socketConexionScheduler) {
         return false;
     }
 
-    //Si sigue es que hay datos para leer
     t_paquete *paquete = recibir_paquete(socketConexionScheduler);
+    if (paquete == NULL) {
+        log_error(loggerCpu, "CPU: Se desconecto el Scheduler al esperar interrupciones");
+        abort();
+    }
     op_code interrupcionRecibida = paquete->codigo_operacion;
     if ((interrupcionRecibida == FINALIZAR_POR_QUANTUM) || (interrupcionRecibida == COMPACTACION) || (interrupcionRecibida == DESALOJO) || (interrupcionRecibida == DESALOJAR_POR_BSOD)) {
         uint32_t pidInterrumpido = buffer_read_uint32(paquete->buffer);

@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-//VARIABLES GLOBALES
 extern uint32_t motivo_interrupcion;
 
 bool hay_interrupcion(uint32_t pidActual, int socketConexionScheduler);

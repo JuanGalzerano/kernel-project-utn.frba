@@ -18,6 +18,10 @@ void* hilo_kernel_memory_avisos(void* arg) {
 
     while(1) {
         t_paquete* paquete_sticks = recibir_paquete(socketConexionMemoryAvisos);
+        if (paquete_sticks == NULL) {
+            log_error(loggerCpu, "CPU: Se desconecto Kernel Memory Avisos");
+            abort();
+        }
         if (paquete_sticks->codigo_operacion == AVISO_NUEVO_STICK) {
             t_list* nueva_lista_memory_stick = deserializar_aviso_nuevo_stick(paquete_sticks->buffer);
             pthread_mutex_lock(&mutex_lista_memory_stick);
@@ -27,17 +31,21 @@ void* hilo_kernel_memory_avisos(void* arg) {
                 log_info(loggerCpu, "CPU: Error al conectar con las nuevas Memory Sticks");
                 abort();
             }
-            if (!ya_avise && memory_sticks_conectadas > 0) {
-                ya_avise = 1;
-                sem_post(&sem_lista_cargada);
+            else {
+                if (!ya_avise && memory_sticks_conectadas > 0) {
+                    ya_avise = 1;
+                    sem_post(&sem_lista_cargada);
+                }
             }
         }
+        eliminar_paquete(paquete_sticks);
     }
 }
 
 int conectarme_nuevas_sticks(t_list* nueva_lista_memory_stick, int memory_sticks_conectadas) {
     int cantidad_sticks = list_size(nueva_lista_memory_stick);
     if (memory_sticks_conectadas == cantidad_sticks) {
+        list_destroy_and_destroy_elements(nueva_lista_memory_stick, free);
         return memory_sticks_conectadas;
     }
     if (cantidad_sticks > memory_sticks_conectadas) {
@@ -56,7 +64,6 @@ int conectarme_nuevas_sticks(t_list* nueva_lista_memory_stick, int memory_sticks
 
             list_add(lista_memory_stick, stick);
         }
-        // Libero los memory sticks ya conectados previamente
         for (int i = 0; i < memory_sticks_conectadas; i++) {
             free(list_get(nueva_lista_memory_stick, i));
         }

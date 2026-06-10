@@ -2,16 +2,16 @@
 #include <utils/mmu.h>
 #include "kernel_memory_avisos.h"
 
-Registros_cpu registros_cpu; //LOS REGISTROS DE LA CPU
+Registros_cpu registros_cpu;
 
-Registro registros[] = { //EXISTE PARA OBTENER REGISTRO A PARTIR DE STRING
+Registro registros[] = {
     {"PC", PC}, {"AX", AX}, {"BX", BX}, {"CX", CX},
     {"DX", DX}, {"EAX", EAX}, {"EBX", EBX}, {"ECX", ECX},
     {"EDX", EDX}, {"SI", SI}, {"DI", DI},
     {NULL, 0}
 };
 
-Instruccion instrucciones[] = { //EXISTE PARA OBTENER INSTRUCCION A PARTIR DE STRING
+Instruccion instrucciones[] = {
     {"NOOP", NOOP}, {"SET", SET}, {"MOV_IN", MOV_IN}, {"MOV_OUT", MOV_OUT},
     {"SUM", SUM}, {"SUB", SUB}, {"JNZ", JNZ}, {"COPY_MEM", COPY_MEM},
     {"MUTEX_CREATE", MUTEX_CREATE}, {"MUTEX_LOCK", MUTEX_LOCK}, {"MUTEX_UNLOCK", MUTEX_UNLOCK},
@@ -21,15 +21,26 @@ Instruccion instrucciones[] = { //EXISTE PARA OBTENER INSTRUCCION A PARTIR DE ST
 };
 
 //INSTRUCCIONES QUE YO EJECUTO
-void ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor) {
+uint32_t ejecutar_set(Codigo_registros_cpu tipoRegistro, uint32_t valor) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion SET");
     escribir_valor_en_registro(tipoRegistro, valor);
+    if (valor == leer_valor_en_registro(tipoRegistro)) {
+        log_debug(loggerCpu, "DEBUG_CPU: SET exitoso");
+        return 0;
+    } else {
+        log_debug(loggerCpu, "DEBUG_CPU: SET no exitoso");
+        return 1;
+    }
 }
-void ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
+uint32_t ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion MOV_IN");
     uint32_t direccion_logica = leer_valor_en_registro(SI);
     uint32_t tamanio_dato;
     if (tipoRegistro > 4) {
+        log_debug(loggerCpu, "DEBUG_CPU: Se leera un dato de 4 bytes");
         tamanio_dato = sizeof(uint32_t);
     } else {
+        log_debug(loggerCpu, "DEBUG_CPU: Se leera un dato de 1 byte");
         tamanio_dato = sizeof(uint8_t);
     }
 
@@ -37,37 +48,33 @@ void ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_registros
     t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
     pthread_mutex_unlock(&mutex_lista_memory_stick);
     if (lista_memory_sticks == NULL) {
-        t_buffer* buffer = buffer_create(0);
-        buffer_add_uint32(buffer, pid);
-        t_paquete* paquete_seg_fault =  crear_paquete(SEG_FAULT, buffer);
-        enviar_paquete(socketConexionScheduler, paquete_seg_fault);
-        eliminar_paquete(paquete_seg_fault);
-        return;
+        log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT en direccion logica: %d", direccion_logica);
+        lanzar_seg_fault(socketConexionScheduler, pid);
+        return COD_SEG_FAULT;
     }
 
-    char* dato_leido = leer_en_memoria(lista_memory_sticks);
-    if (dato_leido != NULL) {
-        uint32_t valor_leido;
-        if (tipoRegistro > 4) {
-            valor_leido = *(uint32_t*)dato_leido;
-            escribir_valor_en_registro(tipoRegistro, valor_leido);
-        } else {
-            valor_leido = *(uint8_t*)dato_leido;
-            escribir_valor_en_registro(tipoRegistro, valor_leido);
-        }
-        log_info(loggerCpu, "\n\n\nPID: %d - MOV_IN exitoso - Dir. Logica: %d - Valor leido: %d\n\n", pid, direccion_logica, valor_leido);
-        free(dato_leido);
-    }
-
+    log_debug(loggerCpu, "DEBUG_CPU: Inicio lectura en memoria");
+    char* dato_leido = leer_en_memoria(lista_memory_sticks, pid, loggerCpu);
     list_destroy_and_destroy_elements(lista_memory_sticks, free);
+    if (dato_leido != NULL) {
+        interpretar_y_escribir_dato_en_registro(tipoRegistro, dato_leido);
+        return 0;
+    }
+
+    log_debug(loggerCpu, "DEBUG_CPU: Fallo la lectura en Memory Stick (MOV_IN), lanzo SEG_FAULT");
+    lanzar_seg_fault(socketConexionScheduler, pid);
+    return COD_SEG_FAULT;
 }
-void ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
+uint32_t ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion MOV_OUT");
     uint32_t direccion_logica = leer_valor_en_registro(DI);
     uint32_t valor_del_registro = leer_valor_en_registro(tipoRegistro);
     uint32_t tamanio_dato;
     if (tipoRegistro > 4) {
+        log_debug(loggerCpu, "DEBUG_CPU: Se escribira un dato de 4 bytes");
         tamanio_dato = sizeof(uint32_t);
     } else {
+        log_debug(loggerCpu, "DEBUG_CPU: Se escribira un dato de 1 byte");
         tamanio_dato = sizeof(uint8_t);
     }
 
@@ -75,31 +82,95 @@ void ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_registro
     t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
     pthread_mutex_unlock(&mutex_lista_memory_stick);
     if (lista_memory_sticks == NULL) {
-        t_buffer* buffer = buffer_create(0);
-        buffer_add_uint32(buffer, pid);
-        t_paquete* paquete_seg_fault =  crear_paquete(SEG_FAULT, buffer);
-        enviar_paquete(socketConexionScheduler, paquete_seg_fault);
-        eliminar_paquete(paquete_seg_fault);
-        return;
+        log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT en direccion logica: %d", direccion_logica);
+        lanzar_seg_fault(socketConexionScheduler, pid);
+        return COD_SEG_FAULT;
     }
 
-    uint32_t err = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro);
+    log_debug(loggerCpu, "DEBUG_CPU: Inicio escritura en memoria");
+    uint32_t err = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro, pid, loggerCpu);
     list_destroy_and_destroy_elements(lista_memory_sticks, free);
+
+    if (err != 0) {
+        log_debug(loggerCpu, "DEBUG_CPU: Fallo la escritura en Memory Stick (MOV_OUT), lanzo SEG_FAULT");
+        lanzar_seg_fault(socketConexionScheduler, pid);
+        return COD_SEG_FAULT;
+    }
+
+    return 0;
 }
-void ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen) {
+uint32_t ejecutar_sum(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion SUM");
     uint32_t valorDestino = leer_valor_en_registro(registroDestino);
     uint32_t valorOrigen = leer_valor_en_registro(registroOrigen);
     escribir_valor_en_registro(registroDestino, valorDestino + valorOrigen);
+    log_debug(loggerCpu, "DEBUG_CPU: Se escribio: %d en el registro %s", valorDestino + valorOrigen, registro_a_string(registroDestino));
+    return 0;
 }
-void ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen) {
+uint32_t ejecutar_sub(Codigo_registros_cpu registroDestino, Codigo_registros_cpu registroOrigen) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion SUB");
     uint32_t valorDestino = leer_valor_en_registro(registroDestino);
     uint32_t valorOrigen = leer_valor_en_registro(registroOrigen);
     escribir_valor_en_registro(registroDestino, valorDestino - valorOrigen);
+    log_debug(loggerCpu, "DEBUG_CPU: Se escribio: %d en el registro %s", valorDestino - valorOrigen, registro_a_string(registroDestino));
+    return 0;
 }
-void ejecutar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion) {
+uint32_t ejecutar_jnz(Codigo_registros_cpu tipoRegistro, uint32_t instruccion) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion JNZ");
     if (leer_valor_en_registro(tipoRegistro) != 0) {
         escribir_valor_en_registro(PC, instruccion);
+        log_debug(loggerCpu, "DEBUG_CPU: JNZ salta, PC actualizado a: %d", instruccion);
+    } else {
+        log_debug(loggerCpu, "DEBUG_CPU: JNZ no salta, registro en 0");
     }
+    return 0;
+}
+uint32_t ejecutar_copy_mem(int socketConexionScheduler, uint32_t pid, Codigo_registros_cpu tipoRegistro, uint32_t segment_max_size, t_list* lista_segmentos) {
+    log_debug(loggerCpu, "DEBUG_CPU: Iniciando ejecucion COPY_MEM");
+    uint32_t direccion_logica_si = leer_valor_en_registro(SI);
+    uint32_t tamanio_dato = leer_valor_en_registro(tipoRegistro);
+
+    pthread_mutex_lock(&mutex_lista_memory_stick);
+    t_list* lista_memory_sticks = traducir_logica_a_fisica(direccion_logica_si, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
+    pthread_mutex_unlock(&mutex_lista_memory_stick);
+    if (lista_memory_sticks == NULL) {
+        log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT en direccion logica: %d", direccion_logica_si);
+        lanzar_seg_fault(socketConexionScheduler, pid);
+        return COD_SEG_FAULT;
+    }
+
+    log_debug(loggerCpu, "DEBUG_CPU: Inicio lectura en memoria");
+    char* dato_leido = leer_en_memoria(lista_memory_sticks, pid, loggerCpu);
+    list_destroy_and_destroy_elements(lista_memory_sticks, free);
+    if (dato_leido != NULL) {
+        uint32_t direccion_logica_di = leer_valor_en_registro(DI);
+        pthread_mutex_lock(&mutex_lista_memory_stick);
+        t_list* lista_sticks_destino = traducir_logica_a_fisica(direccion_logica_di, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
+        pthread_mutex_unlock(&mutex_lista_memory_stick);
+        if (lista_sticks_destino == NULL) {
+            log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT en direccion logica: %d", direccion_logica_di);
+            lanzar_seg_fault(socketConexionScheduler, pid);
+            free(dato_leido);
+            return COD_SEG_FAULT;
+        }
+
+        log_debug(loggerCpu, "DEBUG_CPU: Inicio escritura en memoria");
+        uint32_t err = escribir_en_memoria(lista_sticks_destino, dato_leido, pid, loggerCpu);
+        list_destroy_and_destroy_elements(lista_sticks_destino, free);
+        free(dato_leido);
+
+        if (err != 0) {
+            log_debug(loggerCpu, "DEBUG_CPU: Fallo la escritura en Memory Stick (COPY_MEM), lanzo SEG_FAULT");
+            lanzar_seg_fault(socketConexionScheduler, pid);
+            return COD_SEG_FAULT;
+        }
+
+        return 0;
+    }
+
+    log_debug(loggerCpu, "DEBUG_CPU: Fallo la lectura en Memory Stick (COPY_MEM), lanzo SEG_FAULT");
+    lanzar_seg_fault(socketConexionScheduler, pid);
+    return COD_SEG_FAULT;
 }
 
 //FUNCIONES AUXILIARES PARA LAS INSTRUCCIONES
@@ -150,4 +221,24 @@ const char* registro_a_string(Codigo_registros_cpu tipoRegistro) { //FUNCION UTI
         case DI: return "DI";
         default: return "noReconocido";
     }
+}
+void lanzar_seg_fault(int socketConexionScheduler, uint32_t pid) {
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pid);
+    t_paquete* paquete_seg_fault = crear_paquete(SEG_FAULT, buffer);
+    enviar_paquete(socketConexionScheduler, paquete_seg_fault);
+    eliminar_paquete(paquete_seg_fault);
+    log_debug(loggerCpu, "DEBUG_CPU: SEG_FAULT lanzado para PID: %d", pid);
+}
+void interpretar_y_escribir_dato_en_registro(Codigo_registros_cpu tipoRegistro, char* dato_leido) {
+    uint32_t valor_leido;
+    if (tipoRegistro > 4) {
+        valor_leido = *(uint32_t*)dato_leido;
+        escribir_valor_en_registro(tipoRegistro, valor_leido);
+    } else {
+        valor_leido = *(uint8_t*)dato_leido;
+        escribir_valor_en_registro(tipoRegistro, valor_leido);
+    }
+    log_debug(loggerCpu, "DEBUG_CPU: MOV_IN exitoso - Valor leido: %d", valor_leido);
+    free(dato_leido);
 }
