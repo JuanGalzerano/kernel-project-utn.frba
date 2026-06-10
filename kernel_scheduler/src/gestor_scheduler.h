@@ -11,12 +11,12 @@
 
 
 //TYPESDEFS
-typedef struct {
+typedef struct{
     uint32_t pid;
     uint32_t prioridad;//esto va para CMN
     uint32_t prioridadOriginal;
     //despues tengo que agregar cosas de mutex creo
-} t_pcb;
+}t_pcb;
 
 typedef struct {
     int cpu_id;
@@ -25,21 +25,26 @@ typedef struct {
     //estos de abajo solo los uso cuando hay desalojo habiliatdo los necesito pq asi lo logueo cuando me devuelven el pid y motivo y no cuando todavia realmente la cpu no lo desalojoo
     uint32_t pid_desalojador;       
     int prioridad_desalojador; 
-} t_cpu; 
+}t_cpu; 
 
-typedef enum {
+typedef enum{
     FIFO,
     RR,
     CMN
-} t_algortimo_planificacion;
+}t_algortimo_planificacion;
 
-typedef struct {
+typedef struct{
     t_cpu* cpu;
     uint32_t pid_original;
-} t_parametros_hilo_quantum; //eate  atruct lo usamos para que antes de correr el hilo timer de quantum, podamos guardar el pid, evitando que el de la CPU se ponga en NULL 
+}t_parametros_hilo_quantum; //eate  atruct lo usamos para que antes de correr el hilo timer de quantum, podamos guardar el pid, evitando que el de la CPU se ponga en NULL 
 //xq el proceso termino de ejecutar antes y ya dejo en NULL cpu->pcb 
 
-//VARIABLES GLOBALES
+typedef struct{
+    t_pcb* pcb;
+    uint32_t bytesSsupendidos;
+}t_proc_suspendido;
+
+//VARIABLES GLOBALESu
 
 extern t_log* loggerScheduler;
 extern t_config* configScheduler;

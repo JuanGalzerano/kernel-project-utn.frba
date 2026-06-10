@@ -71,4 +71,8 @@ void timer_tiempo_bloqueado(t_pcb* pcb);
 
 void suspender_proceso(t_pcb* pcb);
 
+bool es_mas_prioritario(void* masPrior, void* menosPrior);
+
+void pasar_des_susp_block_a_ready(uint32_t pid);
+
 #endif

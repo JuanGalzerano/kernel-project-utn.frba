@@ -257,15 +257,19 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 t_pcb* pcbADesbloquear = buscar_y_sacar_de_block(pidTerminado);
                 
-                encolar_pcb_ready(pcbADesbloquear);
+                if(pcbADesbloquear!=NULL){
+                    encolar_pcb_ready(pcbADesbloquear);
 
-                log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidTerminado);
-                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidTerminado);
-                sem_post(&sem_sleep_disponible);
-                sem_post(&sem_hay_proceso_ready);
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidTerminado);
+                    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidTerminado);
+                    sem_post(&sem_sleep_disponible);
+                    sem_post(&sem_hay_proceso_ready);
 
-                despertar_planificador();
-
+                    despertar_planificador();
+                }else{
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidTerminado);
+                    pasar_des_susp_block_a_ready(pidTerminado);
+                }
                 break;
             case FINALIZAR_STDOUT: 
                 
@@ -277,18 +281,23 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 
                 if(pcbParaDesbloquear!=NULL){
                     encolar_pcb_ready(pcbParaDesbloquear);
-                    sem_post(&sem_hay_proceso_ready);
+                    sem_post(&sem_hay_proceso_ready); 
                 }
+                if(buscar_en_susp_block(pidFinalizado)==NULL){
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
+                    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
+                    sem_post(&sem_stdout_disponible);
+
+                    despertar_planificador();
+                }else{
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidFinalizado);
+                    pasar_des_susp_block_a_ready(pidFinalizado);
+                }
+
                 pthread_mutex_lock(&mutex_stdout_ocupado);
                 stdout_ocupado=false;
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
-                log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
-                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
-                sem_post(&sem_stdout_disponible);
-
-                despertar_planificador();
-                
                 break;
             case FINALIZAR_STDIN:
                 //recibir pid, bytes, cadenaLeida y  del IO
@@ -312,14 +321,19 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 //mover proceso BLOCK -> READY
                 t_pcb* pcbDesblockeado = buscar_y_sacar_de_block(resultado->pid);
-                encolar_pcb_ready(pcbDesblockeado);
-                log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
-                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
-                sem_post(&sem_stdin_disponible);
-                sem_post(&sem_hay_proceso_ready);
+                
+                if(pcbDesblockeado != NULL){
+                    encolar_pcb_ready(pcbDesblockeado);
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
+                    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
+                    sem_post(&sem_stdin_disponible);
+                    sem_post(&sem_hay_proceso_ready);
 
-                despertar_planificador();
-
+                    despertar_planificador();
+                }else{
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidFinalizado);
+                    pasar_des_susp_block_a_ready(resultado->pid);
+                }
                 free(resultado->cadenaLeida);
                 free(resultado);
 
