@@ -109,12 +109,6 @@ uint32_t solicitar_init_proc(char *pathArchivoInstrucciones, uint32_t prioridad,
     t_buffer *buffer = serializar_init_proc(init_proc_struct);
     t_paquete *paquete = crear_paquete(INIT_PROC, buffer);
     enviar_paquete(socketConexionScheduler, paquete);
-    //agregado por marotti->
-    /*uint32_t ok;
-    recv(socketConexionScheduler, &ok, sizeof(uint32_t),MSG_WAITALL);
-    if(ok!=1){
-        log_error(loggerCpu, "no se pudo crear el proceso");
-    }*/
     eliminar_paquete(paquete);
     free(init_proc_struct);
 

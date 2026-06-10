@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
             errorCiclo = ejecutar_ciclo_de_instruccion(socketConexionMemory, socketConexionScheduler, pid, segment_max_size, ctx->tabla_segmentos);
             if (errorCiclo < 0) {
                 log_info(loggerCpu, "CPU: Error en el ciclo de instruccion");
-                abort();
+                break;
             }
             if (errorCiclo == 1) {
                 log_info(loggerCpu, "CPU: Syscall ejecutada");
@@ -95,13 +95,14 @@ int main(int argc, char *argv[]) {
         }
 
         if (errorCiclo == COD_SEG_FAULT) {
+            log_debug(loggerCpu, "DEBUG_CPU: PID %d - Contexto descartado (SEG_FAULT, no se actualiza KM)", pid);
             liberar_contexto(ctx);
             continue;
         }
 
         log_info(loggerCpu, "CPU: Contexto actualizado");
         actualizar_contexto(ctx, socketConexionMemory, pid);
-        if (errorCiclo != 1) {
+        if ((errorCiclo != 1) && (errorCiclo != -1) && (errorCiclo != COD_SEG_FAULT)) {
             log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
             enviar_pid_y_motivo(pid, motivo_interrupcion, socketConexionScheduler);
         }

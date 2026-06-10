@@ -22,6 +22,12 @@ uint32_t obtener_pid(int socketConexionScheduler) {
             eliminar_paquete(paquete);
             continue;
         }
+        if(paquete->codigo_operacion == FINALIZAR_POR_QUANTUM || paquete->codigo_operacion == COMPACTACION || paquete->codigo_operacion == DESALOJO || paquete->codigo_operacion == DESALOJAR_POR_BSOD) {
+            log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
+            eliminar_paquete(paquete);
+            continue;
+        }
+        log_debug(loggerCpu, "DEBUG_CPU: Paquete desconocido recibido en obtener_pid, descartando");
         eliminar_paquete(paquete);
     }
 }
