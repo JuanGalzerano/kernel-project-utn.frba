@@ -6,8 +6,8 @@ typedef struct{//estructura para cargar los segmentos si nperder su pid
 } t_seg_entry;
 
 //para el sort
-bool comparar_base(t_seg_entry* a, t_seg_entry* b){
-    return a->seg->base < b->seg->base;
+bool comparar_base(void* a, void* b){
+    return ((t_seg_entry*)a)->seg->base < ((t_seg_entry*)b)->seg->base;
 }
 
 t_list* pedazos_fisico(uint32_t dir_fisica, uint32_t tamanio){//crea los pedazos de un segmento para poder leerlos o escribirlos
@@ -61,7 +61,7 @@ void compactar(){
     }
 
     //2.Ordeno por base fisica actual(izquierda a derecha)
-    //list_sort(todos, comparar_base); //no pierdo el pid de cada segmento ya que esta almacenado en t_seg_entry
+    list_sort(todos, comparar_base); //no pierdo el pid de cada segmento ya que esta almacenado en t_seg_entry
 
     //3. Muevo cada segmento al cursor y actualizo su base
     uint32_t cursor = 0;

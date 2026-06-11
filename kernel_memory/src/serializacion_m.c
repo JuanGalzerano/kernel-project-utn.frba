@@ -20,7 +20,7 @@ void enviar_contexto_cpu(int socket, uint32_t pid) {
 void recibir_contexto_cpu(uint32_t pid, t_buffer* buffer) {
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) {
-        log_error(loggerMemory, "PID %d no encontrado al recibir contexto", pid);
+        log_warning(loggerMemory, "PID %d no encontrado al recibir contexto (posible EXIT)", pid);
         return;
     }
 

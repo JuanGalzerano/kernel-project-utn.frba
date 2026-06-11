@@ -178,7 +178,7 @@ void* atender_scheduler(void* arg){
                     }
                     uint32_t _seg_id = req->direccionLogica / segment_max_size;
                     uint32_t _desp   = req->direccionLogica % segment_max_size;
-                    log_info(loggerMemory, "  busca seg_id=%d desp=%d bytes=%d segment_max_size=%d", _seg_id, _desp, req->bytesALeer, segment_max_size);
+                    log_info(loggerMemory, "Kernel memory busca las escrituras relativas a cada stick: seg_id=%d desp=%d bytes=%d segment_max_size=%d", _seg_id, _desp, req->bytesALeer, segment_max_size);
                     t_list* pedazos = traducir_logica_a_fisica(req->direccionLogica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, req->bytesALeer);
                     pthread_mutex_unlock(&memoria_mutex);
 
