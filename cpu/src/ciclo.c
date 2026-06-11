@@ -38,6 +38,9 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionSc
     if (errorDecode == COD_SEG_FAULT) {
         return COD_SEG_FAULT;
     }
+    if (errorDecode == COD_EXIT) {
+        return COD_EXIT;
+    }
     if (errorDecode == 1) {
         if (registros_cpu.pc == pc_antes) {
             registros_cpu.pc++;
@@ -140,17 +143,19 @@ int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid, u
         control_error = solicitar_sleep(tiempo, socketConexionScheduler, pid);
         return 1;
     }
-    case STDOUT:  
+    case STDOUT:
         registroDirLogica = interpretar_token(strtok_r(NULL, " ", &cursor));
         registroTamanio = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: STDOUT - %s %s", pid, registro_a_string(registroDirLogica), registro_a_string(registroTamanio));
         control_error = solicitar_stdout(registroDirLogica, registroTamanio, socketConexionScheduler, pid, segment_max_size, lista_segmentos);
+        if (control_error == COD_SEG_FAULT) return COD_SEG_FAULT;
         return 1;
     case STDIN:
         registroDirLogica = interpretar_token(strtok_r(NULL, " ", &cursor));
         registroTamanio = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: STDIN - %s %s", pid, registro_a_string(registroDirLogica), registro_a_string(registroTamanio));
         control_error = solicitar_stdin(registroDirLogica, registroTamanio, socketConexionScheduler, pid, segment_max_size, lista_segmentos);
+        if (control_error == COD_SEG_FAULT) return COD_SEG_FAULT;
         return 1;
     case INIT_PROC: {  
         char *path = strtok_r(NULL, " ", &cursor);
@@ -162,7 +167,7 @@ int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid, u
     case EXIT:
         log_info(loggerCpu, "## PID: %d - Ejecutando: EXIT", pid);
         control_error = solicitar_exit(socketConexionScheduler, pid);
-        return 1;
+        return COD_EXIT;
     default:
         log_info(loggerCpu, "## PID: %d - Instruccion NO RECONOCIDA", pid);
         return -1;
