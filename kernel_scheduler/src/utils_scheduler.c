@@ -383,9 +383,11 @@ void* hilo_escuchar_memory(void* arg){
                 manejar_bsod();
                 return NULL;
             case NUEVA_MEMORIA_DISPONIBLE: {
-                uint32_t bytes_libres = buffer_read_uint32(paquete->buffer);
+                uint32_t tamanioMaximo = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
-                log_info(loggerScheduler, "Memoria disponible: %d bytes libres en memory", bytes_libres);//desp borrar este log
+                log_info(loggerScheduler, "Memoria disponible: %d bytes libres en memory", tamanioMaximo);//desp borrar este log
+                //elegir a desuspender de susp_ready seria tipo elegir_a_desuspender(tamanio)
+                //y desp pasar de susp_ready a ready
                 //con bytes_libres comparar contra bytes_suspendidos de procesos en SUSP para ver si podes desuspender
                 break;
             }
@@ -690,7 +692,7 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
 bool es_mas_prioritario(void* masPrior, void* menosPrior){//los puse igual que como figura en el list.h con void*
     t_proc_suspendido* procMasPrior = (t_proc_suspendido*) masPrior;
     t_proc_suspendido* procMenosPrior = (t_proc_suspendido*) menosPrior;
-    return (procMasPrior->pcb->prioridad > procMenosPrior->pcb->prioridad);//haciendolosolo con mayor, me garantizo que cuando se compare con uno que esta hace mas tiempo en add_sorted, no le robe el puesto
+    return (procMasPrior->pcb->prioridad < procMenosPrior->pcb->prioridad);//haciendolosolo con mayor, me garantizo que cuando se compare con uno que esta hace mas tiempo en add_sorted, no le robe el puesto
 }
 
 t_proc_suspendido* buscar_en_susp_block(uint32_t pid){//ver si en la func de pasar a susp ready combiene usarla

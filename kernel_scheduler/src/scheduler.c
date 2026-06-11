@@ -476,11 +476,15 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     //mover de BLOCK-> READY
-                    buscar_y_sacar_de_block(siguiente->pid);
-                    encolar_pcb_ready(siguiente);
+                    t_pcb* pcbASacarDeBlock =  buscar_y_sacar_de_block(siguiente->pid);
+                    if(pcbASacarDeBlock!=NULL){
+                        encolar_pcb_ready(siguiente);
 
-                    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
-                    sem_post(&sem_hay_proceso_ready);
+                        log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
+                        sem_post(&sem_hay_proceso_ready);
+                    }else{
+                        pasar_des_susp_block_a_ready(siguiente->pid);
+                    }
                 }
 
                 pthread_mutex_lock(&exec_mutex);
