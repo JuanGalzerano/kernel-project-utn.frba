@@ -251,6 +251,7 @@ void* atender_scheduler(void* arg){
                 t_paquete* resp = crear_paquete(resultado, NULL);
                 enviar_paquete(socket, resp);
                 eliminar_paquete(resp);
+                //avisar_nueva_memoria();
                 break;
             }
             case MEM_FREE: {
