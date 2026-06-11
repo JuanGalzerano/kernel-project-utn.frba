@@ -144,13 +144,13 @@ int decode(op_code tipoInstruccion, int socketConexionScheduler, uint32_t pid, u
         registroDirLogica = interpretar_token(strtok_r(NULL, " ", &cursor));
         registroTamanio = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: STDOUT - %s %s", pid, registro_a_string(registroDirLogica), registro_a_string(registroTamanio));
-        control_error = solicitar_stdout(registroDirLogica, registroTamanio, socketConexionScheduler, pid);
+        control_error = solicitar_stdout(registroDirLogica, registroTamanio, socketConexionScheduler, pid, segment_max_size, lista_segmentos);
         return 1;
     case STDIN:
         registroDirLogica = interpretar_token(strtok_r(NULL, " ", &cursor));
         registroTamanio = interpretar_token(strtok_r(NULL, " ", &cursor));
         log_info(loggerCpu, "## PID: %d - Ejecutando: STDIN - %s %s", pid, registro_a_string(registroDirLogica), registro_a_string(registroTamanio));
-        control_error = solicitar_stdin(registroDirLogica, registroTamanio, socketConexionScheduler, pid);
+        control_error = solicitar_stdin(registroDirLogica, registroTamanio, socketConexionScheduler, pid, segment_max_size, lista_segmentos);
         return 1;
     case INIT_PROC: {  
         char *path = strtok_r(NULL, " ", &cursor);
