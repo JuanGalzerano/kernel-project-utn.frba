@@ -3,30 +3,33 @@
 
 //HUECOS
 
-t_hueco* encontrar_hueco_best_fit(uint32_t tamanio) {
+t_hueco* encontrar_hueco_best_fit(t_list* huecos, uint32_t tamanio){
     t_hueco* mejor = NULL;
-    for (int i = 0; i < list_size(lista_huecos); i++) {
-        t_hueco* h = list_get(lista_huecos, i);
-        if (h->limite >= tamanio && (!mejor || h->limite < mejor->limite))
+    for(int i = 0; i < list_size(huecos); i++){
+        t_hueco* h = list_get(huecos, i);
+        if(h->limite >= tamanio && (!mejor || h->limite < mejor->limite)){
             mejor = h;
+        } 
     }
     return mejor;
 }
 
-t_hueco* encontrar_hueco_worst_fit(uint32_t tamanio) {
+t_hueco* encontrar_hueco_worst_fit(t_list* huecos, uint32_t tamanio){
     t_hueco* peor = NULL;
-    for (int i = 0; i < list_size(lista_huecos); i++) {
-        t_hueco* h = list_get(lista_huecos, i);
-        if (h->limite >= tamanio && (!peor || h->limite > peor->limite))
+    for(int i = 0; i < list_size(huecos); i++){
+        t_hueco* h = list_get(huecos, i);
+        if (h->limite >= tamanio && (!peor || h->limite > peor->limite)){
             peor = h;
+        }
     }
     return peor;
 }
 
-t_hueco* encontrar_hueco(uint32_t tamanio){
-    if (strcmp(allocation_strategy, "BEST") == 0)
-        return encontrar_hueco_best_fit(tamanio);
-    return encontrar_hueco_worst_fit(tamanio);
+t_hueco* encontrar_hueco(t_list* huecos, uint32_t tamanio){
+    if(strcmp(allocation_strategy, "BEST") == 0){
+        return encontrar_hueco_best_fit(huecos, tamanio);
+    }
+    return encontrar_hueco_worst_fit(huecos, tamanio);
 }
 
 // Inserta un hueco en lista_huecos (ordenada por base) y fusiona con adyacentes.
@@ -79,7 +82,7 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
 
     pthread_mutex_lock(&memoria_mutex);
 
-    t_hueco* hueco = encontrar_hueco(tamanio);
+    t_hueco* hueco = encontrar_hueco(lista_huecos,tamanio);
 
     if (hueco != NULL) {
         t_segmento* seg  = malloc(sizeof(t_segmento));
@@ -171,7 +174,7 @@ op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio)
     t_segmento* seg = buscar_segmento_proceso(proceso, seg_id);
     if(!seg){ pthread_mutex_unlock(&memoria_mutex); return MEMORIA_NO_DISPONIBLE; }
 
-    t_hueco* hueco = encontrar_hueco(tamanio);
+    t_hueco* hueco =encontrar_hueco(lista_huecos, tamanio);
     if(!hueco){
         op_code ret = (memoria_libre_size >= tamanio) ? COMPACTACION : MEMORIA_NO_DISPONIBLE;
         pthread_mutex_unlock(&memoria_mutex);

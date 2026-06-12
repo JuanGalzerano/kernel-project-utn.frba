@@ -47,6 +47,7 @@ uint32_t swap_num_bloques;
 pthread_mutex_t swap_mutex;
 
 // FUNCIONES
+void notificar_desuspendibles();
 void* atender_scheduler(void* arg);
 void* atender_cpu(void* arg);
 void* hilo_notificaciones_cpu(void* arg);

@@ -2,6 +2,8 @@
 #include "segmentacion.h"
 #include <sys/epoll.h>
 
+extern void notificar_desuspendibles();
+
 void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick){
     t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
     stick->socket = socket;
@@ -49,14 +51,7 @@ void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick){
     ev.data.fd = socket;
     epoll_ctl(epoll_fd_sticks, EPOLL_CTL_ADD, socket, &ev);
 
-    t_hueco* huecoMasGrande = encontrar_hueco_worst_fit(1);
-    uint32_t libre = huecoMasGrande ? huecoMasGrande->limite : 0;
-    t_buffer* bufAviso = buffer_create(0);
-    buffer_add_uint32(bufAviso, libre);
-    t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, bufAviso);
-    enviar_paquete(socketSchedulerNotif, aviso);
-    eliminar_paquete(aviso);
-    log_info(loggerMemory, "Notificado al Scheduler: NUEVA_MEMORIA_DISPONIBLE (hueco mas grande: %d bytes)", libre);
+    notificar_desuspendibles();
 }
 
 t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica){

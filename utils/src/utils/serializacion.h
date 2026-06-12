@@ -153,6 +153,7 @@ typedef enum {
     DESALOJAR_POR_BSOD = 54,
     SEG_FAULT = 55,
     AVISO_NUEVO_STICK = 56,
+    RESOLICITAR_SEGMENTO = 57,
 } op_code;
  
 typedef struct {

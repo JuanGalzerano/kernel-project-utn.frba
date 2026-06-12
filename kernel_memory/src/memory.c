@@ -126,11 +126,83 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void avisar_nueva_memoria(){
+void notificar_desuspendibles(){
+
+    pthread_mutex_lock(&procesos_mutex);
+
+    bool hay_suspendidos = false;//intento hacer que termine rapido la funcion verificando que no haya suspendidos
+    for(int i = 0; i < list_size(lista_procesos) && !hay_suspendidos; i++)
+        if(((t_proceso_memory*)list_get(lista_procesos, i))->en_swap) hay_suspendidos = true;
+    if(!hay_suspendidos){
+        pthread_mutex_unlock(&procesos_mutex);
+        return;
+    }
+
+    pthread_mutex_lock(&swap_mutex);
+    pthread_mutex_lock(&memoria_mutex);
+
+    t_list* huecos_base = list_create();//hago esto asi no retenog tantas veces el mutex de memoria
+    for(int j = 0; j < list_size(lista_huecos); j++){
+        t_hueco* orig = list_get(lista_huecos, j);
+        t_hueco* copia = malloc(sizeof(t_hueco));
+        *copia = *orig;
+        list_add(huecos_base, copia);
+    }
+    pthread_mutex_unlock(&memoria_mutex);
+
+    t_list* pids_ok = list_create();
+
+    for(int i=0; i<list_size(lista_procesos); i++){
+        t_proceso_memory* proc = list_get(lista_procesos, i);
+        if(!proc->en_swap)continue;
+
+//copio lista de huecos
+        t_list* huecos_sim =list_create();
+        for(int j = 0; j < list_size(huecos_base); j++){
+            t_hueco* orig = list_get(huecos_base, j);
+            t_hueco* copia = malloc(sizeof(t_hueco));
+            *copia = *orig;
+            list_add(huecos_sim, copia);
+        }
+
+        //intentara alocar cada segmento del proceso sobre la copia de huecos, cada iteracion es mas facil copiarla
+        bool entra = true;
+        for(int j = 0; j < (int)swap_num_bloques && entra;j++){
+            if(!tabla_swap[j].ocupado || tabla_swap[j].pid != proc->pid)continue;
+            uint32_t tam = tabla_swap[j].tamanio;
+            t_hueco* h = encontrar_hueco(huecos_sim, tam);
+            if(!h){
+                entra =false;
+                break;
+            }
+            h->base += tam;
+            h->limite -= tam;
+            if(h->limite==0){
+                list_remove_element(huecos_sim, h);
+                free(h);
+            }
+        }
+        list_destroy_and_destroy_elements(huecos_sim, free);
+
+        if(entra){
+            uint32_t* pid_ptr = malloc(sizeof(uint32_t));
+            *pid_ptr = proc->pid;
+            list_add(pids_ok, pid_ptr);
+        }
+    }
+
+    pthread_mutex_unlock(&swap_mutex);
+    pthread_mutex_unlock(&procesos_mutex);
+    list_destroy_and_destroy_elements(huecos_base, free);
+
     t_buffer* buf = buffer_create(0);
-    t_hueco* huecoMasGrande = encontrar_hueco_worst_fit(1);
-    uint32_t libre = huecoMasGrande ? huecoMasGrande->limite : 0;
-    buffer_add_uint32(buf, libre);
+    uint32_t count = (uint32_t)list_size(pids_ok);
+    buffer_add_uint32(buf, count);//primero le madno la cantidad de ints, y desp voy agregando los ints
+    for (int i = 0; i < (int)count; i++){//xq count esta como uint32 y para hacer el <, por las dudas lo convierto a int
+        buffer_add_uint32(buf, *(uint32_t*)list_get(pids_ok, i));
+    }
+    list_destroy_and_destroy_elements(pids_ok, free);
+
     t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, buf);
     enviar_paquete(socketSchedulerNotif, aviso);
     eliminar_paquete(aviso);
@@ -158,7 +230,7 @@ void* atender_scheduler(void* arg){
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
                 finalizar_proceso(pid);
-                avisar_nueva_memoria();
+                notificar_desuspendibles();
                 break;
             }
             case ESCRIBIR_BYTES: {
@@ -259,7 +331,17 @@ void* atender_scheduler(void* arg){
                 t_paquete* resp = crear_paquete(resultado, NULL);
                 enviar_paquete(socket, resp);
                 eliminar_paquete(resp);
-                //avisar_nueva_memoria();
+                break;
+            }
+            case RESOLICITAR_SEGMENTO: {
+                t_mem_alloc* req = deserializar_mem_alloc(paquete->buffer);
+                eliminar_paquete(paquete);
+                op_code resultado = crear_segmento(req->pid, req->segmentoId, req->tamanio);
+                free(req);
+                t_paquete* resp = crear_paquete(resultado, NULL);
+                enviar_paquete(socket, resp);
+                eliminar_paquete(resp);
+                if (resultado == MEMORIA_DISPONIBLE)notificar_desuspendibles();
                 break;
             }
             case MEM_FREE: {
@@ -267,7 +349,7 @@ void* atender_scheduler(void* arg){
                 eliminar_paquete(paquete);
                 eliminar_segmento(infoFree->pid, infoFree->segmentoId);
                 free(infoFree);
-                avisar_nueva_memoria();
+                notificar_desuspendibles();
                 break;
             }
             case PROCESOS_DESALOJADOS: {
@@ -284,7 +366,7 @@ void* atender_scheduler(void* arg){
                 eliminar_paquete(paquete);
                 uint32_t bytes_suspendidos = 0;
                 op_code resultado = suspender_proceso(pid, &bytes_suspendidos);//aca se suspende y se modifica el valor de bytes suspendidos
-                if (resultado == SUSPEND_OK) avisar_nueva_memoria();
+                if (resultado == SUSPEND_OK) notificar_desuspendibles();
                 t_buffer* bufResp = buffer_create(0);
                 buffer_add_uint32(bufResp, bytes_suspendidos);
                 t_paquete* resp = crear_paquete(resultado, bufResp);
