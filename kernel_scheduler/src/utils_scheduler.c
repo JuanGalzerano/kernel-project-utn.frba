@@ -146,7 +146,7 @@ void recibir_tipo_IO(int socketCliente){
 }
 
 
-void bloquear_proceso(t_pcb* pcbBlock){
+void bloquear_proceso(t_pcb* pcbBlock, uint32_t cantMemAlloc){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
     
@@ -164,7 +164,7 @@ void bloquear_proceso(t_pcb* pcbBlock){
     list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
 
-    timer_tiempo_bloqueado(pcbBlock);
+    timer_tiempo_bloqueado(pcbBlock, cantMemAlloc);
     
     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
 
@@ -386,9 +386,8 @@ void* hilo_escuchar_memory(void* arg){
                 uint32_t tamanioMaximo = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
                 log_info(loggerScheduler, "Memoria disponible: %d bytes libres en memory", tamanioMaximo);//desp borrar este log
-                //elegir a desuspender de susp_ready seria tipo elegir_a_desuspender(tamanio)
-                //y desp pasar de susp_ready a ready
-                //con bytes_libres comparar contra bytes_suspendidos de procesos en SUSP para ver si podes desuspender
+                recorrer_y_desuspender(/*paramtro a definir*/);
+
                 break;
             }
             default:
@@ -617,17 +616,19 @@ void despertar_planificador(){
     }
 }
 
-void timer_tiempo_bloqueado(t_pcb* pcb){
-    uint32_t *pid = malloc(sizeof(uint32_t));
-    *pid = pcb->pid;
+void timer_tiempo_bloqueado(t_pcb* pcb,  uint32_t cantMemAlloc){
+    t_parametros_hilo_suspendidos *parametros = malloc(sizeof(t_parametros_hilo_suspendidos));
+    parametros->pid = pcb->pid;
+    parametros->cantMemAlloc = cantMemAlloc;
     pthread_t hiloTimer;
-    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pid);
+    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,parametros);
     pthread_detach(hiloTimer);
 }
 
 void* hilo_timer_bloqueado(void* arg){
-    uint32_t* argu = (uint32_t*) arg;
-    uint32_t pid = *argu;
+    t_parametros_hilo_suspendidos* argu = (t_parametros_hilo_suspendidos*) arg;
+    uint32_t pid = argu->pid;
+    uint32_t cantMemAlloc = argu->cantMemAlloc;
     free(argu);
 
     usleep(suspensionTimeout*1000);
@@ -639,11 +640,11 @@ void* hilo_timer_bloqueado(void* arg){
     if(pcb==NULL){
         return NULL;
     }
-    suspender_proceso(pcb);
+    suspender_proceso(pcb, cantMemAlloc);
     return NULL;
 }
 
-void suspender_proceso(t_pcb* pcb){
+void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
     //(creo q siempre va a ser de block a susp bloc)
     log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado SUSP BLOCK", pcb->pid);
 
@@ -657,12 +658,20 @@ void suspender_proceso(t_pcb* pcb){
     t_proc_suspendido* proc = malloc(sizeof(t_proc_suspendido));//acordarme de liberar cuando saco de susp
     t_paquete* resp = recibir_paquete(socketConexionMemory);
     proc->bytesSsupendidos = buffer_read_uint32(resp->buffer);
+    proc->cantMemAlloc = cantMemAlloc;
     eliminar_paquete(resp);
     proc->pcb = pcb;
-    pthread_mutex_lock(&mutex_susp_block);
-    list_add(susp_block, proc);
-    pthread_mutex_unlock(&mutex_susp_block);
-
+    
+    if(cantMemAlloc==0){
+        pthread_mutex_lock(&mutex_susp_ready);
+        list_add(susp_ready, proc);
+        pthread_mutex_unlock(&mutex_susp_ready);
+    }{//aca no llamo a pasar_des_susp_block_a_ready xq asi me ahorro el buscar en la lista de susp block
+        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado SUSP READY", pcb->pid);
+        pthread_mutex_lock(&mutex_susp_ready);
+        list_add_sorted(susp_ready,proc, es_mas_prioritario);
+        pthread_mutex_unlock(&mutex_susp_ready);
+    }
     //ver lo de que se libero memoria => podria entrar otro proceso ESO LO VEO EN EL HILO DE ESCUCHAR MEMORY
 
     /*para lo de que hay 2 de igual prioridad suspendidos y necesito desempatar por el q esta hace mas tiempo, 
@@ -687,8 +696,10 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
     pthread_mutex_unlock(&mutex_susp_ready);
 
     log_info(loggerScheduler,"## (%d) Pasa del estado SUSP BLOCK al estado SUSP READY", pid);
+
 }
 
+//igual evr si funciona
 bool es_mas_prioritario(void* masPrior, void* menosPrior){//los puse igual que como figura en el list.h con void*
     t_proc_suspendido* procMasPrior = (t_proc_suspendido*) masPrior;
     t_proc_suspendido* procMenosPrior = (t_proc_suspendido*) menosPrior;
@@ -706,4 +717,24 @@ t_proc_suspendido* buscar_en_susp_block(uint32_t pid){//ver si en la func de pas
     }
     pthread_mutex_unlock(&mutex_susp_block);
     return proceso;
+}
+
+void recorrer_y_desuspender(/*paramtro a definir*/){
+
+    pthread_mutex_lock(&mutex_susp_ready);
+    for(int i=0;i<list_size(susp_ready);i++){
+        t_proc_suspendido* proc = list_get(susp_ready,i);
+        if(se_puede_desuspender(proc/*, paramtro a definir*/)){
+            desuspender_proceso(proc/*,paramtro a definir*/);//liberar proc pero no pcb
+            //break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_susp_ready);
+}
+
+bool se_puede_desuspender(t_proc_suspendido* proc/*, paramtro a definir*/){
+    return true;
+}
+void desuspender_proceso(t_proc_suspendido* proc/*, paramtro a definir*/){
+
 }

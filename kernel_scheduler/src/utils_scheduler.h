@@ -21,7 +21,7 @@ t_cpu* encontrar_cpu_con_pid(uint32_t pid);
 
 void recibir_tipo_IO(int socketCliente);
 
-void bloquear_proceso(t_pcb* pcbBlock);
+void bloquear_proceso(t_pcb* pcbBlock,  uint32_t cantMemAlloc);
 
 t_pcb* buscar_y_sacar_de_block(uint32_t pid);
 
@@ -67,12 +67,20 @@ void despertar_planificador();
 
 void* hilo_timer_bloqueado(void* arg);
 
-void timer_tiempo_bloqueado(t_pcb* pcb);
+void timer_tiempo_bloqueado(t_pcb* pcb, uint32_t cantMemAlloc);
 
-void suspender_proceso(t_pcb* pcb);
+void suspender_proceso(t_pcb* pcb,  uint32_t cantMemAlloc);
 
 bool es_mas_prioritario(void* masPrior, void* menosPrior);
 
 void pasar_des_susp_block_a_ready(uint32_t pid);
+
+t_proc_suspendido* buscar_en_susp_block(uint32_t pid);
+
+void recorrer_y_desuspender(/*paramtro a definir*/);
+
+bool se_puede_desuspender(t_proc_suspendido* proc/*, paramtro a definir*/);
+
+void desuspender_proceso(t_proc_suspendido* proc/*, paramtro a definir*/);
 
 #endif

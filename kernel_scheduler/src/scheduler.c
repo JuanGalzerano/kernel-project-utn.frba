@@ -181,7 +181,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
                 
-                bloquear_proceso(cpuSleep->pcb);
+                bloquear_proceso(cpuSleep->pcb,0);
 
                 pthread_mutex_lock(&mutex_cola_sleep);
                 queue_push(cola_sleep, sleep);
@@ -201,7 +201,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDIN", procesoStdin->pid);
                    
-                bloquear_proceso(cpuUsada->pcb);           
+                bloquear_proceso(cpuUsada->pcb,0);           
              
                 pthread_mutex_lock(&mutex_cola_stdin);
                 queue_push(cola_stdin, procesoStdin);
@@ -223,7 +223,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_lock(&mutex_stdout_ocupado);
                 if(stdout_ocupado){
                     pthread_mutex_unlock(&exec_mutex);
-                    bloquear_proceso(cpuUsadaStdout->pcb);
+                    bloquear_proceso(cpuUsadaStdout->pcb,0);
                 } else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
                     cpuUsadaStdout->pcb = NULL;
@@ -409,7 +409,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         }
                     }
 
-                    bloquear_proceso(cpuALiberar->pcb);
+                    bloquear_proceso(cpuALiberar->pcb,0);
 
                     pthread_mutex_unlock(&mutex_lista_mutex);
 
@@ -528,7 +528,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
                 //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
-                    bloquear_proceso(cpuAlloc->pcb);
+                    bloquear_proceso(cpuAlloc->pcb,infoMemAlloc->tamanio);
                     liberar_cpu_y_notificar();
                 }
                 free(infoMemAlloc);
