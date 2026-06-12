@@ -92,17 +92,21 @@ int main(int argc, char *argv[]) {
                 log_info(loggerCpu, "CPU: Segmentation Fault, proceso desalojado");
                 break;
             }
+            if (errorCiclo == COD_EXIT) {
+                log_info(loggerCpu, "CPU: EXIT ejecutado, descartando contexto");
+                break;
+            }
         }
 
-        if (errorCiclo == COD_SEG_FAULT) {
-            log_debug(loggerCpu, "DEBUG_CPU: PID %d - Contexto descartado (SEG_FAULT, no se actualiza KM)", pid);
+        if (errorCiclo == COD_SEG_FAULT || errorCiclo == COD_EXIT) {
+            log_debug(loggerCpu, "DEBUG_CPU: PID %d - Contexto descartado (SEG_FAULT o EXIT, no se actualiza KM)", pid);
             liberar_contexto(ctx);
             continue;
         }
 
         log_info(loggerCpu, "CPU: Contexto actualizado");
         actualizar_contexto(ctx, socketConexionMemory, pid);
-        if ((errorCiclo != 1) && (errorCiclo != -1) && (errorCiclo != COD_SEG_FAULT)) {
+        if ((errorCiclo != 1) && (errorCiclo != -1) && (errorCiclo != COD_SEG_FAULT) && (errorCiclo != COD_EXIT)) {
             log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
             enviar_pid_y_motivo(pid, motivo_interrupcion, socketConexionScheduler);
         }

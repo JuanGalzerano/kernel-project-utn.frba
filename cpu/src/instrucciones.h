@@ -5,6 +5,7 @@
 #include "inicializar_cpu.h"
 
 #define COD_SEG_FAULT 2
+#define COD_EXIT 3
 
 typedef struct {
     uint32_t pc;
