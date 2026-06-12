@@ -139,6 +139,10 @@ op_code desuspender_proceso(uint32_t pid) {
 
     if (cantidad == 0) {
         pthread_mutex_unlock(&swap_mutex);
+        t_proceso_memory* proc0 = buscar_proceso(pid);
+        if(proc0){
+            proc0->en_swap = false;
+        }
         log_info(loggerMemory, "PID %d no tiene segmentos en swap", pid);
         return DESUSPEND_OK;
     }
