@@ -53,10 +53,10 @@ int main(int argc, char* argv[]) {
     log_info(loggerMemory, "## Kernel Scheduler Conectado - FD del socket: %d", socketScheduler);
 
     socketSchedulerNotif = esperar_cliente(socketEscuchaNotif);
-    log_info(loggerMemory, "## Kernel Scheduler Conectado al canal de notificaciones - FD: %d", socketSchedulerNotif);
+    log_info(loggerMemory, "Kernel Scheduler Conectado al canal de notificaciones - FD: %d", socketSchedulerNotif);
 
     socketSwap = aceptar_cliente(socketEscucha, loggerMemory);
-    log_info(loggerMemory, "## Swap Conectado - FD del socket: %d", socketSwap);
+    log_info(loggerMemory, "Swap Conectado - FD del socket: %d", socketSwap);
 
     t_paquete* swapInit = recibir_paquete(socketSwap);
     swap_total_size = buffer_read_uint32(swapInit->buffer);
@@ -129,10 +129,11 @@ int main(int argc, char* argv[]) {
 void avisar_nueva_memoria(){
     t_buffer* buf = buffer_create(0);
     t_hueco* huecoMasGrande = encontrar_hueco_worst_fit(1);
-    buffer_add_uint32(buf, huecoMasGrande->limite);//dice limite pero es el tamanio de ese hueco
+    uint32_t libre = huecoMasGrande ? huecoMasGrande->limite : 0;
+    buffer_add_uint32(buf, libre);
     t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, buf);
     enviar_paquete(socketSchedulerNotif, aviso);
-    eliminar_paquete(aviso); 
+    eliminar_paquete(aviso);
 }
 
 void* atender_scheduler(void* arg){
@@ -176,9 +177,9 @@ void* atender_scheduler(void* arg){
                         t_segmento* _s = list_get(proc->contexto->tabla_segmentos, _i);
                         log_info(loggerMemory, "  seg[%d]: id=%d base=%d limite=%d", _i, _s->id_segmento, _s->base, _s->limite);
                     }
-                    uint32_t _seg_id = req->direccionLogica / segment_max_size;
-                    uint32_t _desp   = req->direccionLogica % segment_max_size;
-                    log_info(loggerMemory, "Kernel memory busca las escrituras relativas a cada stick: seg_id=%d desp=%d bytes=%d segment_max_size=%d", _seg_id, _desp, req->bytesALeer, segment_max_size);
+                    uint32_t seg_id = req->direccionLogica / segment_max_size;
+                    uint32_t desp = req->direccionLogica % segment_max_size;
+                    log_info(loggerMemory, "Kernel memory busca las escrituras relativas a cada stick: seg_id=%d desp=%d bytes=%d segment_max_size=%d", seg_id, desp, req->bytesALeer, segment_max_size);
                     t_list* pedazos = traducir_logica_a_fisica(req->direccionLogica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, req->bytesALeer);
                     pthread_mutex_unlock(&memoria_mutex);
 
@@ -187,8 +188,11 @@ void* atender_scheduler(void* arg){
                     }
                     if (pedazos != NULL) {
                         ok = escribir_pedazos(pedazos, req->cadenaLeida);
-                        if (ok == ESCRIBIR_BYTES)
-                            log_info(loggerMemory, "PID: %d - Escritura - Dir. Logica: %d - Tamanio: %d", req->pid, req->direccionLogica, req->bytesALeer);
+                        if (ok == ESCRIBIR_BYTES) {
+                            t_segmento* seg_log = buscar_segmento_proceso(proc, seg_id);
+                            uint32_t dir_fisica = seg_log->base + desp;
+                            log_info(loggerMemory, "## PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", req->pid, dir_fisica, req->bytesALeer);
+                        }
                         list_destroy_and_destroy_elements(pedazos, free);
                     }
                 }
@@ -225,11 +229,15 @@ void* atender_scheduler(void* arg){
                 }
 
                 char* datos = calloc(bytes, 1);
-                int ok = leer_pedazos(pedazos, datos);
+                op_code ok = leer_pedazos(pedazos, datos);
                 list_destroy_and_destroy_elements(pedazos, free);
 
-                if (ok > 0) {
-                    log_info(loggerMemory, "PID: %d - Lectura - Dir. Logica: %d - Tamanio: %d", pid, dir_logica, bytes);
+                if (ok == LEER_BYTES) {
+                    uint32_t seg_id_leer = dir_logica / segment_max_size;
+                    uint32_t desp_leer = dir_logica % segment_max_size;
+                    t_segmento* seg_l = buscar_segmento_proceso(proc, seg_id_leer);
+                    uint32_t dir_fisica = seg_l->base + desp_leer;
+                    log_info(loggerMemory, "## PID: %d - Lectura - Dir. Fisica: %d - Tamanio: %d", pid, dir_fisica, bytes);
                     t_buffer* buf = buffer_create(0);
                     buffer_add(buf, datos, bytes);
                     t_paquete* respuesta = crear_paquete(LEER_BYTES, buf);
@@ -349,7 +357,7 @@ void* hilo_notificaciones_cpu(void* arg){
         recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
         char* cpuId = malloc(sizeCpuId);
         recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
-        log_info(loggerMemory, "## CPU %s Conectada a Kernel Memory Notificaciones", cpuId);
+        log_info(loggerMemory, "CPU %s Conectada a Kernel Memory Notificaciones", cpuId);
         free(cpuId);
 
         // Guardo el socket de notificaciones de esta CPU para poder avisarle de nuevos sticks

@@ -4,7 +4,7 @@
 #include <utils/utils.h>
 #include <commons/collections/list.h>
 
-// Hueco libre contiguo en el espacio de memoria física global
+//Hueco libre contiguo en el espacio de memoria física global
 typedef struct {
     uint32_t base;   // dirección física global donde empieza el hueco
     uint32_t limite; // tamaño en bytes del hueco
@@ -18,30 +18,31 @@ typedef struct {
     uint32_t tamanio;
 } t_bloque_swap;
 
-// Proceso residente en Kernel Memory
+//Proceso residente en Kernel Memory
 typedef struct {
-    uint32_t              pid;
-    char*                 path_pseudocodigo;
-    t_contexto_ejecucion* contexto; // contexto->tabla_segmentos es la tabla de segmentos del proceso
+    uint32_t pid;
+    char* path_pseudocodigo;
+    t_contexto_ejecucion* contexto; //contexto->tabla_segmentos es la tabla de segmentos del proceso
+    bool en_swap;  //true cuando todos los segmentos del proceso están en SWAP
 } t_proceso_memory;
 
-// VARIABLES GLOBALES
+//VARIABLES GLOBALES
 
 extern t_log*    loggerMemory;
 extern t_config* configMemory;
 
 // Variables del memory.config
-extern char*     puertoEscucha;
-extern char*     scriptsBasePath;
-extern uint32_t  segment_max_size;
-extern char*     allocation_strategy; //BEST o WORST
-extern uint32_t  instruction_delay; 
-extern uint32_t  compaction_delay;
+extern char* puertoEscucha;
+extern char* scriptsBasePath;
+extern uint32_t segment_max_size;
+extern char* allocation_strategy; //BEST o WORST
+extern uint32_t instruction_delay; 
+extern uint32_t compaction_delay;
 
-extern t_list*   lista_procesos;       //ista de t_proceso_memory*
-extern t_list*   lista_memory_sticks;  // lista de t_memory_stick_info*
-extern t_list*   lista_sockets_cpu_notif; // sockets del canal de notificaciones de cada CPU conectada
-extern t_list*   lista_huecos;         // lista de t_hueco* ordenada por base física
+extern t_list* lista_procesos;       //ista de t_proceso_memory*
+extern t_list* lista_memory_sticks;  // lista de t_memory_stick_info*
+extern t_list* lista_sockets_cpu_notif; // sockets del canal de notificaciones de cada CPU conectada
+extern t_list* lista_huecos;         // lista de t_hueco* ordenada por base física
 extern uint32_t  memoria_total_size;   // suma de tamaños de todos los sticks conectados
 extern uint32_t  memoria_libre_size;   // suma de bytes libres en todos los huecos (se mantiene actualizada)
 

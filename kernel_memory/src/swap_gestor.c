@@ -1,14 +1,14 @@
 #include "swap_gestor.h"
 #include "inicializar.h"
 
-void inicializar_swap() {
+void inicializar_swap(){
     swap_num_bloques = swap_total_size / swap_block_size;
     tabla_swap = calloc(swap_num_bloques, sizeof(t_bloque_swap));
     pthread_mutex_init(&swap_mutex, NULL);
     log_info(loggerMemory, "Swap inicializado: %d bloques de %d bytes", swap_num_bloques, swap_block_size);
 }
 
-int swap_bloque_libre() {
+int swap_bloque_libre(){
     for (int i = 0; i < (int)swap_num_bloques; i++) {
         if (!tabla_swap[i].ocupado) return i;//osea el primero que tenga True
     }
@@ -17,7 +17,7 @@ int swap_bloque_libre() {
 
 //ESCRIBIR Y LEER BLOQUE
 
-void swap_escribir_bloque(int bloque, char* datos, uint32_t tamanio) {
+void swap_escribir_bloque(int bloque, char* datos, uint32_t tamanio){
     t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, (uint32_t)bloque);
     buffer_add_uint32(buf, tamanio);
@@ -30,7 +30,7 @@ void swap_escribir_bloque(int bloque, char* datos, uint32_t tamanio) {
     eliminar_paquete(resp);//damos por hecho la lectura exitosa obligatoria al no tener problasmde desconexion y el memory verifica antes que en ese bloq no haya nada y que entre el segmento
 }
 
-char* swap_leer_bloque(int bloque, uint32_t tamanio) {
+char* swap_leer_bloque(int bloque, uint32_t tamanio){
     t_buffer* buf = buffer_create(0);
     buffer_add_uint32(buf, (uint32_t)bloque);
     buffer_add_uint32(buf, tamanio);
@@ -48,16 +48,21 @@ char* swap_leer_bloque(int bloque, uint32_t tamanio) {
 
 //SUSPENDER O DESUSPENDER PROCESO
 
-op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
+op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos){
     *bytes_suspendidos = 0;
     t_proceso_memory* proc = buscar_proceso(pid);
+    if(!proc){
+        log_error(loggerMemory, "SUSPEND: PID %d no encontrado", pid);
+        return MEMORIA_NO_DISPONIBLE;
+    }
 
     pthread_mutex_lock(&memoria_mutex);
     int n_segs = list_size(proc->contexto->tabla_segmentos);
     pthread_mutex_unlock(&memoria_mutex);
 
     if(n_segs == 0){
-        log_info(loggerMemory, "## PID %d suspendido (sin segmentos)", pid);
+        log_info(loggerMemory, "PID %d suspendido (sin segmentos)", pid);
+        proc->en_swap = true;
         return SUSPEND_OK;
     }
 
@@ -72,7 +77,7 @@ op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
         uint32_t seg_id  = segs[i]->id_segmento;
         uint32_t tamanio = segs[i]->limite;
 
-        if (tamanio > swap_block_size){
+        if(tamanio > swap_block_size){
             log_error(loggerMemory, "SUSPEND: PID %d - segmento %d (%d bytes) excede el block size del swap (%d bytes)", pid, seg_id, tamanio, swap_block_size);
             free(segs);
             return MEMORIA_NO_DISPONIBLE;
@@ -114,20 +119,19 @@ op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos) {
 
         free(datos);
 
-        //Liberar solo la memoria fisica — el segmento queda en la tabla del proceso
         liberar_fisica_segmento(pid, seg_id);
         *bytes_suspendidos += tamanio;
 
-        log_info(loggerMemory, "## PID %d - Segmento %d -> Bloque swap %d", pid, seg_id, bloque);
+        log_info(loggerMemory, "PID %d - Segmento %d -> Bloque swap %d", pid, seg_id, bloque);
     }
 
     free(segs);
-    log_info(loggerMemory, "## PID %d suspendido", pid);
+    proc->en_swap = true;
+    log_info(loggerMemory, "PID %d suspendido", pid);
     return SUSPEND_OK;
 }
 
 op_code desuspender_proceso(uint32_t pid) {
-    // Reunir todos los bloques del pid en swap
     pthread_mutex_lock(&swap_mutex);
     int cantidad = 0;
     for (int i = 0; i < (int)swap_num_bloques; i++)
@@ -135,7 +139,7 @@ op_code desuspender_proceso(uint32_t pid) {
 
     if (cantidad == 0) {
         pthread_mutex_unlock(&swap_mutex);
-        log_info(loggerMemory, "## PID %d no tiene segmentos en swap", pid);
+        log_info(loggerMemory, "PID %d no tiene segmentos en swap", pid);
         return DESUSPEND_OK;
     }
 
@@ -152,6 +156,7 @@ op_code desuspender_proceso(uint32_t pid) {
     }
     pthread_mutex_unlock(&swap_mutex);
 
+    t_proceso_memory* proc = buscar_proceso(pid);
     for(int i = 0; i < cantidad; i++){
         // Leer datos del swap
         char* datos = swap_leer_bloque(info[i].bloque, info[i].tamanio);
@@ -163,9 +168,6 @@ op_code desuspender_proceso(uint32_t pid) {
             free(info);
             return resultado;
         }
-
-        // Escribir datos en la memory stick en la nueva ubicacion
-        t_proceso_memory* proc = buscar_proceso(pid);
         pthread_mutex_lock(&memoria_mutex);
         t_list* pedazos = traducir_logica_a_fisica(
             info[i].seg_id * segment_max_size,
@@ -184,10 +186,11 @@ op_code desuspender_proceso(uint32_t pid) {
         tabla_swap[info[i].bloque].ocupado = false;
         pthread_mutex_unlock(&swap_mutex);
 
-        log_info(loggerMemory, "## PID %d - Bloque swap %d -> Segmento %d", pid, info[i].bloque, info[i].seg_id);
+        log_info(loggerMemory, "PID %d - Bloque swap %d -> Segmento %d", pid, info[i].bloque, info[i].seg_id);
     }
 
     free(info);
-    log_info(loggerMemory, "## PID %d desuspendido", pid);
+    if(proc) proc->en_swap = false;
+    log_info(loggerMemory, "PID %d desuspendido", pid);
     return DESUSPEND_OK;
 }

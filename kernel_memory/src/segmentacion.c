@@ -84,8 +84,8 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
     if (hueco != NULL) {
         t_segmento* seg  = malloc(sizeof(t_segmento));
         seg->id_segmento = id_segmento;
-        seg->base        = hueco->base;
-        seg->limite      = tamanio;
+        seg->base = hueco->base;
+        seg->limite = tamanio;
         list_add(proceso->contexto->tabla_segmentos, seg);
 
         hueco->base   += tamanio;
@@ -97,7 +97,7 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
         memoria_libre_size -= tamanio;
 
         pthread_mutex_unlock(&memoria_mutex);
-        log_info(loggerMemory, "PID: %d - Segmento Creado - Id: %d - Base: %d - tamanio: %d", pid, id_segmento, seg->base, tamanio);
+        log_info(loggerMemory, "## PID: %d - Segmento Creado %d - Tamanio: %d", pid, id_segmento, tamanio);
         return MEMORIA_DISPONIBLE;
     }
 
@@ -124,9 +124,9 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
         return -1;
     }
 
-    t_hueco* hueco_liberado  = malloc(sizeof(t_hueco));
-    hueco_liberado->base     = seg->base;
-    hueco_liberado->limite   = seg->limite;
+    t_hueco* hueco_liberado = malloc(sizeof(t_hueco));
+    hueco_liberado->base = seg->base;
+    hueco_liberado->limite = seg->limite;
 
     memoria_libre_size += seg->limite;
 
@@ -153,7 +153,7 @@ void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id) {
     if (!seg) { pthread_mutex_unlock(&memoria_mutex); return; }
 
     t_hueco* hueco = malloc(sizeof(t_hueco));
-    hueco->base   = seg->base;
+    hueco->base = seg->base;
     hueco->limite = seg->limite;
     memoria_libre_size += seg->limite;
     insertar_hueco_y_fusionar(hueco);
@@ -165,23 +165,23 @@ void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id) {
 // Usado al desuspender: encuentra un hueco y actualiza seg->base sin agregar nada a la tabla.
 op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio) {
     t_proceso_memory* proceso = buscar_proceso(pid);
-    if (!proceso) return MEMORIA_NO_DISPONIBLE;
+    if(!proceso) return MEMORIA_NO_DISPONIBLE;
 
     pthread_mutex_lock(&memoria_mutex);
     t_segmento* seg = buscar_segmento_proceso(proceso, seg_id);
-    if (!seg) { pthread_mutex_unlock(&memoria_mutex); return MEMORIA_NO_DISPONIBLE; }
+    if(!seg){ pthread_mutex_unlock(&memoria_mutex); return MEMORIA_NO_DISPONIBLE; }
 
     t_hueco* hueco = encontrar_hueco(tamanio);
-    if (!hueco) {
+    if(!hueco){
         op_code ret = (memoria_libre_size >= tamanio) ? COMPACTACION : MEMORIA_NO_DISPONIBLE;
         pthread_mutex_unlock(&memoria_mutex);
         return ret;
     }
 
     seg->base = hueco->base;
-    hueco->base   += tamanio;
+    hueco->base += tamanio;
     hueco->limite -= tamanio;
-    if (hueco->limite == 0) {
+    if(hueco->limite == 0){
         list_remove_element(lista_huecos, hueco);
         free(hueco);
     }

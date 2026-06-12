@@ -52,6 +52,7 @@ void compactar(){
     t_list* todos = list_create();
     for(int i = 0; i < list_size(lista_procesos); i++){
         t_proceso_memory* proc = list_get(lista_procesos, i);
+        if(proc->en_swap)continue;//xq siesta en swap sus segmentos no estan en memoria (per osi en la tabla de segmentos, para no tener q desp volver a crear el t_seg sino que cambiar su base))
         for (int j = 0; j < list_size(proc->contexto->tabla_segmentos); j++) {
             t_seg_entry* e = malloc(sizeof(t_seg_entry));
             e->pid = proc->pid;

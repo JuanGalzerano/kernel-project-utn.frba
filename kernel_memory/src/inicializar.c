@@ -21,6 +21,7 @@ int inicializar_proceso(uint32_t pid, char* path) {
     t_proceso_memory* proceso = malloc(sizeof(t_proceso_memory));
     proceso->pid = pid;
     proceso->path_pseudocodigo = full_path;
+    proceso->en_swap =false;
     proceso->contexto = malloc(sizeof(t_contexto_ejecucion));
     memset(proceso->contexto, 0, sizeof(t_contexto_ejecucion));
     proceso->contexto->tabla_segmentos = list_create();
@@ -85,22 +86,29 @@ void finalizar_proceso(uint32_t pid){
     list_remove_element(lista_procesos, proceso);
     pthread_mutex_unlock(&procesos_mutex);
 
-    pthread_mutex_lock(&memoria_mutex);
-    while(list_size(proceso->contexto->tabla_segmentos) > 0){
-        t_segmento* seg   = list_remove(proceso->contexto->tabla_segmentos, 0);
-        t_hueco* hueco = malloc(sizeof(t_hueco));
-        hueco->base = seg->base;
-        hueco->limite = seg->limite;
-        memoria_libre_size += seg->limite;
-        free(seg);
-        insertar_hueco_y_fusionar(hueco);
+    if(!proceso->en_swap){
+        pthread_mutex_lock(&memoria_mutex);
+        while(list_size(proceso->contexto->tabla_segmentos) > 0){
+            t_segmento* seg = list_remove(proceso->contexto->tabla_segmentos, 0);
+            t_hueco* hueco = malloc(sizeof(t_hueco));
+            hueco->base = seg->base;
+            hueco->limite = seg->limite;
+            memoria_libre_size +=seg->limite;
+            free(seg);
+            insertar_hueco_y_fusionar(hueco);
+        }
+        pthread_mutex_unlock(&memoria_mutex);
+    }else{
+        while(list_size(proceso->contexto->tabla_segmentos)>0){
+            t_segmento* seg = list_remove(proceso->contexto->tabla_segmentos,0);
+            free(seg);
+        }
     }
-    pthread_mutex_unlock(&memoria_mutex);
 
     list_destroy(proceso->contexto->tabla_segmentos);
     free(proceso->contexto);
     free(proceso->path_pseudocodigo);
     free(proceso);
 
-    log_info(loggerMemory, "## PID: %d - Proceso Finalizado", pid);
+    log_info(loggerMemory, "PID: %d - Proceso Finalizado", pid);
 }

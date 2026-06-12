@@ -41,7 +41,7 @@ void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick){
     }
     pthread_mutex_unlock(&mutex_sockets_cpu_notif);
     eliminar_paquete(avisoStick);
-    log_info(loggerMemory, "## Notificado a %d CPU(s): AVISO_NUEVO_STICK", cantCpus);
+    log_info(loggerMemory, "Notificado a %d CPU(s): AVISO_NUEVO_STICK", cantCpus);
 
     //registrar con epoll para detectar Ctrl+C
     struct epoll_event ev;
@@ -49,13 +49,14 @@ void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick){
     ev.data.fd = socket;
     epoll_ctl(epoll_fd_sticks, EPOLL_CTL_ADD, socket, &ev);
 
-    //otificar al scheduler que hay nueva memoria disponible, incluyendo el total libre actual
+    t_hueco* huecoMasGrande = encontrar_hueco_worst_fit(1);
+    uint32_t libre = huecoMasGrande ? huecoMasGrande->limite : 0;
     t_buffer* bufAviso = buffer_create(0);
-    buffer_add_uint32(bufAviso, memoria_libre_size);
+    buffer_add_uint32(bufAviso, libre);
     t_paquete* aviso = crear_paquete(NUEVA_MEMORIA_DISPONIBLE, bufAviso);
     enviar_paquete(socketSchedulerNotif, aviso);
     eliminar_paquete(aviso);
-    log_info(loggerMemory, "## Notificado al Scheduler: NUEVA_MEMORIA_DISPONIBLE (%d bytes libres)", memoria_libre_size);
+    log_info(loggerMemory, "Notificado al Scheduler: NUEVA_MEMORIA_DISPONIBLE (hueco mas grande: %d bytes)", libre);
 }
 
 t_memory_stick_info* encontrar_stick_por_dir_fisica(uint32_t dir_fisica){
