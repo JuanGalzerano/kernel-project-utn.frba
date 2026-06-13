@@ -1,3 +1,7 @@
-MUTEX_LOCK "semaforo"
-MUTEX_UNLOCK "semaforo"
+NOOP
+NOOP
+SET AX 3
+NOOP
+NOOP
+JNZ AX 4
 EXIT

@@ -603,6 +603,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pidBsod = buffer_read_uint32(paquete->buffer);
                 log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
                 break;
+            case COMPACTACION:
+                uint32_t pidCompactado = buffer_read_uint32(paquete->buffer);
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu* cpuCompactada = encontrar_cpu_con_pid(pidFault);
+                t_pcb* pcbCompactado = cpuCompactada->pcb;
+                cpuCompactada->pcb=NULL;
+                list_remove_element(exec_lista, pcbCompactado);
+                pthread_mutex_unlock(&exec_mutex);
+
+                enlistar_primero_ready(pcbCompactado);
+
+                break;
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);
                 break;

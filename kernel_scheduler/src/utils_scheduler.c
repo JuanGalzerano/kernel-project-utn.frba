@@ -390,6 +390,8 @@ void* hilo_escuchar_memory(void* arg){
 
                 break;
             }
+            case COMPACTACION:
+                desalojar_por_compactacion();
             default:
                 log_warning(loggerScheduler, "Opcode desconocido en hilo de exucha a memory: %d", paquete->codigo_operacion);
                 eliminar_paquete(paquete);
@@ -633,9 +635,7 @@ void* hilo_timer_bloqueado(void* arg){
 
     usleep(suspensionTimeout*1000);
 
-    pthread_mutex_lock(&block_mutex);
     t_pcb* pcb = buscar_y_sacar_de_block(pid);
-    pthread_mutex_unlock(&block_mutex);
 
     if(pcb==NULL){
         return NULL;
@@ -662,11 +662,7 @@ void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
     eliminar_paquete(resp);
     proc->pcb = pcb;
     
-    if(cantMemAlloc==0){
-        pthread_mutex_lock(&mutex_susp_ready);
-        list_add(susp_ready, proc);
-        pthread_mutex_unlock(&mutex_susp_ready);
-    }{//aca no llamo a pasar_des_susp_block_a_ready xq asi me ahorro el buscar en la lista de susp block
+    if(cantMemAlloc>0){//aca no llamo a pasar_des_susp_block_a_ready xq asi me ahorro el buscar en la lista de susp block
         log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado SUSP READY", pcb->pid);
         pthread_mutex_lock(&mutex_susp_ready);
         list_add_sorted(susp_ready,proc, es_mas_prioritario);
@@ -737,4 +733,32 @@ bool se_puede_desuspender(t_proc_suspendido* proc/*, paramtro a definir*/){
 }
 void desuspender_proceso(t_proc_suspendido* proc/*, paramtro a definir*/){
 
+}
+
+void desalojar_por_compactacion(){
+
+    pthread_mutex_lock(&exec_mutex);
+    for(int i=0;i>list_size(exec_lista);i++){
+        t_cpu* cpu = list_get(exec_lista, i);
+        t_buffer* buffer=buffer_create(0);
+        buffer_add_uint32(buffer, cpu->pcb->pid);
+        t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
+        enviar_paquete(cpu->socketConexion, paquete);//armar case pq me devuelven el pid
+        eliminar_paquete(paquete);
+    }
+    pthread_mutex_unlock(&exec_mutex);
+
+    //,eter en principio de ready los desalojados
+}
+
+void enlistar_primero_ready(t_pcb* pcb){
+    if(algoritmo != CMN){
+        pthread_mutex_lock(&ready_mutex);
+        list_add_in_index(ready_cola->elements,0,pcb);
+        pthread_mutex_unlock(&ready_mutex);
+    }else{
+        pthread_mutex_lock(&mutex_cola_multinivel);
+        list_add_in_index(cola_multinivel[0]->elements,0,pcb);
+        pthread_mutex_unlock(&mutex_cola_multinivel);
+    }
 }

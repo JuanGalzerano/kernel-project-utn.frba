@@ -83,4 +83,8 @@ bool se_puede_desuspender(t_proc_suspendido* proc/*, paramtro a definir*/);
 
 void desuspender_proceso(t_proc_suspendido* proc/*, paramtro a definir*/);
 
+void desalojar_por_compactacion();
+
+void enlistar_primero_ready(t_pcb* pcb);
+
 #endif
