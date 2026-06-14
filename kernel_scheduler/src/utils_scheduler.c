@@ -360,7 +360,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         pthread_mutex_unlock(&mutex_socket_memory);
 
         //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI
-        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,instanciaDeSolicitud);
+        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,RESOLICITAR_SEGMENTO);
         if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul.xq sino es un bucle de solicitar_segmento_memory
         return reintentar;
     }
