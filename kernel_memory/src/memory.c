@@ -1,5 +1,6 @@
 #include "memory.h"
-#include <sys/epoll.h>
+#include <sys/epoll.h>//para captar desconexiones de sticks y mandar mem corrupta
+#include <signal.h>//para ignorar socket cerrado de cpu al mandarle un nuevo stick
 
 
 int main(int argc, char* argv[]) {
@@ -8,6 +9,10 @@ int main(int argc, char* argv[]) {
         printf("Falta path de configuracion");
         return EXIT_FAILURE;
     }
+
+    //esta es una biblioteca que es especialmente para que ignore si le mando a un socket cerrado un mensaje. 
+    //El unico caso donde pasa esto es como le aviso de un stick al cpu, entonces me ahorro que termine el proceso 
+    signal(SIGPIPE, SIG_IGN);//dice signal haciendo referencia a la señal del so, no a sem wait/signal
 
     inicializar_log_y_config(argv[1]);
 
