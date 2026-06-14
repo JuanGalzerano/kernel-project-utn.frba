@@ -518,7 +518,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
                 pthread_mutex_unlock(&exec_mutex);
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
-                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc);//aca dentro se gestiona las posibles compactaciones y reintentos
+                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc,SOLICITAR_SEGMENTO);//aca dentro se gestiona las posibles compactaciones y reintentos
+
 
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
@@ -605,14 +606,16 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case COMPACTACION:
                 uint32_t pidCompactado = buffer_read_uint32(paquete->buffer);
+                log_info(loggerScheduler,"## (%d) - Desalojado por compactacion", pidCompactado); //la verdad nose si ira este log xq no esta entre los obligatorios, pero a mi me parece necesario
                 pthread_mutex_lock(&exec_mutex);
-                t_cpu* cpuCompactada = encontrar_cpu_con_pid(pidFault);
+                t_cpu* cpuCompactada = encontrar_cpu_con_pid(pidCompactado);
                 t_pcb* pcbCompactado = cpuCompactada->pcb;
                 cpuCompactada->pcb=NULL;
                 list_remove_element(exec_lista, pcbCompactado);
                 pthread_mutex_unlock(&exec_mutex);
 
                 enlistar_primero_ready(pcbCompactado);
+                log_info(loggerScheduler,"## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
 
                 break;
             default:

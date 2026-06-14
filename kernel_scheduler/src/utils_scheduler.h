@@ -41,7 +41,7 @@ void liberar_mutex_y_semaforos();
 
 t_mutex_syscall* buscar_mutex(char* nombreMutex);
 
-op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc);
+op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instaciaDeSolicitud);
 
 void* hilo_escuchar_memory(void* arg);
 
@@ -79,9 +79,11 @@ t_proc_suspendido* buscar_en_susp_block(uint32_t pid);
 
 void recorrer_y_desuspender(/*paramtro a definir*/);
 
-bool se_puede_desuspender(t_proc_suspendido* proc/*, paramtro a definir*/);
+bool se_puede_desuspender(t_proc_suspendido* proc,t_list* listaDesuspendibles);
 
-void desuspender_proceso(t_proc_suspendido* proc/*, paramtro a definir*/);
+void desuspender_proceso(t_proc_suspendido* proc);
+
+bool perteneceALalista(t_proc_suspendido* proc, t_list* lista);
 
 void desalojar_por_compactacion();
 

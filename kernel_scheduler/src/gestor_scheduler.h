@@ -41,7 +41,6 @@ typedef struct{
 
 typedef struct{
     t_pcb* pcb;
-    uint32_t bytesSsupendidos;
     uint32_t cantMemAlloc;
 }t_proc_suspendido;
 

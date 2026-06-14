@@ -335,9 +335,9 @@ t_mutex_syscall* buscar_mutex(char* nombreMutex){
 }
 
 
-op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
+op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDeSolicitud){//instancia de solicitud seria SOLICITAR_SEGMENTO o RESOLICITAR_SEGMENTO
     t_buffer* buffer = serializar_mem_alloc(infoMemAlloc);
-    t_paquete* paquete = crear_paquete(SOLICITAR_SEGMENTO, buffer);
+    t_paquete* paquete = crear_paquete(instanciaDeSolicitud, buffer);
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
     eliminar_paquete(paquete);
@@ -349,15 +349,18 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc){
     if(codigo == COMPACTACION){
         //Hay memoria pero no continua => pedir compactacion y esperar que termine
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
+        log_info(loggerScheduler,"## Inicio de compactación");
+        desalojar_por_compactacion();
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
-        t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);
+        t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
+        log_info(loggerScheduler,"## fin de compactación");
         eliminar_paquete(compactacionHecha);
         pthread_mutex_unlock(&mutex_socket_memory);
 
         //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI
-        op_code reintentar = solicitar_segmento_memory(infoMemAlloc);
+        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,instanciaDeSolicitud);
         if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul.xq sino es un bucle de solicitar_segmento_memory
         return reintentar;
     }
@@ -383,15 +386,21 @@ void* hilo_escuchar_memory(void* arg){
                 manejar_bsod();
                 return NULL;
             case NUEVA_MEMORIA_DISPONIBLE: {
-                uint32_t tamanioMaximo = buffer_read_uint32(paquete->buffer);
-                eliminar_paquete(paquete);
-                log_info(loggerScheduler, "Memoria disponible: %d bytes libres en memory", tamanioMaximo);//desp borrar este log
-                recorrer_y_desuspender(/*paramtro a definir*/);
+                uint32_t cantPidsDesuspendibles = buffer_read_uint32(paquete->buffer);
+                t_list* pidsDesuspendibles = list_create();
 
+                for(int i =0; i<cantPidsDesuspendibles;i++){
+                    uint32_t* pidAux = malloc(sizeof(uint32_t)); 
+                    *pidAux = buffer_read_uint32(paquete->buffer);
+                    list_add(pidsDesuspendibles,pidAux);
+                }
+                
+                recorrer_y_desuspender(pidsDesuspendibles);
+                list_destroy(pidsDesuspendibles);//es una lista de un solo uso
+                eliminar_paquete(paquete);
                 break;
             }
-            case COMPACTACION:
-                desalojar_por_compactacion();
+            
             default:
                 log_warning(loggerScheduler, "Opcode desconocido en hilo de exucha a memory: %d", paquete->codigo_operacion);
                 eliminar_paquete(paquete);
@@ -452,27 +461,29 @@ void manejar_bsod(){
     }
     pthread_mutex_unlock(&block_mutex);
 
-/*DESCOMENTAR CUANDO HAGA PLANI A MEDIO PLAZO
 
-    pthread_mutex_lock(&susp_block_mutex);
+
+    pthread_mutex_lock(&mutex_susp_block);
     while(!list_is_empty(susp_block)){
-        t_pcb* pcb = list_remove(susp_block, 0);
-        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado EXIT", pcb->pid);
-        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
-        free(pcb);
+        t_proc_suspendido* proc = list_remove(susp_block, 0);
+        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado EXIT", proc->pcb->pid);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", proc->pcb->pid);
+        free(proc->pcb);
+        free(proc);
     }
-    pthread_mutex_unlock(&susp_block_mutex);
+    pthread_mutex_unlock(&mutex_susp_block);
 
 
-    pthread_mutex_lock(&susp_ready_mutex);
+    pthread_mutex_lock(&mutex_susp_ready);
     while(!list_is_empty(susp_ready)){
-        t_pcb* pcb = list_remove(susp_ready, 0);
-        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP READY al estado EXIT", pcb->pid);
-        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", pcb->pid);
-        free(pcb);
+        t_proc_suspendido* proceso = list_remove(susp_ready, 0);
+        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP READY al estado EXIT", proceso->pcb->pid);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", proceso->pcb->pid);
+        free(proceso->pcb);
+        free(proceso);
     }
-    pthread_mutex_unlock(&susp_ready_mutex);
-*/
+    pthread_mutex_unlock(&mutex_susp_ready);
+
     log_info(loggerScheduler, "## Kernel Scheduler finalizado por BSOD");
     abort();
 }
@@ -606,7 +617,27 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady){
         }
     }
     pthread_mutex_unlock(&block_mutex);
-    //HACER CASOS DE BUSCAR ENTRE LOS SUSPENDIDOS
+    
+    pthread_mutex_lock(&mutex_susp_block);
+    for(int i =0;i<list_size(susp_block);i++){
+        t_proc_suspendido* proc = list_get(susp_block,i);
+        if(proc!=NULL && proc->pcb->pid==pid){
+            pthread_mutex_unlock(&mutex_susp_block);
+            return proc->pcb;
+        }
+    }
+    pthread_mutex_unlock(&mutex_susp_block);
+
+    pthread_mutex_lock(&mutex_susp_ready);
+    for(int i =0;i<list_size(susp_ready);i++){
+        t_proc_suspendido* proceso = list_get(susp_ready,i);
+        if(proceso!=NULL && proceso->pcb->pid==pid){
+            pthread_mutex_unlock(&mutex_susp_ready);
+            return proceso->pcb;
+        }
+    }
+    pthread_mutex_unlock(&mutex_susp_ready);
+
     return NULL;
 }
 
@@ -657,7 +688,9 @@ void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
     eliminar_paquete(paquete);
     t_proc_suspendido* proc = malloc(sizeof(t_proc_suspendido));//acordarme de liberar cuando saco de susp
     t_paquete* resp = recibir_paquete(socketConexionMemory);
-    proc->bytesSsupendidos = buffer_read_uint32(resp->buffer);
+    if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
+        /*VER QUE CARAJO DEBERIA HACER ACA*/
+    }
     proc->cantMemAlloc = cantMemAlloc;
     eliminar_paquete(resp);
     proc->pcb = pcb;
@@ -668,12 +701,9 @@ void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
         list_add_sorted(susp_ready,proc, es_mas_prioritario);
         pthread_mutex_unlock(&mutex_susp_ready);
     }
-    //ver lo de que se libero memoria => podria entrar otro proceso ESO LO VEO EN EL HILO DE ESCUCHAR MEMORY
-
-    /*para lo de que hay 2 de igual prioridad suspendidos y necesito desempatar por el q esta hace mas tiempo, 
-    lo que voy a hacer es usar el orden en el qe estan en la lista para desempatar, pq creo q se insertan por orden con list add*/
-    //IGUAL ESO LO VOY A VER EN EL HILO DE ESCUCHA A MEMORY
 }
+
+
 void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp ready. no a ready pasa que sino quedaba full tosco el nombre
 //no uso buscar_pcb_por_pid xq ya se que esta en susp block, ahorrandome las iteraciones en otras listas
     pthread_mutex_lock(&mutex_susp_block);
@@ -715,25 +745,59 @@ t_proc_suspendido* buscar_en_susp_block(uint32_t pid){//ver si en la func de pas
     return proceso;
 }
 
-void recorrer_y_desuspender(/*paramtro a definir*/){
+void recorrer_y_desuspender(t_list* pidsDesuspendibles){
 
     pthread_mutex_lock(&mutex_susp_ready);
     for(int i=0;i<list_size(susp_ready);i++){
         t_proc_suspendido* proc = list_get(susp_ready,i);
-        if(se_puede_desuspender(proc/*, paramtro a definir*/)){
-            desuspender_proceso(proc/*,paramtro a definir*/);//liberar proc pero no pcb
-            //break;
+        if(se_puede_desuspender(proc,pidsDesuspendibles)){ 
+            desuspender_proceso(proc);//liberar proc pero no pcb
+            break;
         }
     }
     pthread_mutex_unlock(&mutex_susp_ready);
 }
 
-bool se_puede_desuspender(t_proc_suspendido* proc/*, paramtro a definir*/){
-    return true;
-}
-void desuspender_proceso(t_proc_suspendido* proc/*, paramtro a definir*/){
+bool se_puede_desuspender(t_proc_suspendido* proc, t_list* pidsDesuspendibles){
+    bool sePuedeDesuspender = false;
+    pthread_mutex_lock(&mutex_susp_ready);
+    for(int i =0;i<list_size(susp_ready);i++){
+        t_proc_suspendido* proc= list_get(susp_ready,i);
+        if(perteneceALalista(proc, pidsDesuspendibles)){
+            sePuedeDesuspender=true;
+            break;
+        }
+    }
 
+    pthread_mutex_unlock(&mutex_susp_ready);
+    return sePuedeDesuspender;
 }
+void desuspender_proceso(t_proc_suspendido* proc){
+    pthread_mutex_lock(&mutex_susp_ready);
+    list_remove_element(susp_ready,proc);
+    t_pcb* pcb = proc->pcb;
+    free(proc);
+    encolar_pcb_ready(pcb);
+    log_info(loggerScheduler,"## (%d) Pasa del estado SUSP READY al estado READY",pcb->pid);
+    pthread_mutex_unlock(&mutex_susp_ready);
+    
+}
+
+bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
+    bool pertenece = false;
+    for(int i =0;i<list_size(lista);i++){
+        uint32_t* pid= list_get(lista,i);
+        if(proc->pcb->pid == *pid){
+            pertenece=true;
+            break;
+        }
+    }
+    return pertenece;
+}
+
+
+
+
 
 void desalojar_por_compactacion(){
 
