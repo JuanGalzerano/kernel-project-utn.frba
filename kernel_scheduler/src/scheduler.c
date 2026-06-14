@@ -10,7 +10,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
         log_error(loggerScheduler, "no se pudo conectar a Kernel Memory");
         abort();
     }
-    log_info(loggerScheduler, "Conectado a Kernel Memory");
+    log_info(loggerScheduler, "## Conectado a Kernel Memory");
     handshake_cliente_id(socketConexionMemory, loggerScheduler, SCHEDULER);
 
     socketMemoryNotif = iniciar_conexion(IPMemory, puertoMemoryNotif);

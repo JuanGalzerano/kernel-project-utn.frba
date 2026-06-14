@@ -387,6 +387,9 @@ void* hilo_escuchar_memory(void* arg){
                 return NULL;
             case NUEVA_MEMORIA_DISPONIBLE: {
                 uint32_t cantPidsDesuspendibles = buffer_read_uint32(paquete->buffer);
+
+                if(cantPidsDesuspendibles==0) break;
+
                 t_list* pidsDesuspendibles = list_create();
 
                 for(int i =0; i<cantPidsDesuspendibles;i++){
