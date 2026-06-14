@@ -62,7 +62,9 @@ op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos){
 
     if(n_segs == 0){
         log_info(loggerMemory, "PID %d suspendido (sin segmentos)", pid);
+        pthread_mutex_lock(&procesos_mutex);
         proc->en_swap = true;
+        pthread_mutex_unlock(&procesos_mutex);
         return SUSPEND_OK;
     }
 
@@ -126,7 +128,9 @@ op_code suspender_proceso(uint32_t pid, uint32_t* bytes_suspendidos){
     }
 
     free(segs);
+    pthread_mutex_lock(&procesos_mutex);
     proc->en_swap = true;
+    pthread_mutex_unlock(&procesos_mutex);
     log_info(loggerMemory, "PID %d suspendido", pid);
     return SUSPEND_OK;
 }
@@ -141,7 +145,9 @@ op_code desuspender_proceso(uint32_t pid) {
         pthread_mutex_unlock(&swap_mutex);
         t_proceso_memory* proc0 = buscar_proceso(pid);
         if(proc0){
+            pthread_mutex_lock(&procesos_mutex);
             proc0->en_swap = false;
+            pthread_mutex_unlock(&procesos_mutex);
         }
         log_info(loggerMemory, "PID %d no tiene segmentos en swap", pid);
         return DESUSPEND_OK;
@@ -194,7 +200,11 @@ op_code desuspender_proceso(uint32_t pid) {
     }
 
     free(info);
-    if(proc) proc->en_swap = false;
+    if(proc){
+        pthread_mutex_lock(&procesos_mutex);
+        proc->en_swap = false;
+        pthread_mutex_unlock(&procesos_mutex);
+    }
     log_info(loggerMemory, "PID %d desuspendido", pid);
     return DESUSPEND_OK;
 }
