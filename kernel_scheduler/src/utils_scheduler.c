@@ -735,7 +735,9 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
     if(proceso->bytesSuspendidos ==0){
         desuspender_proceso(proceso);
     }else{
-        /*pedirle a juani que me pase lo de NUEVA_MEMORIA_DISPONIBLE*/
+        t_paquete* paqSolicitud = crear_paquete(SOLICITAR_PROCS_DESUSPENDIBLES, NULL);
+        enviar_paquete(socketConexionMemory, paqSolicitud);
+        eliminar_paquete(paqSolicitud);
     }
 
     
