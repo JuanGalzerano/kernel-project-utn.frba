@@ -154,6 +154,7 @@ typedef enum {
     SEG_FAULT = 55,
     AVISO_NUEVO_STICK = 56,
     RESOLICITAR_SEGMENTO = 57,
+    SOLICITAR_PROCS_DESUSPENDIBLES = 58,
 } op_code;
  
 typedef struct {

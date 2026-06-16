@@ -287,8 +287,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     sem_post(&sem_hay_proceso_ready);
                     despertar_planificador();
                 }else{
-                    t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
-                    //imposible qe sa NULL si se lelgo hasta aca
+                    //t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
+                    //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULL
                     log_info(loggerScheduler,"## (%d) finalizó IO y pasa a SUSP READY",pidFinalizado);
                     pasar_des_susp_block_a_ready(pidFinalizado);
                     sem_post(&sem_stdout_disponible);   

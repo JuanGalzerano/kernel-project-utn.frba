@@ -399,7 +399,7 @@ void* hilo_escuchar_memory(void* arg){
                 }
                 
                 recorrer_y_desuspender(pidsDesuspendibles);
-                list_destroy(pidsDesuspendibles);//AGREGAR EL DESTROY ELEMENTS es una lista de un solo uso
+                list_destroy_and_destroy_elements(pidsDesuspendibles, destruir_uint32_t);//es una lista de un solo uso
                 eliminar_paquete(paquete);
                 break;
             }
@@ -735,7 +735,9 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
     if(proceso->bytesSuspendidos ==0){
         desuspender_proceso(proceso);
     }else{
-        /*pedirle a juani que me pase lo de NUEVA_MEMORIA_DISPONIBLE*/
+        t_paquete* paqSolicitud = crear_paquete(SOLICITAR_PROCS_DESUSPENDIBLES, NULL);
+        enviar_paquete(socketConexionMemory, paqSolicitud);
+        eliminar_paquete(paqSolicitud);
     }
 
     
@@ -853,4 +855,9 @@ void enlistar_primero_ready(t_pcb* pcb){
         list_add_in_index(cola_multinivel[0]->elements,0,pcb);
         pthread_mutex_unlock(&mutex_cola_multinivel);
     }
+}
+
+void destruir_uint32_t(void* nro){
+    uint32_t* numero = (uint32_t*) nro;
+    free(numero);
 }
