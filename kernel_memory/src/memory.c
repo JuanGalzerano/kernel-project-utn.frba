@@ -105,8 +105,17 @@ int main(int argc, char* argv[]) {
                 char* cpuId = malloc(sizeCpuId);
                 recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
                 log_info(loggerMemory, "## CPU %s Conectada", cpuId);
-                free(cpuId);
+
                 send(socket, &segment_max_size, sizeof(uint32_t), 0);
+
+                t_cpu_conexiones* entrada = malloc(sizeof(t_cpu_conexiones));
+                entrada->cpu_id = cpuId;
+                entrada->socket_main = socket;
+                entrada->socket_notif = -1;
+                pthread_mutex_lock(&mutex_sockets_cpu_notif);
+                list_add(lista_sockets_cpu_notif,entrada);
+                pthread_mutex_unlock(&mutex_sockets_cpu_notif);                
+
                 int* arg = malloc(sizeof(int));
                 *arg = socket;
                 pthread_t hilo;
@@ -432,6 +441,18 @@ void* atender_cpu(void* arg){
         }
     }
 
+    pthread_mutex_lock(&mutex_sockets_cpu_notif);
+    for (int i = 0; i < list_size(lista_sockets_cpu_notif); i++) {
+        t_cpu_conexiones* cpuDesconectado = list_get(lista_sockets_cpu_notif, i);
+        if (cpuDesconectado->socket_main == socket) {
+            if (cpuDesconectado->socket_notif != -1) close(cpuDesconectado->socket_notif);
+            free(cpuDesconectado->cpu_id);
+            list_remove_and_destroy_element(lista_sockets_cpu_notif, i, free);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_sockets_cpu_notif);
+
     log_warning(loggerMemory, "CPU desconectado");
     return NULL;
 }
@@ -445,16 +466,20 @@ void* hilo_notificaciones_cpu(void* arg){
         char* cpuId = malloc(sizeCpuId);
         recv(socket, cpuId, sizeCpuId, MSG_WAITALL);
         log_info(loggerMemory, "CPU %s Conectada a Kernel Memory Notificaciones", cpuId);
+
+
+        pthread_mutex_lock(&mutex_sockets_cpu_notif);
+        for(int i =0; i<list_size(lista_sockets_cpu_notif);i++){
+            t_cpu_conexiones* cpu = list_get(lista_sockets_cpu_notif, i);
+            if(strcmp(cpu->cpu_id, cpuId) ==0){
+                cpu->socket_notif = socket;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&mutex_sockets_cpu_notif);
         free(cpuId);
 
-        // Guardo el socket de notificaciones de esta CPU para poder avisarle de nuevos sticks
-        int* socketGuardado = malloc(sizeof(int));
-        *socketGuardado = socket;
-        pthread_mutex_lock(&mutex_sockets_cpu_notif);
-        list_add(lista_sockets_cpu_notif, socketGuardado);
-        pthread_mutex_unlock(&mutex_sockets_cpu_notif);
-
-        // Mando la lista actual de sticks para que la CPU no se pierda los que ya estaban conectados
+        //Mando la lista actual de sticks para que la CPU no se pierda los que ya estaban conectados
         pthread_mutex_lock(&memoria_mutex);
         t_buffer* bufSticks = serializar_aviso_nuevo_stick(lista_memory_sticks);
         pthread_mutex_unlock(&memoria_mutex);

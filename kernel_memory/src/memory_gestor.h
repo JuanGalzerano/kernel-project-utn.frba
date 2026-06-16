@@ -41,7 +41,13 @@ extern uint32_t compaction_delay;
 
 extern t_list* lista_procesos;       //ista de t_proceso_memory*
 extern t_list* lista_memory_sticks;  // lista de t_memory_stick_info*
-extern t_list* lista_sockets_cpu_notif; // sockets del canal de notificaciones de cada CPU conectada
+typedef struct {
+    char* cpu_id;
+    int socket_main;
+    int socket_notif; //-1,hasta q coencte
+} t_cpu_conexiones;
+
+extern t_list* lista_sockets_cpu_notif;//lista de t_cpu_conexiones*
 extern t_list* lista_huecos;         // lista de t_hueco* ordenada por base física
 extern uint32_t  memoria_total_size;   // suma de tamaños de todos los sticks conectados
 extern uint32_t  memoria_libre_size;   // suma de bytes libres en todos los huecos (se mantiene actualizada)
