@@ -356,6 +356,9 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
         log_info(loggerScheduler,"## fin de compactación");
+
+/*ACA TENDRIA QUE NOTIFICAR PARA QUE VUELVAN A EJECUTAR TODAS LA CPUS Y LOS PROCESOS*/
+
         eliminar_paquete(compactacionHecha);
         pthread_mutex_unlock(&mutex_socket_memory);
 
@@ -733,7 +736,9 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
 
     //CREO QUE ACA DEBERIA VERIFICAR SI LA MEMORIA QUE TIENE ES 0, DESUSPENDERLO.
     if(proceso->bytesSuspendidos ==0){
+        pthread_mutex_lock(&mutex_susp_ready);
         desuspender_proceso(proceso);
+        pthread_mutex_unlock(&mutex_susp_ready);
     }else{
         t_paquete* paqSolicitud = crear_paquete(SOLICITAR_PROCS_DESUSPENDIBLES, NULL);
         enviar_paquete(socketConexionMemory, paqSolicitud);
@@ -767,11 +772,10 @@ t_proc_suspendido* buscar_en_susp_block(uint32_t pid){//ver si en la func de pas
 }
 
 void recorrer_y_desuspender(t_list* pidsDesuspendibles){
-
     pthread_mutex_lock(&mutex_susp_ready);
     for(int i=0;i<list_size(susp_ready);i++){
         t_proc_suspendido* proc = list_get(susp_ready,i);
-        if(se_puede_desuspender(proc,pidsDesuspendibles)){ 
+        if(perteneceALalista(proc, pidsDesuspendibles)){ 
             desuspender_proceso(proc);//liberar proc pero no pcb
             break;
         }
@@ -779,21 +783,8 @@ void recorrer_y_desuspender(t_list* pidsDesuspendibles){
     pthread_mutex_unlock(&mutex_susp_ready);
 }
 
-bool se_puede_desuspender(t_proc_suspendido* proc, t_list* pidsDesuspendibles){
-    bool sePuedeDesuspender = false;
-    for(int i =0;i<list_size(susp_ready);i++){
-        t_proc_suspendido* proc= list_get(susp_ready,i);
-        if(perteneceALalista(proc, pidsDesuspendibles)){
-            sePuedeDesuspender=true;
-            break;
-        }
-    }
-    return sePuedeDesuspender;
-}
 void desuspender_proceso(t_proc_suspendido* proc){
-    //pthread_mutex_lock(&mutex_susp_ready); por ahora comentados xq hacian deadlockk con se_puede_desuspender()
     list_remove_element(susp_ready,proc);
-    //pthread_mutex_unlock(&mutex_susp_ready);
     t_pcb* pcb = proc->pcb;
     free(proc);
     t_buffer* buffer = buffer_create(0);
@@ -824,6 +815,9 @@ bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
     }
     return pertenece;
 }
+
+
+
 
 
 

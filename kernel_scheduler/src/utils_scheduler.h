@@ -77,8 +77,6 @@ t_proc_suspendido* buscar_en_susp_block(uint32_t pid);
 
 void recorrer_y_desuspender(t_list* pidsDesuspendibles);
 
-bool se_puede_desuspender(t_proc_suspendido* proc,t_list* listaDesuspendibles);
-
 void desuspender_proceso(t_proc_suspendido* proc);
 
 bool perteneceALalista(t_proc_suspendido* proc, t_list* lista);

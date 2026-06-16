@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
         int32_t id = handshake_servidor_id(socket, 0);
 
         switch (id){
-            case CPU: {
+            case CPU:{
                 int sizeCpuId;
                 recv(socket, &sizeCpuId, sizeof(int), MSG_WAITALL);
                 char* cpuId = malloc(sizeCpuId);
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
                 pthread_detach(hilo);
                 break;
             }
-            case MEMORY_STICK: {
+            case MEMORY_STICK:{
                 uint32_t stick_size = 0;
                 recv(socket, &stick_size, sizeof(uint32_t), MSG_WAITALL);
                 agregar_memory_stick(socket, stick_size, puertoMemoryStick);
@@ -220,7 +220,7 @@ void* atender_scheduler(void* arg){
     t_paquete* paquete;
     while ((paquete = recibir_paquete(socket)) != NULL) {
         switch ((op_code)paquete->codigo_operacion) {
-            case PATH_PROCESO: {
+            case PATH_PROCESO:{
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 uint32_t sizePath = buffer_read_uint32(paquete->buffer);
                 char*    path = buffer_read_string(paquete->buffer, sizePath);
@@ -231,14 +231,14 @@ void* atender_scheduler(void* arg){
                 send(socket, &ok, sizeof(int), 0);
                 break;
             }
-            case FIN_PROCESO: {
+            case FIN_PROCESO:{
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
                 finalizar_proceso(pid);
                 notificar_desuspendibles();
                 break;
             }
-            case ESCRIBIR_BYTES: {
+            case ESCRIBIR_BYTES:{
                 t_stdin_stdout* req = deserializar_stdin(paquete->buffer);
                 eliminar_paquete(paquete);
 
@@ -280,7 +280,7 @@ void* atender_scheduler(void* arg){
                 eliminar_paquete(paqueteResp);
                 break;
             }
-            case LEER_BYTES: {
+            case LEER_BYTES:{
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 uint32_t dir_logica = buffer_read_uint32(paquete->buffer);
                 uint32_t bytes = buffer_read_uint32(paquete->buffer);
@@ -328,7 +328,7 @@ void* atender_scheduler(void* arg){
                 free(datos);
                 break;
             }
-            case SOLICITAR_SEGMENTO: {
+            case SOLICITAR_SEGMENTO:{
                 t_mem_alloc* req = deserializar_mem_alloc(paquete->buffer);
                 eliminar_paquete(paquete);
                 op_code resultado = crear_segmento(req->pid, req->segmentoId, req->tamanio);
@@ -338,7 +338,7 @@ void* atender_scheduler(void* arg){
                 eliminar_paquete(resp);
                 break;
             }
-            case RESOLICITAR_SEGMENTO: {
+            case RESOLICITAR_SEGMENTO:{
                 t_mem_alloc* req = deserializar_mem_alloc(paquete->buffer);
                 eliminar_paquete(paquete);
                 op_code resultado = crear_segmento(req->pid, req->segmentoId, req->tamanio);
@@ -349,7 +349,7 @@ void* atender_scheduler(void* arg){
                 if (resultado == MEMORIA_DISPONIBLE)notificar_desuspendibles();
                 break;
             }
-            case MEM_FREE: {
+            case MEM_FREE:{
                 t_mem_free* infoFree = deserializar_mem_free(paquete->buffer);
                 eliminar_paquete(paquete);
                 eliminar_segmento(infoFree->pid, infoFree->segmentoId);
@@ -357,7 +357,7 @@ void* atender_scheduler(void* arg){
                 notificar_desuspendibles();
                 break;
             }
-            case PROCESOS_DESALOJADOS: {
+            case PROCESOS_DESALOJADOS:{
                 eliminar_paquete(paquete);
                 usleep(compaction_delay * 1000);
                 compactar();
@@ -366,7 +366,7 @@ void* atender_scheduler(void* arg){
                 eliminar_paquete(resp);
                 break;
             }
-            case SUSPENDER_PROCESO: {
+            case SUSPENDER_PROCESO:{
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
                 uint32_t bytes_suspendidos = 0;
@@ -379,13 +379,18 @@ void* atender_scheduler(void* arg){
                 eliminar_paquete(resp);
                 break;
             }
-            case DESUSPENDER_PROCESO: {
+            case DESUSPENDER_PROCESO:{
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
                 eliminar_paquete(paquete);
                 op_code resultado = desuspender_proceso(pid);
                 t_paquete* resp = crear_paquete(resultado, NULL);//desp tendria q poner el caso donde no se pudo guiardar en swap, ahi nose que tendria q hacer
                 enviar_paquete(socket, resp);
                 eliminar_paquete(resp);
+                break;
+            }
+            case SOLICITAR_PROCS_DESUSPENDIBLES:{
+                notificar_desuspendibles();
+                eliminar_paquete(paquete);
                 break;
             }
             default:
