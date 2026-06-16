@@ -372,7 +372,9 @@ void* atender_scheduler(void* arg){
                 uint32_t bytes_suspendidos = 0;
                 op_code resultado = suspender_proceso(pid, &bytes_suspendidos);//aca se suspende y se modifica el valor de bytes suspendidos
                 if (resultado == SUSPEND_OK) notificar_desuspendibles();
-                t_paquete* resp = crear_paquete(resultado, NULL);
+                t_buffer* bufResp = buffer_create(0);
+                buffer_add_uint32(bufResp, bytes_suspendidos);
+                t_paquete* resp = crear_paquete(resultado, bufResp);
                 enviar_paquete(socket, resp);
                 eliminar_paquete(resp);
                 break;

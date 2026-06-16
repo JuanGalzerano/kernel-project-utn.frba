@@ -399,7 +399,7 @@ void* hilo_escuchar_memory(void* arg){
                 }
                 
                 recorrer_y_desuspender(pidsDesuspendibles);
-                list_destroy(pidsDesuspendibles);//es una lista de un solo uso
+                list_destroy(pidsDesuspendibles);//AGREGAR EL DESTROY ELEMENTS es una lista de un solo uso
                 eliminar_paquete(paquete);
                 break;
             }
@@ -568,7 +568,7 @@ void liberar_cpu_y_notificar(){
     pthread_mutex_unlock(&mutex_planificador);
 }
 
-
+//ver bien que onda esta xq si esta en ready en CMN, lo saco de la lista pero en todos los casos no, no creo que eso sea correcto
 t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady){
     *estabaEnReady = 0; 
     pthread_mutex_lock(&exec_mutex);
@@ -671,10 +671,9 @@ void* hilo_timer_bloqueado(void* arg){
 
     t_pcb* pcb = buscar_y_sacar_de_block(pid);
 
-    if(pcb==NULL){
-        return NULL;
+    if(pcb!=NULL){
+        suspender_proceso(pcb, cantMemAlloc);
     }
-    suspender_proceso(pcb, cantMemAlloc);
     return NULL;
 }
 
@@ -691,18 +690,24 @@ void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
     eliminar_paquete(paquete);
     t_proc_suspendido* proc = malloc(sizeof(t_proc_suspendido));//acordarme de liberar cuando saco de susp
     t_paquete* resp = recibir_paquete(socketConexionMemory);
+    proc->bytesSuspendidos = buffer_read_uint32(resp->buffer);
     if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
         /*VER QUE CARAJO DEBERIA HACER ACA*/
     }
     proc->cantMemAlloc = cantMemAlloc;
     eliminar_paquete(resp);
     proc->pcb = pcb;
+
     
     if(cantMemAlloc>0){//aca no llamo a pasar_des_susp_block_a_ready xq asi me ahorro el buscar en la lista de susp block
         log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado SUSP READY", pcb->pid);
         pthread_mutex_lock(&mutex_susp_ready);
         list_add_sorted(susp_ready,proc, es_mas_prioritario);
         pthread_mutex_unlock(&mutex_susp_ready);
+    }else{
+        pthread_mutex_lock(&mutex_susp_block);
+        list_add(susp_block, proc);
+        pthread_mutex_unlock(&mutex_susp_block);
     }
 }
 
@@ -726,6 +731,15 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
 
     log_info(loggerScheduler,"## (%d) Pasa del estado SUSP BLOCK al estado SUSP READY", pid);
 
+    //CREO QUE ACA DEBERIA VERIFICAR SI LA MEMORIA QUE TIENE ES 0, DESUSPENDERLO.
+    if(proceso->bytesSuspendidos ==0){
+        desuspender_proceso(proceso);
+    }else{
+        /*pedirle a juani que me pase lo de NUEVA_MEMORIA_DISPONIBLE*/
+    }
+
+    
+
 }
 
 //igual evr si funciona
@@ -735,6 +749,8 @@ bool es_mas_prioritario(void* masPrior, void* menosPrior){//los puse igual que c
     return (procMasPrior->pcb->prioridad < procMenosPrior->pcb->prioridad);//haciendolosolo con mayor, me garantizo que cuando se compare con uno que esta hace mas tiempo en add_sorted, no le robe el puesto
 }
 
+
+//POR AHORA NO LA USO, SI SIGUE ASI, SACARLA
 t_proc_suspendido* buscar_en_susp_block(uint32_t pid){//ver si en la func de pasar a susp ready combiene usarla
     pthread_mutex_lock(&mutex_susp_block);
     t_proc_suspendido* proceso=NULL;
@@ -763,7 +779,6 @@ void recorrer_y_desuspender(t_list* pidsDesuspendibles){
 
 bool se_puede_desuspender(t_proc_suspendido* proc, t_list* pidsDesuspendibles){
     bool sePuedeDesuspender = false;
-    pthread_mutex_lock(&mutex_susp_ready);
     for(int i =0;i<list_size(susp_ready);i++){
         t_proc_suspendido* proc= list_get(susp_ready,i);
         if(perteneceALalista(proc, pidsDesuspendibles)){
@@ -771,19 +786,29 @@ bool se_puede_desuspender(t_proc_suspendido* proc, t_list* pidsDesuspendibles){
             break;
         }
     }
-
-    pthread_mutex_unlock(&mutex_susp_ready);
     return sePuedeDesuspender;
 }
 void desuspender_proceso(t_proc_suspendido* proc){
-    pthread_mutex_lock(&mutex_susp_ready);
+    //pthread_mutex_lock(&mutex_susp_ready); por ahora comentados xq hacian deadlockk con se_puede_desuspender()
     list_remove_element(susp_ready,proc);
+    //pthread_mutex_unlock(&mutex_susp_ready);
     t_pcb* pcb = proc->pcb;
     free(proc);
-    encolar_pcb_ready(pcb);
-    log_info(loggerScheduler,"## (%d) Pasa del estado SUSP READY al estado READY",pcb->pid);
-    pthread_mutex_unlock(&mutex_susp_ready);
-    
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, pcb->pid);
+    t_paquete* paquete = crear_paquete(DESUSPENDER_PROCESO, buffer);
+    pthread_mutex_lock(&mutex_socket_memory);
+    enviar_paquete(socketConexionMemory, paquete);
+    eliminar_paquete(paquete);
+    t_paquete* paq= recibir_paquete(socketConexionMemory);
+    pthread_mutex_unlock(&mutex_socket_memory);
+    if(paq->codigo_operacion == DESUSPEND_OK){
+        eliminar_paquete(paq);
+        encolar_pcb_ready(pcb);
+        sem_post(&sem_hay_proceso_ready);
+        despertar_planificador();
+        log_info(loggerScheduler,"## (%d) Pasa del estado SUSP READY al estado READY",pcb->pid);
+    }
 }
 
 bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){

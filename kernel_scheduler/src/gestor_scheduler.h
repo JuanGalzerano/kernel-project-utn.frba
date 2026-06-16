@@ -42,6 +42,7 @@ typedef struct{
 typedef struct{
     t_pcb* pcb;
     uint32_t cantMemAlloc;
+    uint32_t bytesSuspendidos;
 }t_proc_suspendido;
 
 //hacemos igual q como con hilo quantum

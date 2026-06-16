@@ -63,8 +63,6 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady);
 
 void despertar_planificador();
 
-void despertar_planificador();
-
 void* hilo_timer_bloqueado(void* arg);
 
 void timer_tiempo_bloqueado(t_pcb* pcb, uint32_t cantMemAlloc);
@@ -77,7 +75,7 @@ void pasar_des_susp_block_a_ready(uint32_t pid);
 
 t_proc_suspendido* buscar_en_susp_block(uint32_t pid);
 
-void recorrer_y_desuspender(/*paramtro a definir*/);
+void recorrer_y_desuspender(t_list* pidsDesuspendibles);
 
 bool se_puede_desuspender(t_proc_suspendido* proc,t_list* listaDesuspendibles);
 

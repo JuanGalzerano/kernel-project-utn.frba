@@ -281,17 +281,17 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 
                 if(pcbParaDesbloquear!=NULL){
                     encolar_pcb_ready(pcbParaDesbloquear);
-                    sem_post(&sem_hay_proceso_ready); 
-                }
-                if(buscar_en_susp_block(pidFinalizado)==NULL){
-                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", pidFinalizado);
-                    log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
+                    log_info(loggerScheduler,"## (%d) finalizó IO y pasa a READY", pidFinalizado);
+                    log_info(loggerScheduler,"## (%d) Pasa del estado BLOCK al estado READY", pidFinalizado);
                     sem_post(&sem_stdout_disponible);
-
+                    sem_post(&sem_hay_proceso_ready);
                     despertar_planificador();
                 }else{
-                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidFinalizado);
+                    t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
+                    //imposible qe sa NULL si se lelgo hasta aca
+                    log_info(loggerScheduler,"## (%d) finalizó IO y pasa a SUSP READY",pidFinalizado);
                     pasar_des_susp_block_a_ready(pidFinalizado);
+                    sem_post(&sem_stdout_disponible);   
                 }
 
                 pthread_mutex_lock(&mutex_stdout_ocupado);
@@ -331,7 +331,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     despertar_planificador();
                 }else{
-                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidFinalizado);
+                    log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", resultado->pid);
                     pasar_des_susp_block_a_ready(resultado->pid);
                 }
                 free(resultado->cadenaLeida);
@@ -404,7 +404,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         //el dueño tiene menor prioridad (número mayor = menor prioridad)
                         log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
                         pcbDueño->prioridad = cpuALiberar->pcb->prioridad;
-                        if(estabaEnReady){
+                        if(estabaEnReady){//guarda, aco hago referencia al dueño, no al que solicito la syscall, a ese lo bloqueo abajo
                             encolar_pcb_ready(pcbDueño);
                         }
                     }
@@ -482,6 +482,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                         log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
                         sem_post(&sem_hay_proceso_ready);
+                        despertar_planificador();
                     }else{
                         pasar_des_susp_block_a_ready(siguiente->pid);
                     }
@@ -611,7 +612,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* cpuCompactada = encontrar_cpu_con_pid(pidCompactado);
                 t_pcb* pcbCompactado = cpuCompactada->pcb;
                 cpuCompactada->pcb=NULL;
-                list_remove_element(exec_lista, pcbCompactado);
                 pthread_mutex_unlock(&exec_mutex);
 
                 enlistar_primero_ready(pcbCompactado);

@@ -60,7 +60,7 @@ void insertar_hueco_y_fusionar(t_hueco* nuevo){
 }
 
 t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segmento){
-    for(int i = 0; i < list_size(proceso->contexto->tabla_segmentos); i++) {
+    for(int i = 0; i < list_size(proceso->contexto->tabla_segmentos); i++){
         t_segmento* seg = list_get(proceso->contexto->tabla_segmentos, i);
         if (seg->id_segmento == id_segmento)return seg;
     }
@@ -69,13 +69,13 @@ t_segmento* buscar_segmento_proceso(t_proceso_memory* proceso, uint32_t id_segme
 
 //ELIMINAR Y CREAR SEGMENTO
 
-op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
+op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio){
     t_proceso_memory* proceso = buscar_proceso(pid);
-    if (!proceso) {
+    if (!proceso){
         log_error(loggerMemory, "PID %d no encontrado al crear segmento %d", pid, id_segmento);
         return MEMORIA_NO_DISPONIBLE;
     }
-    if (tamanio > segment_max_size) {
+    if (tamanio > segment_max_size){
         log_error(loggerMemory, "PID %d: segmento %d excede tamanio maximo (%d > %d)", pid, id_segmento, tamanio, segment_max_size);
         return MEMORIA_NO_DISPONIBLE;
     }
@@ -84,7 +84,7 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
 
     t_hueco* hueco = encontrar_hueco(lista_huecos,tamanio);
 
-    if (hueco != NULL) {
+    if (hueco != NULL){
         t_segmento* seg  = malloc(sizeof(t_segmento));
         seg->id_segmento = id_segmento;
         seg->base = hueco->base;
@@ -93,7 +93,7 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
 
         hueco->base   += tamanio;
         hueco->limite -= tamanio;
-        if (hueco->limite == 0) {
+        if (hueco->limite == 0){
             list_remove_element(lista_huecos, hueco);
             free(hueco);
         }
@@ -104,7 +104,7 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
         return MEMORIA_DISPONIBLE;
     }
 
-    if (memoria_libre_size >= tamanio) {
+    if (memoria_libre_size >= tamanio){
         pthread_mutex_unlock(&memoria_mutex);
         log_info(loggerMemory, "PID: %d - Segmento %d - Memoria suficiente pero no contigua, requiere compactacion", pid, id_segmento);
         return COMPACTACION;
@@ -115,14 +115,14 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio) {
     return MEMORIA_NO_DISPONIBLE;
 }
 
-int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
+int eliminar_segmento(uint32_t pid, uint32_t id_segmento){
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) return -1;
 
     pthread_mutex_lock(&memoria_mutex);
 
     t_segmento* seg = buscar_segmento_proceso(proceso, id_segmento);
-    if (!seg) {
+    if (!seg){
         pthread_mutex_unlock(&memoria_mutex);
         return -1;
     }
@@ -147,13 +147,13 @@ int eliminar_segmento(uint32_t pid, uint32_t id_segmento) {
 
 // Libera la memoria fisica del segmento sin eliminarlo de la tabla.
 // Usado al suspender un proceso: el segmento sigue existiendo logicamente.
-void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id) {
+void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id){
     t_proceso_memory* proceso = buscar_proceso(pid);
     if (!proceso) return;
 
     pthread_mutex_lock(&memoria_mutex);
     t_segmento* seg = buscar_segmento_proceso(proceso, seg_id);
-    if (!seg) { pthread_mutex_unlock(&memoria_mutex); return; }
+    if (!seg){ pthread_mutex_unlock(&memoria_mutex); return; }
 
     t_hueco* hueco = malloc(sizeof(t_hueco));
     hueco->base = seg->base;
@@ -166,7 +166,7 @@ void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id) {
 
 // Asigna memoria fisica a un segmento que ya existe en la tabla (base desactualizada).
 // Usado al desuspender: encuentra un hueco y actualiza seg->base sin agregar nada a la tabla.
-op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio) {
+op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio){
     t_proceso_memory* proceso = buscar_proceso(pid);
     if(!proceso) return MEMORIA_NO_DISPONIBLE;
 
