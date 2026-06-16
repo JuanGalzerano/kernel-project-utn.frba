@@ -37,9 +37,10 @@ void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick){
     t_paquete* avisoStick = crear_paquete(AVISO_NUEVO_STICK, bufSticks);
     pthread_mutex_lock(&mutex_sockets_cpu_notif);
     int cantCpus = list_size(lista_sockets_cpu_notif);
-    for (int i = 0; i < cantCpus;i++){
-        int socketCpu = *(int*)list_get(lista_sockets_cpu_notif, i);
-        enviar_paquete(socketCpu, avisoStick);
+    for(int i = 0; i < cantCpus;i++){
+        t_cpu_conexiones* cpu = list_get(lista_sockets_cpu_notif, i);
+        if (cpu->socket_notif !=-1)
+            enviar_paquete(cpu->socket_notif, avisoStick);
     }
     pthread_mutex_unlock(&mutex_sockets_cpu_notif);
     eliminar_paquete(avisoStick);
