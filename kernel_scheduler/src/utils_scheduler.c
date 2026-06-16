@@ -399,7 +399,7 @@ void* hilo_escuchar_memory(void* arg){
                 }
                 
                 recorrer_y_desuspender(pidsDesuspendibles);
-                list_destroy(pidsDesuspendibles);//AGREGAR EL DESTROY ELEMENTS es una lista de un solo uso
+                list_destroy_and_destroy_elements(pidsDesuspendibles, destruir_uint32_t);//es una lista de un solo uso
                 eliminar_paquete(paquete);
                 break;
             }
@@ -855,4 +855,9 @@ void enlistar_primero_ready(t_pcb* pcb){
         list_add_in_index(cola_multinivel[0]->elements,0,pcb);
         pthread_mutex_unlock(&mutex_cola_multinivel);
     }
+}
+
+void destruir_uint32_t(void* nro){
+    uint32_t* numero = (uint32_t*) nro;
+    free(numero);
 }

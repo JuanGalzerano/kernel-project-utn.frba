@@ -87,4 +87,6 @@ void desalojar_por_compactacion();
 
 void enlistar_primero_ready(t_pcb* pcb);
 
+void destruir_uint32_t(void* nro);
+
 #endif
