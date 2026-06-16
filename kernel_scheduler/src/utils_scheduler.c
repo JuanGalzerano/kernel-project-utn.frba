@@ -846,7 +846,7 @@ void enlistar_primero_ready(t_pcb* pcb){
         pthread_mutex_unlock(&ready_mutex);
     }else{
         pthread_mutex_lock(&mutex_cola_multinivel);
-        list_add_in_index(cola_multinivel[0]->elements,0,pcb);
+        list_add_in_index(cola_multinivel[pcb->prioridad]->elements,0,pcb);
         pthread_mutex_unlock(&mutex_cola_multinivel);
     }
 }
