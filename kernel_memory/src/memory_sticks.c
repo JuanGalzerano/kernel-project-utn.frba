@@ -81,7 +81,7 @@ void* hilo_monitor_sticks(void* arg){
             pthread_mutex_lock(&memoria_mutex);
             for (int j = 0; j < list_size(lista_memory_sticks); j++){
                 t_memory_stick_info* s = list_get(lista_memory_sticks, j);
-                if (s->socket == fd) {
+                if(s->socket == fd){
                     list_remove_and_destroy_element(lista_memory_sticks, j, free);
                     break;
                 }
@@ -95,7 +95,6 @@ void* hilo_monitor_sticks(void* arg){
             eliminar_paquete(aviso);
 
             close(fd);
-            abort();
         }
     }
     return NULL;
