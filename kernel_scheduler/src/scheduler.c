@@ -91,8 +91,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
         //recibir paquete 
         t_paquete* paquete;
         paquete = recibir_paquete(socketCliente);//fijarse si hay que liberar memoria
-        if(paquete==NULL){
-            break; //cliente se desconecto
+        if(paquete==NULL){//yo creo q siempre van a ser CPUs las que se pueden desonectar, no creo que evaluen la desconexion de IOs
+            pthread_mutex_lock(&exec_mutex);
+            for(int i =0; i<list_size(exec_lista);i++){
+                t_cpu* cpu = list_get(exec_lista, i);
+                if(socketCliente == cpu->socketConexion){
+                    log_info(loggerScheduler,"## Se desconectó la CPU ID: %d", cpu->cpu_id);
+                    list_remove_element(exec_lista, cpu);//ACACREO QUE PODIRA HACER REMOVE_ELEMNT_BY_CONDITION Y ME AHORRARIA TODO EL FOR Y ESO
+                    free(cpu);
+                }
+            }
+            pthread_mutex_unlock(&exec_mutex);
+            break; 
         }
 
         switch(paquete->codigo_operacion){
@@ -181,7 +191,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
                 
-                bloquear_proceso(cpuSleep->pcb,0);
+                bloquear_proceso(cpuSleep->pcb);
 
                 pthread_mutex_lock(&mutex_cola_sleep);
                 queue_push(cola_sleep, sleep);
@@ -201,7 +211,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDIN", procesoStdin->pid);
                    
-                bloquear_proceso(cpuUsada->pcb,0);           
+                bloquear_proceso(cpuUsada->pcb);           
              
                 pthread_mutex_lock(&mutex_cola_stdin);
                 queue_push(cola_stdin, procesoStdin);
@@ -223,7 +233,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_lock(&mutex_stdout_ocupado);
                 if(stdout_ocupado){
                     pthread_mutex_unlock(&exec_mutex);
-                    bloquear_proceso(cpuUsadaStdout->pcb,0);
+                    bloquear_proceso(cpuUsadaStdout->pcb);
                 } else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
                     cpuUsadaStdout->pcb = NULL;
@@ -407,9 +417,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         if(estabaEnReady){//guarda, aco hago referencia al dueño, no al que solicito la syscall, a ese lo bloqueo abajo
                             encolar_pcb_ready(pcbDueño);
                         }
+                        despertar_planificador();
                     }
 
-                    bloquear_proceso(cpuALiberar->pcb,0);
+                    bloquear_proceso(cpuALiberar->pcb);
 
                     pthread_mutex_unlock(&mutex_lista_mutex);
 
@@ -529,8 +540,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     }
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
-                //NO HAY MEMORIA DISPONIBLE => se bloquea el proceso, prestar atencian a cuando KM me avisa que hay nuevo memory stick conectado y a la planificacion de mediano plazo
-                    bloquear_proceso(cpuAlloc->pcb,infoMemAlloc->tamanio);
+                //NO HAY MEMORIA DISPONIBLE => FINALIZA POR OUT OF MEMORY COMO DICE EL ISSUE #5206
+                    log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Out Of Memory", infoMemAlloc->pid);
+                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", infoMemAlloc->pid);
+                    pthread_mutex_lock(&exec_mutex);
+                    t_pcb* pcbOut = cpu->pcb;
+                    cpu->pcb = NULL;
+                    pthread_mutex_unlock(&exec_mutex);
+                    free(pcbOut);
                     liberar_cpu_y_notificar();
                 }
                 free(infoMemAlloc);
@@ -603,6 +620,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             case DESALOJAR_POR_BSOD:
                 uint32_t pidBsod;
                 pidBsod = buffer_read_uint32(paquete->buffer);
+                // NO LOGUEO ACA QUE PASAN A EXIT Y EL MOTIVO DE FINALIZACION X SI ME PASA QUE SE EJECUTE EL abort() ANTES DE QUE SE LLEGUE A ESTE CASE
                 log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
                 break;
             case COMPACTACION:
@@ -615,6 +633,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pthread_mutex_unlock(&exec_mutex);
 
                 enlistar_primero_ready(pcbCompactado);
+                sem_post(&sem_hay_proceso_ready);
                 log_info(loggerScheduler,"## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
 
                 break;

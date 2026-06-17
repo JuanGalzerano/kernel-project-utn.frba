@@ -146,7 +146,7 @@ void recibir_tipo_IO(int socketCliente){
 }
 
 
-void bloquear_proceso(t_pcb* pcbBlock, uint32_t cantMemAlloc){
+void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
     
@@ -164,7 +164,7 @@ void bloquear_proceso(t_pcb* pcbBlock, uint32_t cantMemAlloc){
     list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
 
-    timer_tiempo_bloqueado(pcbBlock, cantMemAlloc);
+    timer_tiempo_bloqueado(pcbBlock);
     
     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
 
@@ -350,11 +350,15 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         //Hay memoria pero no continua => pedir compactacion y esperar que termine
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         log_info(loggerScheduler,"## Inicio de compactación");
+        despostear_todas_cpus();
         desalojar_por_compactacion();
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
+        for(int i = 0;i<list_size(exec_lista);i++){
+            liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
+        }
         log_info(loggerScheduler,"## fin de compactación");
 
 /*ACA TENDRIA QUE NOTIFICAR PARA QUE VUELVAN A EJECUTAR TODAS LA CPUS Y LOS PROCESOS*/
@@ -655,19 +659,17 @@ void despertar_planificador(){
     }
 }
 
-void timer_tiempo_bloqueado(t_pcb* pcb,  uint32_t cantMemAlloc){
-    t_parametros_hilo_suspendidos *parametros = malloc(sizeof(t_parametros_hilo_suspendidos));
-    parametros->pid = pcb->pid;
-    parametros->cantMemAlloc = cantMemAlloc;
+void timer_tiempo_bloqueado(t_pcb* pcb){
+    uint32_t *pid = malloc(sizeof(uint32_t));
+    *pid = pcb->pid;
     pthread_t hiloTimer;
-    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,parametros);
+    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pid);
     pthread_detach(hiloTimer);
 }
 
 void* hilo_timer_bloqueado(void* arg){
-    t_parametros_hilo_suspendidos* argu = (t_parametros_hilo_suspendidos*) arg;
-    uint32_t pid = argu->pid;
-    uint32_t cantMemAlloc = argu->cantMemAlloc;
+    uint32_t* argu = (uint32_t*) arg;
+    uint32_t pid = *argu;
     free(argu);
 
     usleep(suspensionTimeout*1000);
@@ -675,12 +677,12 @@ void* hilo_timer_bloqueado(void* arg){
     t_pcb* pcb = buscar_y_sacar_de_block(pid);
 
     if(pcb!=NULL){
-        suspender_proceso(pcb, cantMemAlloc);
+        suspender_proceso(pcb);
     }
     return NULL;
 }
 
-void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
+void suspender_proceso(t_pcb* pcb){
     //(creo q siempre va a ser de block a susp bloc)
     log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado SUSP BLOCK", pcb->pid);
 
@@ -697,21 +699,12 @@ void suspender_proceso(t_pcb* pcb, uint32_t cantMemAlloc){
     if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
         /*VER QUE CARAJO DEBERIA HACER ACA*/
     }
-    proc->cantMemAlloc = cantMemAlloc;
     eliminar_paquete(resp);
     proc->pcb = pcb;
-
+    pthread_mutex_lock(&mutex_susp_block);
+    list_add(susp_block, proc);
+    pthread_mutex_unlock(&mutex_susp_block);
     
-    if(cantMemAlloc>0){//aca no llamo a pasar_des_susp_block_a_ready xq asi me ahorro el buscar en la lista de susp block
-        log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado SUSP READY", pcb->pid);
-        pthread_mutex_lock(&mutex_susp_ready);
-        list_add_sorted(susp_ready,proc, es_mas_prioritario);
-        pthread_mutex_unlock(&mutex_susp_ready);
-    }else{
-        pthread_mutex_lock(&mutex_susp_block);
-        list_add(susp_block, proc);
-        pthread_mutex_unlock(&mutex_susp_block);
-    }
 }
 
 
@@ -835,8 +828,7 @@ void desalojar_por_compactacion(){
         eliminar_paquete(paquete);
     }
     pthread_mutex_unlock(&exec_mutex);
-
-    //,eter en principio de ready los desalojados
+    //,eter en principio de ready los desalojado
 }
 
 void enlistar_primero_ready(t_pcb* pcb){
@@ -854,4 +846,17 @@ void enlistar_primero_ready(t_pcb* pcb){
 void destruir_uint32_t(void* nro){
     uint32_t* numero = (uint32_t*) nro;
     free(numero);
+}
+
+void despostear_todas_cpus(){
+    int valor = 0;//inicializamos 
+    sem_getvalue(&sem_hay_cpu_libre, &valor);
+    while(valor > 0){
+        sem_wait(&sem_hay_cpu_libre);
+        sem_getvalue(&sem_hay_cpu_libre, &valor);
+    }
+    while(valor < 0){
+        sem_post(&sem_hay_cpu_libre);
+        sem_getvalue(&sem_hay_cpu_libre, &valor);
+    }   
 }

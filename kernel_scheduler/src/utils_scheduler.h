@@ -21,7 +21,7 @@ t_cpu* encontrar_cpu_con_pid(uint32_t pid);
 
 void recibir_tipo_IO(int socketCliente);
 
-void bloquear_proceso(t_pcb* pcbBlock,  uint32_t cantMemAlloc);
+void bloquear_proceso(t_pcb* pcbBlock);
 
 t_pcb* buscar_y_sacar_de_block(uint32_t pid);
 
@@ -57,17 +57,17 @@ t_cpu* hay_cpu_desalojable(t_pcb* pcbCandidato);
 
 void enviar_desalojo_cpu(t_cpu* cpuDesalojable);
 
-void liberar_cpu_y_notificar();
+void liberar_cpu_y_notificar();//
 
 t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady);
 
-void despertar_planificador();
+void despertar_planificador();//
 
 void* hilo_timer_bloqueado(void* arg);
 
-void timer_tiempo_bloqueado(t_pcb* pcb, uint32_t cantMemAlloc);
+void timer_tiempo_bloqueado(t_pcb* pcb);
 
-void suspender_proceso(t_pcb* pcb,  uint32_t cantMemAlloc);
+void suspender_proceso(t_pcb* pcb);
 
 bool es_mas_prioritario(void* masPrior, void* menosPrior);
 
@@ -86,5 +86,7 @@ void desalojar_por_compactacion();
 void enlistar_primero_ready(t_pcb* pcb);
 
 void destruir_uint32_t(void* nro);
+
+void despostear_todas_cpus();
 
 #endif
