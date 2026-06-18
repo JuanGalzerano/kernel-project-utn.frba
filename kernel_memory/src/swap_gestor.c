@@ -187,11 +187,12 @@ op_code desuspender_proceso(uint32_t pid) {
             info[i].tamanio
         );
         pthread_mutex_unlock(&memoria_mutex);
-
-        escribir_pedazos(pedazos, datos);
+        char* datos_acortados = malloc(info[i].tamanio);
+        memcpy(datos_acortados, datos, info[i].tamanio);
+        escribir_pedazos(pedazos, datos_acortados);
         list_destroy_and_destroy_elements(pedazos, free);
         free(datos);
-
+        free(datos_acortados);
         pthread_mutex_lock(&swap_mutex);
         tabla_swap[info[i].bloque].ocupado = false;
         pthread_mutex_unlock(&swap_mutex);
