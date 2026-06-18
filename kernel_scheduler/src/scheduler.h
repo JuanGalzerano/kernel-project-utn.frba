@@ -52,6 +52,7 @@ pthread_mutex_t mutex_socket_memory;
 uint32_t proximo_pid = 1;
 pthread_mutex_t mutex_pid;
 
+
 //Variables de scheduler.config
 
 char* puertoEscucha;

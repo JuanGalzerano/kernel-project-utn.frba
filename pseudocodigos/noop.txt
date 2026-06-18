@@ -1,8 +1,5 @@
-SLEEP 30000
-NOOP
-NOOP
-SET AX 3
-NOOP
-NOOP
-JNZ AX 4
+SLEEP 5000
+INIT_PROC hola.txt 1
+INIT_PROC hola.txt 2
+INIT_PROC test_compactacion.prc 0
 EXIT

@@ -8,7 +8,7 @@
 ./bin/swap src/swap.config
 
 # Memory Stick
-./bin/memory_stick src/memoryStick.config 512
+./bin/memory_stick src/memoryStick.config 20
 
 # IO
 ./bin/io src/io.config SLEEP

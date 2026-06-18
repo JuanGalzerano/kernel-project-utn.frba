@@ -55,6 +55,7 @@ extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 extern pthread_mutex_t mutex_socket_memory;
 
+
 extern bool hay_desalojo;
 extern int cantidad_colas;
 extern t_algortimo_planificacion* algoritmo_por_cola;

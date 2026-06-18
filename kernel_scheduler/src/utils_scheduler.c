@@ -819,13 +819,15 @@ bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
 void desalojar_por_compactacion(){
 
     pthread_mutex_lock(&exec_mutex);
-    for(int i=0;i>list_size(exec_lista);i++){
+    for(int i=0;i<list_size(exec_lista);i++){
         t_cpu* cpu = list_get(exec_lista, i);
-        t_buffer* buffer=buffer_create(0);
-        buffer_add_uint32(buffer, cpu->pcb->pid);
-        t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
-        enviar_paquete(cpu->socketConexion, paquete);//armar case pq me devuelven el pid
-        eliminar_paquete(paquete);
+        if(cpu->pcb !=NULL){
+            t_buffer* buffer=buffer_create(0);
+            buffer_add_uint32(buffer, cpu->pcb->pid);
+            t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
+            enviar_paquete(cpu->socketConexion, paquete);//armar case pq me devuelven el pid
+            eliminar_paquete(paquete);
+        }
     }
     pthread_mutex_unlock(&exec_mutex);
     //,eter en principio de ready los desalojado

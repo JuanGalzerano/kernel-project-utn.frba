@@ -544,9 +544,11 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Out Of Memory", infoMemAlloc->pid);
                     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", infoMemAlloc->pid);
                     pthread_mutex_lock(&exec_mutex);
-                    t_pcb* pcbOut = cpu->pcb;
-                    cpu->pcb = NULL;
+                    t_pcb* pcbOut = cpuAlloc->pcb;
+                    cpuAlloc->pcb = NULL;
                     pthread_mutex_unlock(&exec_mutex);
+                    enviar_fin_proceso_memory(pcbOut->pid);
+                    enviar_fin_proceso_a_cpu(pcbOut->pid, cpuAlloc->socketConexion);
                     free(pcbOut);
                     liberar_cpu_y_notificar();
                 }
