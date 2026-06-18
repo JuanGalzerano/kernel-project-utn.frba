@@ -695,6 +695,7 @@ void suspender_proceso(t_pcb* pcb){
     eliminar_paquete(paquete);
     t_proc_suspendido* proc = malloc(sizeof(t_proc_suspendido));//acordarme de liberar cuando saco de susp
     t_paquete* resp = recibir_paquete(socketConexionMemory);
+    pthread_mutex_unlock(&mutex_socket_memory);
     proc->bytesSuspendidos = buffer_read_uint32(resp->buffer);
     if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
         /*VER QUE CARAJO DEBERIA HACER ACA*/
