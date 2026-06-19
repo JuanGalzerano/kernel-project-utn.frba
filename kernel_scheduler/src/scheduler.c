@@ -535,7 +535,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
                 pthread_mutex_unlock(&exec_mutex);
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
-                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc,SOLICITAR_SEGMENTO);//aca dentro se gestiona las posibles compactaciones y reintentos
+                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc,SOLICITAR_SEGMENTO,socketCliente);//aca dentro se gestiona las posibles compactaciones y reintentos
 
 
                 if(rtaKM == MEMORIA_DISPONIBLE){
@@ -629,20 +629,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 pidBsod = buffer_read_uint32(paquete->buffer);
                 // NO LOGUEO ACA QUE PASAN A EXIT Y EL MOTIVO DE FINALIZACION X SI ME PASA QUE SE EJECUTE EL abort() ANTES DE QUE SE LLEGUE A ESTE CASE
                 log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
-                break;
-            case COMPACTACION:
-                uint32_t pidCompactado = buffer_read_uint32(paquete->buffer);
-                log_info(loggerScheduler,"## (%d) - Desalojado por compactacion", pidCompactado); //la verdad nose si ira este log xq no esta entre los obligatorios, pero a mi me parece necesario
-                pthread_mutex_lock(&exec_mutex);
-                t_cpu* cpuCompactada = encontrar_cpu_con_pid(pidCompactado);
-                t_pcb* pcbCompactado = cpuCompactada->pcb;
-                cpuCompactada->pcb=NULL;
-                pthread_mutex_unlock(&exec_mutex);
-
-                enlistar_primero_ready(pcbCompactado);
-                sem_post(&sem_hay_proceso_ready);
-                log_info(loggerScheduler,"## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
-
                 break;
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);

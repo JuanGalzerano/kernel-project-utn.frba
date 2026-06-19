@@ -24,6 +24,17 @@ uint32_t obtener_pid(int socketConexionScheduler) {
         }
         if(paquete->codigo_operacion == FINALIZAR_POR_QUANTUM || paquete->codigo_operacion == COMPACTACION || paquete->codigo_operacion == DESALOJO || paquete->codigo_operacion == DESALOJAR_POR_BSOD) {
             log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
+            uint32_t pidInterrumpido = buffer_read_uint32(paquete->buffer);
+            log_info(loggerCpu, "## Interrupción recibida");
+
+            t_buffer *buffer = buffer_create(0);
+            buffer_add_uint32(buffer, pidInterrumpido);
+            t_paquete *paq = crear_paquete(paquete->codigo_operacion, buffer);
+            enviar_paquete(socketConexionScheduler, paquete);
+            eliminar_paquete(paquete);
+            eliminar_paquete(paq);
+            return true;
+        
             eliminar_paquete(paquete);
             continue;
         }

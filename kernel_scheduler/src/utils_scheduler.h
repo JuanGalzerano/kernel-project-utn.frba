@@ -41,7 +41,7 @@ void liberar_mutex_y_semaforos();
 
 t_mutex_syscall* buscar_mutex(char* nombreMutex);
 
-op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instaciaDeSolicitud);
+op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instaciaDeSolicitud, int socket);
 
 void* hilo_escuchar_memory(void* arg);
 
@@ -81,7 +81,7 @@ void desuspender_proceso(t_proc_suspendido* proc);
 
 bool perteneceALalista(t_proc_suspendido* proc, t_list* lista);
 
-void desalojar_por_compactacion();
+void desalojar_por_compactacion(int socket);
 
 void enlistar_primero_ready(t_pcb* pcb);
 

@@ -335,8 +335,8 @@ t_mutex_syscall* buscar_mutex(char* nombreMutex){
 }
 
 
-op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDeSolicitud){//instancia de solicitud seria SOLICITAR_SEGMENTO o RESOLICITAR_SEGMENTO
-    t_buffer* buffer = serializar_mem_alloc(infoMemAlloc);
+op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDeSolicitud,int socket){//instancia de solicitud seria SOLICITAR_SEGMENTO o RESOLICITAR_SEGMENTO
+    t_buffer* buffer = serializar_mem_alloc(infoMemAlloc);//VER SI PPASANDO EL SOCKET FUNCIONA Y SINO VOY A TENER QUE PASAR EL ID DE LA CPU AL HILO GRAL
     t_paquete* paquete = crear_paquete(instanciaDeSolicitud, buffer);
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
@@ -351,7 +351,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         log_info(loggerScheduler,"## Inicio de compactación");
         despostear_todas_cpus();
-        desalojar_por_compactacion();
+        desalojar_por_compactacion(socket);
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
@@ -360,6 +360,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
         }
         log_info(loggerScheduler,"## fin de compactación");
+        despertar_planificador();
 
 /*ACA TENDRIA QUE NOTIFICAR PARA QUE VUELVAN A EJECUTAR TODAS LA CPUS Y LOS PROCESOS*/
 
@@ -367,7 +368,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         pthread_mutex_unlock(&mutex_socket_memory);
 
         //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI
-        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,RESOLICITAR_SEGMENTO);
+        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,RESOLICITAR_SEGMENTO, socket);
         if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul.xq sino es un bucle de solicitar_segmento_memory
         return reintentar;
     }
@@ -816,7 +817,7 @@ bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
 
 
 
-void desalojar_por_compactacion(){
+void desalojar_por_compactacion(int socket){
 
     pthread_mutex_lock(&exec_mutex);
     for(int i=0;i<list_size(exec_lista);i++){
@@ -827,6 +828,21 @@ void desalojar_por_compactacion(){
             t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
             enviar_paquete(cpu->socketConexion, paquete);//armar case pq me devuelven el pid
             eliminar_paquete(paquete);
+            
+            t_paquete* paqRespuesta = recibir_paquete(cpu->socketConexion);
+            uint32_t pidCompactado = buffer_read_uint32(paqRespuesta->buffer);
+            if(pidCompactado!= cpu->pcb->pid){
+                log_info(loggerScheduler, "----esto no funca, trate el cpu_id");
+            }
+            log_info(loggerScheduler,"## (%d) - Desalojado por compactacion", pidCompactado); //la verdad nose si ira este log xq no esta entre los obligatorios, pero a mi me parece necesario
+            t_pcb* pcbCompactado = cpu->pcb;
+            
+            cpu->pcb=NULL;
+            
+            enlistar_primero_ready(pcbCompactado);
+            sem_post(&sem_hay_proceso_ready);
+            log_info(loggerScheduler,"## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
+            
         }
     }
     pthread_mutex_unlock(&exec_mutex);
