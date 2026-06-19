@@ -458,6 +458,8 @@ void* atender_cpu(void* arg){
     }
     pthread_mutex_unlock(&mutex_sockets_cpu_notif);
 
+    close(socket);
+
     log_warning(loggerMemory, "CPU desconectado");
     return NULL;
 }

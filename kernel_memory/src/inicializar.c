@@ -36,13 +36,19 @@ int inicializar_proceso(uint32_t pid, char* path) {
 
 t_proceso_memory* buscar_proceso(uint32_t pid){
     pthread_mutex_lock(&procesos_mutex);
-    t_proceso_memory* resultado = NULL;
-    for(int i = 0; i < list_size(lista_procesos); i++){
-        t_proceso_memory* p = list_get(lista_procesos, i);
-        if(p->pid == pid) { resultado = p; break;}
-    }
+    t_proceso_memory* resultado =buscar_proceso_sin_lock(pid);
     pthread_mutex_unlock(&procesos_mutex);
     return resultado;
+}
+
+t_proceso_memory* buscar_proceso_sin_lock(uint32_t pid){
+    for(int i = 0; i < list_size(lista_procesos); i++){
+        t_proceso_memory* p = list_get(lista_procesos, i);
+        if(p->pid == pid){
+            return p;
+        }
+    }
+    return NULL;
 }
 
 char* leer_instruccion(t_proceso_memory* proceso, uint32_t pc){
@@ -84,7 +90,6 @@ void finalizar_proceso(uint32_t pid){
         return;
     }
     list_remove_element(lista_procesos, proceso);
-    pthread_mutex_unlock(&procesos_mutex);
 
     if(!proceso->en_swap){
         pthread_mutex_lock(&memoria_mutex);
@@ -109,6 +114,7 @@ void finalizar_proceso(uint32_t pid){
     free(proceso->contexto);
     free(proceso->path_pseudocodigo);
     free(proceso);
+    pthread_mutex_unlock(&procesos_mutex);
 
     log_info(loggerMemory, "PID: %d - Proceso Finalizado", pid);
 }

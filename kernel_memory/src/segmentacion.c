@@ -164,15 +164,17 @@ void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id){
     pthread_mutex_unlock(&memoria_mutex);
 }
 
-// Asigna memoria fisica a un segmento que ya existe en la tabla (base desactualizada).
-// Usado al desuspender: encuentra un hueco y actualiza seg->base sin agregar nada a la tabla.
+//Asigna memoria fisica a un segmento que ya existe en la tabla (base desactualizada).
 op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio){
     t_proceso_memory* proceso = buscar_proceso(pid);
     if(!proceso) return MEMORIA_NO_DISPONIBLE;
 
     pthread_mutex_lock(&memoria_mutex);
     t_segmento* seg = buscar_segmento_proceso(proceso, seg_id);
-    if(!seg){ pthread_mutex_unlock(&memoria_mutex); return MEMORIA_NO_DISPONIBLE; }
+    if(!seg){ 
+        pthread_mutex_unlock(&memoria_mutex); 
+        return MEMORIA_NO_DISPONIBLE; 
+    }
 
     t_hueco* hueco =encontrar_hueco(lista_huecos, tamanio);
     if(!hueco){
