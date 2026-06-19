@@ -398,13 +398,12 @@ void* hilo_escuchar_memory(void* arg){
                 if(cantPidsDesuspendibles==0) break;
 
                 t_list* pidsDesuspendibles = list_create();
-
                 for(int i =0; i<cantPidsDesuspendibles;i++){
-                    uint32_t* pidAux = malloc(sizeof(uint32_t)); 
+                    uint32_t* pidAux = malloc(sizeof(uint32_t));
                     *pidAux = buffer_read_uint32(paquete->buffer);
                     list_add(pidsDesuspendibles,pidAux);
+                    
                 }
-                
                 recorrer_y_desuspender(pidsDesuspendibles);
                 list_destroy_and_destroy_elements(pidsDesuspendibles, destruir_uint32_t);//es una lista de un solo uso
                 eliminar_paquete(paquete);
@@ -712,7 +711,7 @@ void suspender_proceso(t_pcb* pcb){
 void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp ready. no a ready pasa que sino quedaba full tosco el nombre
 //no uso buscar_pcb_por_pid xq ya se que esta en susp block, ahorrandome las iteraciones en otras listas
     pthread_mutex_lock(&mutex_susp_block);
-    t_proc_suspendido* proceso;
+    t_proc_suspendido* proceso=NULL;
     for(int i=0;i<list_size(susp_block);i++){
         proceso = list_get(susp_block,i);
         if(proceso->pcb->pid == pid){

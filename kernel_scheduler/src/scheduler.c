@@ -234,16 +234,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(stdout_ocupado){
                     pthread_mutex_unlock(&exec_mutex);
                     bloquear_proceso(cpuUsadaStdout->pcb);
-                } else{
+                } /*else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
                     cpuUsadaStdout->pcb = NULL;
                     pthread_mutex_unlock(&exec_mutex);
+
+                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", stdoutPcb->pid);
 
                     encolar_pcb_ready(stdoutPcb);
 
                     sem_post(&sem_hay_proceso_ready);
                     liberar_cpu_y_notificar();
-                }
+                }*/
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
                 
