@@ -234,7 +234,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(stdout_ocupado){
                     pthread_mutex_unlock(&exec_mutex);
                     bloquear_proceso(cpuUsadaStdout->pcb);
-                } /*else{
+                } else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
                     cpuUsadaStdout->pcb = NULL;
                     pthread_mutex_unlock(&exec_mutex);
@@ -245,7 +245,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     sem_post(&sem_hay_proceso_ready);
                     liberar_cpu_y_notificar();
-                }*/
+                }
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
                 
@@ -285,11 +285,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case FINALIZAR_STDOUT: 
                 
-                uint32_t pidFinalizado;
-
-                buffer_read(paquete->buffer, &pidFinalizado, sizeof(uint32_t));
+                uint32_t pidFinalizado = buffer_read_uint32(paquete->buffer);
 
                 t_pcb* pcbParaDesbloquear = buscar_y_sacar_de_block(pidFinalizado);
+                t_proc_suspendido* procSusp = buscar_en_susp_block(pidFinalizado);
                 
                 if(pcbParaDesbloquear!=NULL){
                     encolar_pcb_ready(pcbParaDesbloquear);
@@ -298,12 +297,15 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     sem_post(&sem_stdout_disponible);
                     sem_post(&sem_hay_proceso_ready);
                     despertar_planificador();
-                }else{
+                }else if (procSusp !=NULL)
+                {
                     //t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
                     //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULL
                     log_info(loggerScheduler,"## (%d) finalizó IO y pasa a SUSP READY",pidFinalizado);
                     pasar_des_susp_block_a_ready(pidFinalizado);
                     sem_post(&sem_stdout_disponible);   
+                }else{
+                    //estaba ejecutando=>creo que no tengo q hacer nada
                 }
 
                 pthread_mutex_lock(&mutex_stdout_ocupado);
@@ -345,6 +347,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }else{
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", resultado->pid);
                     pasar_des_susp_block_a_ready(resultado->pid);
+                    sem_post(&sem_stdin_disponible);//SERA???
                 }
                 free(resultado->cadenaLeida);
                 free(resultado);
