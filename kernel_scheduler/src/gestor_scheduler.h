@@ -42,6 +42,7 @@ typedef struct{
 typedef struct{
     t_pcb* pcb;
     uint32_t bytesSuspendidos;
+    char* cadenaStdin;
 }t_proc_suspendido;
 
 
@@ -54,6 +55,7 @@ extern int socketMemoryNotif;
 extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 extern pthread_mutex_t mutex_socket_memory;
+extern bool compactando;
 
 
 extern bool hay_desalojo;

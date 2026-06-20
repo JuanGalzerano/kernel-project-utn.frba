@@ -98,8 +98,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(socketCliente == cpu->socketConexion){
                     log_info(loggerScheduler,"## Se desconectó la CPU ID: %d", cpu->cpu_id);
                     list_remove_element(exec_lista, cpu);//ACACREO QUE PODIRA HACER REMOVE_ELEMNT_BY_CONDITION Y ME AHORRARIA TODO EL FOR Y ESO
+
+                    if(cpu->pcb!=NULL){
+                        log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
+                        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Desconexion de CPU", cpu->pcb->pid);
+
+                        free(cpu->pcb);}
+                    }
                     free(cpu);
-                }
             }
             pthread_mutex_unlock(&exec_mutex);
             break; 
@@ -280,7 +286,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     despertar_planificador();
                 }else{
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidTerminado);
-                    pasar_des_susp_block_a_ready(pidTerminado);
+                    pasar_des_susp_block_a_ready(pidTerminado,NULL);
                 }
                 break;
             case FINALIZAR_STDOUT: 
@@ -302,7 +308,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     //t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
                     //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULL
                     log_info(loggerScheduler,"## (%d) finalizó IO y pasa a SUSP READY",pidFinalizado);
-                    pasar_des_susp_block_a_ready(pidFinalizado);
+                    pasar_des_susp_block_a_ready(pidFinalizado,NULL);
                     sem_post(&sem_stdout_disponible);   
                 }else{
                     //estaba ejecutando=>creo que no tengo q hacer nada
@@ -346,7 +352,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     despertar_planificador();
                 }else{
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", resultado->pid);
-                    pasar_des_susp_block_a_ready(resultado->pid);
+                    pasar_des_susp_block_a_ready(resultado->pid,resultado->cadenaLeida);
                     sem_post(&sem_stdin_disponible);//SERA???
                 }
                 free(resultado->cadenaLeida);
@@ -500,7 +506,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         sem_post(&sem_hay_proceso_ready);
                         despertar_planificador();
                     }else{
-                        pasar_des_susp_block_a_ready(siguiente->pid);
+                        pasar_des_susp_block_a_ready(siguiente->pid,NULL);
                     }
                 }
 
@@ -681,8 +687,9 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         pthread_mutex_unlock(&exec_mutex);
         
         //sem post cpu libre
-        liberar_cpu_y_notificar();//hace el sempost
-
+        if(compactando==false){
+            liberar_cpu_y_notificar();//hace el sempost
+        }
         free(idCPU);
         break;
     case IO:

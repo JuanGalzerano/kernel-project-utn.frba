@@ -71,7 +71,7 @@ void suspender_proceso(t_pcb* pcb);
 
 bool es_mas_prioritario(void* masPrior, void* menosPrior);
 
-void pasar_des_susp_block_a_ready(uint32_t pid);
+void pasar_des_susp_block_a_ready(uint32_t pid,char* cadenaStdin);
 
 t_proc_suspendido* buscar_en_susp_block(uint32_t pid);
 

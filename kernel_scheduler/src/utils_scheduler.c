@@ -349,6 +349,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
     if(codigo == COMPACTACION){
         //Hay memoria pero no continua => pedir compactacion y esperar que termine
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
+        compactando = true;
         log_info(loggerScheduler,"## Inicio de compactación");
         despostear_todas_cpus();
         desalojar_por_compactacion(socket);
@@ -360,6 +361,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
         }
         log_info(loggerScheduler,"## fin de compactación");
+        compactando= false;
         despertar_planificador();
 
 /*ACA TENDRIA QUE NOTIFICAR PARA QUE VUELVAN A EJECUTAR TODAS LA CPUS Y LOS PROCESOS*/
@@ -697,6 +699,7 @@ void suspender_proceso(t_pcb* pcb){
     t_paquete* resp = recibir_paquete(socketConexionMemory);
     pthread_mutex_unlock(&mutex_socket_memory);
     proc->bytesSuspendidos = buffer_read_uint32(resp->buffer);
+    proc->cadenaStdin=NULL;
     if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
         /*VER QUE CARAJO DEBERIA HACER ACA*/
     }
@@ -709,7 +712,7 @@ void suspender_proceso(t_pcb* pcb){
 }
 
 
-void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp ready. no a ready pasa que sino quedaba full tosco el nombre
+void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin){//pasa de susp blovk a susp ready. no a ready pasa que sino quedaba full tosco el nombre
 //no uso buscar_pcb_por_pid xq ya se que esta en susp block, ahorrandome las iteraciones en otras listas
     pthread_mutex_lock(&mutex_susp_block);
     t_proc_suspendido* proceso=NULL;
@@ -720,6 +723,7 @@ void pasar_des_susp_block_a_ready(uint32_t pid){//pasa de susp blovk a susp read
             break;
         }
     }
+    proceso->cadenaStdin = cadenaStdin;
     pthread_mutex_unlock(&mutex_susp_block);
 
     pthread_mutex_lock(&mutex_susp_ready);
@@ -780,9 +784,16 @@ void recorrer_y_desuspender(t_list* pidsDesuspendibles){
 void desuspender_proceso(t_proc_suspendido* proc){
     list_remove_element(susp_ready,proc);
     t_pcb* pcb = proc->pcb;
-    free(proc);
+    
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, pcb->pid);
+    if(proc->cadenaStdin!=NULL){
+        uint32_t tamanioCadena = strlen(proc->cadenaStdin);
+        buffer_add_uint32(buffer, tamanioCadena);
+        buffer_add_string(buffer, tamanioCadena, proc->cadenaStdin);
+    }else{
+        buffer_add_uint32(buffer, 0);
+    }
     t_paquete* paquete = crear_paquete(DESUSPENDER_PROCESO, buffer);
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, paquete);
@@ -796,6 +807,8 @@ void desuspender_proceso(t_proc_suspendido* proc){
         despertar_planificador();
         log_info(loggerScheduler,"## (%d) Pasa del estado SUSP READY al estado READY",pcb->pid);
     }
+    free(proc->cadenaStdin);
+    free(proc);
 }
 
 bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
