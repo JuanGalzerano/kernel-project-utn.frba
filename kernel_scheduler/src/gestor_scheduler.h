@@ -43,6 +43,7 @@ typedef struct{
     t_pcb* pcb;
     uint32_t bytesSuspendidos;
     char* cadenaStdin;
+    uint32_t direccionLogicaStdin;
 }t_proc_suspendido;
 
 

@@ -248,42 +248,11 @@ void* atender_scheduler(void* arg){
                 break;
             }
             case ESCRIBIR_BYTES:{
-                t_stdin_stdout* req = deserializar_stdin(paquete->buffer);
+                t_stdin_stdout* datosAEscribir = deserializar_stdin(paquete->buffer);
                 eliminar_paquete(paquete);
-
-                t_proceso_memory* proc = buscar_proceso(req->pid);
-                op_code ok = ESCRITURA_FALLIDA;
-                if (proc == NULL) {
-                    log_error(loggerMemory, "PID: %d - proceso no encontrado en ESCRIBIR_BYTES", req->pid);
-                }
-                if (proc != NULL) {
-                    pthread_mutex_lock(&memoria_mutex);
-                    log_info(loggerMemory, "PID: %d - ESCRIBIR_BYTES: tabla tiene %d segmentos, sticks: %d", req->pid, list_size(proc->contexto->tabla_segmentos), list_size(lista_memory_sticks));
-                    for (int _i = 0; _i < list_size(proc->contexto->tabla_segmentos); _i++) {
-                        t_segmento* _s = list_get(proc->contexto->tabla_segmentos, _i);
-                        log_info(loggerMemory, "  seg[%d]: id=%d base=%d limite=%d", _i, _s->id_segmento, _s->base, _s->limite);
-                    }
-                    uint32_t seg_id = req->direccionLogica / segment_max_size;
-                    uint32_t desp = req->direccionLogica % segment_max_size;
-                    log_info(loggerMemory, "Kernel memory busca las escrituras relativas a cada stick: seg_id=%d desp=%d bytes=%d segment_max_size=%d", seg_id, desp, req->bytesALeer, segment_max_size);
-                    t_list* pedazos = traducir_logica_a_fisica(req->direccionLogica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, req->bytesALeer);
-                    pthread_mutex_unlock(&memoria_mutex);
-
-                    if (pedazos == NULL) {
-                        log_error(loggerMemory, "PID: %d - traducir_logica_a_fisica retorno NULL para dir %d, bytes %d", req->pid, req->direccionLogica, req->bytesALeer);
-                    }
-                    if (pedazos != NULL) {
-                        ok = escribir_pedazos(pedazos, req->cadenaLeida);
-                        if (ok == ESCRIBIR_BYTES) {
-                            t_segmento* seg_log = buscar_segmento_proceso(proc, seg_id);
-                            uint32_t dir_fisica = seg_log->base + desp;
-                            log_info(loggerMemory, "## PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", req->pid, dir_fisica, req->bytesALeer);
-                        }
-                        list_destroy_and_destroy_elements(pedazos, free);
-                    }
-                }
-                free(req->cadenaLeida);
-                free(req);
+                op_code ok = escribir_bytes_en_memoria(datosAEscribir->pid, datosAEscribir->direccionLogica, datosAEscribir->bytesALeer, datosAEscribir->cadenaLeida);
+                free(datosAEscribir->cadenaLeida);
+                free(datosAEscribir);
                 t_paquete* paqueteResp = crear_paquete(ok,NULL);
                 enviar_paquete(socket,paqueteResp);
                 eliminar_paquete(paqueteResp);
@@ -390,8 +359,19 @@ void* atender_scheduler(void* arg){
             }
             case DESUSPENDER_PROCESO:{
                 uint32_t pid = buffer_read_uint32(paquete->buffer);
+                uint32_t tamCadena = buffer_read_uint32(paquete->buffer);
+                uint32_t dirLogica = 0;
+                char* cadena = NULL;
+                if (tamCadena > 0) {
+                    dirLogica = buffer_read_uint32(paquete->buffer);
+                    cadena = buffer_read_string(paquete->buffer, tamCadena);
+                }
                 eliminar_paquete(paquete);
                 op_code resultado = desuspender_proceso(pid);
+                if (resultado == DESUSPEND_OK && cadena != NULL) {
+                    escribir_bytes_en_memoria(pid, dirLogica, tamCadena, cadena);
+                }
+                free(cadena);
                 t_paquete* resp = crear_paquete(resultado, NULL);//desp tendria q poner el caso donde no se pudo guiardar en swap, ahi nose que tendria q hacer
                 enviar_paquete(socket, resp);
                 eliminar_paquete(resp);

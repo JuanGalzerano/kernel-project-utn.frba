@@ -286,7 +286,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     despertar_planificador();
                 }else{
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidTerminado);
-                    pasar_des_susp_block_a_ready(pidTerminado,NULL);
+                    pasar_des_susp_block_a_ready(pidTerminado, NULL, 0);
+                    sem_post(&sem_sleep_disponible);
                 }
                 break;
             case FINALIZAR_STDOUT: 
@@ -308,7 +309,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     //t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
                     //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULL
                     log_info(loggerScheduler,"## (%d) finalizó IO y pasa a SUSP READY",pidFinalizado);
-                    pasar_des_susp_block_a_ready(pidFinalizado,NULL);
+                    pasar_des_susp_block_a_ready(pidFinalizado, NULL, 0);
                     sem_post(&sem_stdout_disponible);   
                 }else{
                     //estaba ejecutando=>creo que no tengo q hacer nada
@@ -321,39 +322,39 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case FINALIZAR_STDIN:
                 //recibir pid, bytes, cadenaLeida y  del IO
-                
+
                 t_stdin_stdout* resultado = deserializar_stdin(paquete->buffer);
-                //pedirle al KM que escriba en memoria
-                pthread_mutex_lock(&mutex_socket_memory);
-                t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
-                enviar_paquete(socketConexionMemory, paqueteKM);
-                free(paqueteKM); // solo el paquete, no el buffer porque es del paquete original
-
-                //esperar OK del KM
-                op_code ok = recibir_respuesta_memory();
-                pthread_mutex_unlock(&mutex_socket_memory);
-                if(ok == ESCRITURA_FALLIDA){
-                    log_error(loggerScheduler, "## (%d) - Escritura fallida en KM", resultado->pid);
-                    free(resultado->cadenaLeida);
-                    free(resultado);
-                    break;
-                }
-
-                //mover proceso BLOCK -> READY
                 t_pcb* pcbDesblockeado = buscar_y_sacar_de_block(resultado->pid);
-                
+
                 if(pcbDesblockeado != NULL){
+
+                    pthread_mutex_lock(&mutex_socket_memory);
+                    t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
+                    enviar_paquete(socketConexionMemory, paqueteKM);
+                    free(paqueteKM);
+
+                    //recibo ok
+                    op_code ok = recibir_respuesta_memory();
+                    pthread_mutex_unlock(&mutex_socket_memory);
+                    if(ok == ESCRITURA_FALLIDA){
+                        log_error(loggerScheduler, "## (%d) - Escritura fallida en KM", resultado->pid);
+                        free(resultado->cadenaLeida);
+                        free(resultado);
+                        break;
+                    }
                     encolar_pcb_ready(pcbDesblockeado);
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a READY", resultado->pid);
                     log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", resultado->pid);
                     sem_post(&sem_stdin_disponible);
                     sem_post(&sem_hay_proceso_ready);
-
                     despertar_planificador();
                 }else{
+                    //segmento en swap,guarda para escribir al desuspender
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", resultado->pid);
-                    pasar_des_susp_block_a_ready(resultado->pid,resultado->cadenaLeida);
+                    pasar_des_susp_block_a_ready(resultado->pid,resultado->cadenaLeida,resultado->direccionLogica);
                     sem_post(&sem_stdin_disponible);//SERA???
+                    free(resultado);
+                    break;
                 }
                 free(resultado->cadenaLeida);
                 free(resultado);
@@ -506,7 +507,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         sem_post(&sem_hay_proceso_ready);
                         despertar_planificador();
                     }else{
-                        pasar_des_susp_block_a_ready(siguiente->pid,NULL);
+                        pasar_des_susp_block_a_ready(siguiente->pid,NULL,0);
                     }
                 }
 

@@ -33,9 +33,6 @@ uint32_t obtener_pid(int socketConexionScheduler) {
             enviar_paquete(socketConexionScheduler, paquete);
             eliminar_paquete(paquete);
             eliminar_paquete(paq);
-            return true;
-        
-            eliminar_paquete(paquete);
             continue;
         }
         log_debug(loggerCpu, "DEBUG_CPU: Paquete desconocido recibido en obtener_pid, descartando");

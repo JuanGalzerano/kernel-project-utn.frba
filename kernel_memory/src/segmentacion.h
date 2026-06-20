@@ -12,5 +12,6 @@ t_hueco* encontrar_hueco_best_fit(t_list* huecos, uint32_t tamanio);
 t_hueco* encontrar_hueco(t_list* huecos, uint32_t tamanio);
 void liberar_fisica_segmento(uint32_t pid, uint32_t seg_id);
 op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio);
+op_code escribir_bytes_en_memoria(uint32_t pid, uint32_t dir_logica,uint32_t bytes,char* datos);
 
 #endif

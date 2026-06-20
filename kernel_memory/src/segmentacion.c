@@ -1,5 +1,6 @@
 #include "segmentacion.h"
 #include "inicializar.h"
+#include "memory_sticks.h"
 
 //HUECOS
 
@@ -194,4 +195,37 @@ op_code asignar_fisica_segmento(uint32_t pid, uint32_t seg_id, uint32_t tamanio)
 
     pthread_mutex_unlock(&memoria_mutex);
     return MEMORIA_DISPONIBLE;
+}
+
+op_code escribir_bytes_en_memoria(uint32_t pid, uint32_t dir_logica, uint32_t bytes, char* datos){
+    t_proceso_memory* proc = buscar_proceso(pid);
+    op_code ok = ESCRITURA_FALLIDA;
+    if(proc == NULL){
+        log_error(loggerMemory, "PID: %d - proceso no encontrado en escribir_bytes_en_memoria", pid);
+        return ok;
+    }
+    pthread_mutex_lock(&memoria_mutex);
+    log_info(loggerMemory, "PID: %d - ESCRIBIR_BYTES: tabla tiene %d segmentos, sticks: %d", pid, list_size(proc->contexto->tabla_segmentos), list_size(lista_memory_sticks));
+    for(int i=0; i < list_size(proc->contexto->tabla_segmentos); i++){
+        t_segmento* seg = list_get(proc->contexto->tabla_segmentos, i);
+        log_info(loggerMemory, "  seg[%d]: id=%d base=%d limite=%d", i, seg->id_segmento, seg->base, seg->limite);
+    }
+    uint32_t seg_id = dir_logica / segment_max_size;
+    uint32_t desp = dir_logica % segment_max_size;
+    log_info(loggerMemory, "Kernel memory busca las escrituras relativas a cada stick: seg_id=%d desp=%d bytes=%d segment_max_size=%d", seg_id, desp, bytes, segment_max_size);
+    t_list* pedazos = traducir_logica_a_fisica(dir_logica, segment_max_size, proc->contexto->tabla_segmentos, lista_memory_sticks, bytes);
+    pthread_mutex_unlock(&memoria_mutex);
+
+    if(pedazos == NULL){
+        log_error(loggerMemory, "PID: %d - traducir_logica_a_fisica retorno NULL para dir %d, bytes %d", pid, dir_logica, bytes);
+        return ok;
+    }
+    ok=escribir_pedazos(pedazos, datos);
+    if(ok ==ESCRIBIR_BYTES){
+        t_segmento* seg_log = buscar_segmento_proceso(proc, seg_id);
+        uint32_t dir_fisica = seg_log->base + desp;
+        log_info(loggerMemory, "## PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", pid, dir_fisica, bytes);
+    }
+    list_destroy_and_destroy_elements(pedazos, free);
+    return ok;
 }

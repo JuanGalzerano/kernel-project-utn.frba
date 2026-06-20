@@ -701,7 +701,7 @@ void suspender_proceso(t_pcb* pcb){
     proc->bytesSuspendidos = buffer_read_uint32(resp->buffer);
     proc->cadenaStdin=NULL;
     if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
-        /*VER QUE CARAJO DEBERIA HACER ACA*/
+        /*VER QUE CARAJO DEBERIA HACER ACA (nota de juani, para mi que termine el proceso xd)*/
     }
     eliminar_paquete(resp);
     proc->pcb = pcb;
@@ -712,7 +712,7 @@ void suspender_proceso(t_pcb* pcb){
 }
 
 
-void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin){//pasa de susp blovk a susp ready. no a ready pasa que sino quedaba full tosco el nombre
+void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin, uint32_t direccionLogica){//pasa de susp blovk a susp ready. no a ready pasa que sino quedaba full tosco el nombre
 //no uso buscar_pcb_por_pid xq ya se que esta en susp block, ahorrandome las iteraciones en otras listas
     pthread_mutex_lock(&mutex_susp_block);
     t_proc_suspendido* proceso=NULL;
@@ -724,6 +724,7 @@ void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin){//pasa de sus
         }
     }
     proceso->cadenaStdin = cadenaStdin;
+    proceso->direccionLogicaStdin = direccionLogica;
     pthread_mutex_unlock(&mutex_susp_block);
 
     pthread_mutex_lock(&mutex_susp_ready);
@@ -790,6 +791,7 @@ void desuspender_proceso(t_proc_suspendido* proc){
     if(proc->cadenaStdin!=NULL){
         uint32_t tamanioCadena = strlen(proc->cadenaStdin);
         buffer_add_uint32(buffer, tamanioCadena);
+        buffer_add_uint32(buffer, proc->direccionLogicaStdin);
         buffer_add_string(buffer, tamanioCadena, proc->cadenaStdin);
     }else{
         buffer_add_uint32(buffer, 0);
