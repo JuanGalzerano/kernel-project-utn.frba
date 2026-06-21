@@ -153,7 +153,9 @@ char* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, uint32_t pid, t_
     }
 
     struct_control_mmu* primer_memoria_llamada = list_get(lista_de_memories_stick_a_llamar, 0);
-    log_info(logger, "## PID: %d - Acción: LEER - Dirección Física: %d - Valor: %.*s", pid, primer_memoria_llamada->desde_donde_leer, tamanio_total, valor_leido);
+    uint32_t valor_leido_num = 0;
+    memcpy(&valor_leido_num, valor_leido, tamanio_total);
+    log_info(logger, "## PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", pid, primer_memoria_llamada->desde_donde_leer, valor_leido_num);
 
     return valor_leido;
 }
@@ -185,7 +187,9 @@ uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* val
     }
 
     struct_control_mmu* primer_memoria_llamada = list_get(lista_de_memories_stick_a_llamar, 0);
-    log_info(logger, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %.*s", pid, primer_memoria_llamada->desde_donde_leer, escrito, valor_a_escribir);
+    uint32_t valor_escrito_num = 0;
+    memcpy(&valor_escrito_num, valor_a_escribir, escrito);
+    log_info(logger, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", pid, primer_memoria_llamada->desde_donde_leer, valor_escrito_num);
 
     return 0;
 }
