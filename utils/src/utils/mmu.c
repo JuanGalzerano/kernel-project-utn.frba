@@ -117,7 +117,7 @@ uint32_t crear_lista_con_memories_stick_a_llamar(t_memory_stick_info* stick, uin
     return 0;
 }
 
-char* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, uint32_t pid, t_log* logger) {
+t_resultado_lectura* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, uint32_t pid, t_log* logger) {
     uint32_t tamanio_total = 0;
     for (int i = 0; i < list_size(lista_de_memories_stick_a_llamar); i++) {
         struct_control_mmu* memoria_a_llamar = list_get(lista_de_memories_stick_a_llamar, i);
@@ -153,11 +153,10 @@ char* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, uint32_t pid, t_
     }
 
     struct_control_mmu* primer_memoria_llamada = list_get(lista_de_memories_stick_a_llamar, 0);
-    uint32_t valor_leido_num = 0;
-    memcpy(&valor_leido_num, valor_leido, tamanio_total);
-    log_info(logger, "## PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", pid, primer_memoria_llamada->desde_donde_leer, valor_leido_num);
-
-    return valor_leido;
+    t_resultado_lectura* resultado = malloc(sizeof(t_resultado_lectura));
+    resultado->dato = valor_leido;
+    resultado->dir_fisica = primer_memoria_llamada->desde_donde_leer;
+    return resultado;
 }
 
 uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_escribir, uint32_t pid, t_log* logger) {
@@ -175,21 +174,11 @@ uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* val
         eliminar_paquete(paquete_para_escribir);
 
         t_paquete* respuesta = recibir_paquete(memoria_a_llamar->socketMemoryStick);
-        if (respuesta == NULL || respuesta->codigo_operacion != ESCRIBIR_BYTES) {
-            if (respuesta != NULL) {
-                eliminar_paquete(respuesta);
-            }
-            return 1;
-        }
         eliminar_paquete(respuesta);
 
         escrito += tamanio;
     }
 
     struct_control_mmu* primer_memoria_llamada = list_get(lista_de_memories_stick_a_llamar, 0);
-    uint32_t valor_escrito_num = 0;
-    memcpy(&valor_escrito_num, valor_a_escribir, escrito);
-    log_info(logger, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", pid, primer_memoria_llamada->desde_donde_leer, valor_escrito_num);
-
-    return 0;
+    return primer_memoria_llamada->desde_donde_leer;
 }

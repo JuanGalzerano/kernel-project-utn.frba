@@ -54,10 +54,11 @@ uint32_t ejecutar_mov_in(int socketConexionScheduler, uint32_t pid, Codigo_regis
     }
 
     log_debug(loggerCpu, "DEBUG_CPU: Inicio lectura en memoria");
-    char* dato_leido = leer_en_memoria(lista_memory_sticks, pid, loggerCpu);
+    t_resultado_lectura* resultado = leer_en_memoria(lista_memory_sticks, pid, loggerCpu);
     list_destroy_and_destroy_elements(lista_memory_sticks, free);
-    if (dato_leido != NULL) {
-        interpretar_y_escribir_dato_en_registro(tipoRegistro, dato_leido);
+    if (resultado != NULL) {
+        interpretar_y_escribir_dato_en_registro(tipoRegistro, resultado->dato, resultado->dir_fisica, pid);
+        free(resultado);
         return 0;
     }
 
@@ -88,14 +89,10 @@ uint32_t ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_regi
     }
 
     log_debug(loggerCpu, "DEBUG_CPU: Inicio escritura en memoria");
-    uint32_t err = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro, pid, loggerCpu);
+    uint32_t primera_dir_fisica = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro, pid, loggerCpu);
     list_destroy_and_destroy_elements(lista_memory_sticks, free);
 
-    if (err != 0) {
-        log_debug(loggerCpu, "DEBUG_CPU: Fallo la escritura en Memory Stick (MOV_OUT), lanzo SEG_FAULT");
-        lanzar_seg_fault(socketConexionScheduler, pid);
-        return COD_SEG_FAULT;
-    }
+    log_info(loggerCpu, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", pid, primera_dir_fisica, valor_del_registro);
 
     return 0;
 }
@@ -140,9 +137,10 @@ uint32_t ejecutar_copy_mem(int socketConexionScheduler, uint32_t pid, Codigo_reg
     }
 
     log_debug(loggerCpu, "DEBUG_CPU: Inicio lectura en memoria");
-    char* dato_leido = leer_en_memoria(lista_memory_sticks, pid, loggerCpu);
+    t_resultado_lectura* resultado = leer_en_memoria(lista_memory_sticks, pid, loggerCpu);
     list_destroy_and_destroy_elements(lista_memory_sticks, free);
-    if (dato_leido != NULL) {
+    if (resultado != NULL) {
+        log_info(loggerCpu, "## PID: %d - Acción: LEER - Dirección Física: %d - Valor: %.*s", pid, resultado->dir_fisica, tamanio_dato, resultado->dato);
         uint32_t direccion_logica_di = leer_valor_en_registro(DI);
         pthread_mutex_lock(&mutex_lista_memory_stick);
         t_list* lista_sticks_destino = traducir_logica_a_fisica(direccion_logica_di, segment_max_size, lista_segmentos, lista_memory_stick, tamanio_dato);
@@ -150,20 +148,18 @@ uint32_t ejecutar_copy_mem(int socketConexionScheduler, uint32_t pid, Codigo_reg
         if (lista_sticks_destino == NULL) {
             log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT en direccion logica: %d", direccion_logica_di);
             lanzar_seg_fault(socketConexionScheduler, pid);
-            free(dato_leido);
+            free(resultado->dato);
+            free(resultado);
             return COD_SEG_FAULT;
         }
 
         log_debug(loggerCpu, "DEBUG_CPU: Inicio escritura en memoria");
-        uint32_t err = escribir_en_memoria(lista_sticks_destino, dato_leido, pid, loggerCpu);
+        uint32_t primera_dir_fisica = escribir_en_memoria(lista_sticks_destino, resultado->dato, pid, loggerCpu);
         list_destroy_and_destroy_elements(lista_sticks_destino, free);
-        free(dato_leido);
 
-        if (err != 0) {
-            log_debug(loggerCpu, "DEBUG_CPU: Fallo la escritura en Memory Stick (COPY_MEM), lanzo SEG_FAULT");
-            lanzar_seg_fault(socketConexionScheduler, pid);
-            return COD_SEG_FAULT;
-        }
+        log_info(loggerCpu, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %.*s", pid, primera_dir_fisica, tamanio_dato, resultado->dato);
+        free(resultado->dato);
+        free(resultado);
 
         return 0;
     }
@@ -230,15 +226,16 @@ void lanzar_seg_fault(int socketConexionScheduler, uint32_t pid) {
     eliminar_paquete(paquete_seg_fault);
     log_debug(loggerCpu, "DEBUG_CPU: SEG_FAULT lanzado para PID: %d", pid);
 }
-void interpretar_y_escribir_dato_en_registro(Codigo_registros_cpu tipoRegistro, char* dato_leido) {
+void interpretar_y_escribir_dato_en_registro(Codigo_registros_cpu tipoRegistro, char* dato_leido, uint32_t primera_dir_fisica, uint32_t pid) {
     uint32_t valor_leido;
     if (tipoRegistro > 4) {
         valor_leido = *(uint32_t*)dato_leido;
+        log_info(loggerCpu, "## PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", pid, primera_dir_fisica, valor_leido);
         escribir_valor_en_registro(tipoRegistro, valor_leido);
     } else {
         valor_leido = *(uint8_t*)dato_leido;
+        log_info(loggerCpu, "## PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", pid, primera_dir_fisica, valor_leido);
         escribir_valor_en_registro(tipoRegistro, valor_leido);
     }
-    log_debug(loggerCpu, "DEBUG_CPU: MOV_IN exitoso - Valor leido: %d", valor_leido);
     free(dato_leido);
 }

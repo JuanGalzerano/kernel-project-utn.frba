@@ -60,6 +60,6 @@ void escribir_valor_en_registro(Codigo_registros_cpu tipoRegistro, int valor);
 int leer_valor_en_registro(Codigo_registros_cpu tipoRegistro);
 const char* registro_a_string(Codigo_registros_cpu tipoRegistro);
 void lanzar_seg_fault(int socketConexionScheduler, uint32_t pid);
-void interpretar_y_escribir_dato_en_registro(Codigo_registros_cpu tipoRegistro, char* dato_leido);
+void interpretar_y_escribir_dato_en_registro(Codigo_registros_cpu tipoRegistro, char* dato_leido, uint32_t primera_dir_fisica, uint32_t pid);
 
 #endif
