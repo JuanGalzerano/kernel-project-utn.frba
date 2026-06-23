@@ -102,6 +102,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     if(cpu->pcb!=NULL){
                         log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
                         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Desconexion de CPU", cpu->pcb->pid);
+enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!!! FIJARSE SI FUNCA
 
                         free(cpu->pcb);}
                     }
