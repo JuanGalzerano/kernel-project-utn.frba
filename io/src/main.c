@@ -7,17 +7,16 @@ tipo_IO tipo;
 
 int main(int argc, char* argv[]) {
 
-    //Creo el logger
-    t_log* loggerIO=log_create("io.log", "main.c", true, LOG_LEVEL_INFO);
     //Creo el config
     t_config* configIO = config_create(argv[1]);
+    //Creo el logger
+    t_log* loggerIO = log_create("io.log", "main.c", true, log_level_from_string(config_get_string_value(configIO, "LOG_LEVEL")));
     //Defino las variables para conectarme al scheduler
     int socketConScheduler;
     int pid;
     char* ip=config_get_string_value(configIO,"IP_SCHEDULER");
     char* puerto= config_get_string_value(configIO,"PUERTO_SCHEDULER");
     tipo = reconocer_io(argv[2]);
-
 
     //Creo conexion con Scheduler
     socketConScheduler = iniciar_conexion(ip,puerto);

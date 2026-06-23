@@ -15,9 +15,8 @@ void* atender_cliente(void* arg);
 
 int main(int argc, char* argv[]) {
     // Inicializo log y config
-    loggerMemoryStick = log_create("MemoryStick.log","main.c",true,LOG_LEVEL_INFO);
     t_config* configMemoryStick = config_create(argv[1]);
-
+    loggerMemoryStick = log_create("MemoryStick.log", "memo_stick.c", true, log_level_from_string(config_get_string_value(configMemoryStick, "LOG_LEVEL")));
     //traigo de config 
     char* puertoMemory = config_get_string_value(configMemoryStick,"PUERTO_MEMORY");
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
