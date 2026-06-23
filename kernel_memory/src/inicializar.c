@@ -1,11 +1,6 @@
 #include "inicializar.h"
 #include "segmentacion.h"
 
-void inicializar_log_y_config(char* path) {
-    loggerMemory = log_create("memory.log", "memory.c", true, LOG_LEVEL_INFO);
-    configMemory = config_create(path);
-}
-
 int inicializar_proceso(uint32_t pid, char* path) {
     char* full_path = malloc(strlen(scriptsBasePath) + strlen(path) + 2);
     sprintf(full_path, "%s/%s", scriptsBasePath, path);

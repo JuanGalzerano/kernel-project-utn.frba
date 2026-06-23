@@ -22,7 +22,7 @@ uint32_t  segment_max_size;
 char*     allocation_strategy;
 uint32_t  instruction_delay;
 uint32_t  compaction_delay;
-
+t_log_level logLevel;
 t_list*   lista_procesos;
 t_list*   lista_memory_sticks;
 t_list*   lista_sockets_cpu_notif;

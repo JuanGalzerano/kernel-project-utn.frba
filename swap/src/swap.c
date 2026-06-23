@@ -6,8 +6,12 @@ uint32_t blockSize;
 
 int main(int argc, char* argv[]) {
 
-    t_log* loggerSwap = log_create("swap.log", "swap", true, LOG_LEVEL_INFO);
     t_config* configSwap = config_create(argv[1]);
+
+    t_log_level logLevelSwap = log_level_from_string(config_get_string_value(configSwap, "LOG_LEVEL"));
+
+    t_log* loggerSwap = log_create("swap.log", "swap", true, logLevelSwap);
+    
 
     char*ip = config_get_string_value(configSwap, "IP_MEMORY");
     char* puerto = config_get_string_value(configSwap, "PUERTO_MEMORY");

@@ -3,7 +3,6 @@
 
 #include "memory_gestor.h"
 
-void              inicializar_log_y_config(char* path);
 int               inicializar_proceso(uint32_t pid, char* path);
 void              finalizar_proceso(uint32_t pid);
 t_proceso_memory* buscar_proceso(uint32_t pid);

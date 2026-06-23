@@ -14,7 +14,10 @@ int main(int argc, char* argv[]) {
     //El unico caso donde pasa esto es como le aviso de un stick al cpu, entonces me ahorro que termine el proceso 
     signal(SIGPIPE, SIG_IGN);//dice signal haciendo referencia a la señal del so, no a sem wait/signal
 
-    inicializar_log_y_config(argv[1]);
+
+    configMemory = config_create(argv[1]);
+    logLevel = log_level_from_string(config_get_string_value(configMemory, "LOG_LEVEL"));
+    loggerMemory = log_create("memory.log", "memory.c", true, logLevel);
 
     puertoEscucha = config_get_string_value(configMemory, "PUERTO_MEMORY");
     puertoEscuchaNotif = config_get_string_value(configMemory, "PUERTO_MEMORY_NOTIF");
@@ -24,7 +27,6 @@ int main(int argc, char* argv[]) {
     instruction_delay = (uint32_t)config_get_int_value(configMemory, "INSTRUCTION_DELAY");
     compaction_delay = (uint32_t)config_get_int_value(configMemory, "COMPACTION_DELAY");
     puertoMemoryStick = config_get_string_value(configMemory, "PUERTO_MEMORYSTICK");
-
     lista_procesos = list_create();
     lista_memory_sticks = list_create();
     lista_sockets_cpu_notif = list_create();
