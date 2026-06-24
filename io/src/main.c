@@ -4,13 +4,14 @@
 #include <io.h>
 
 tipo_IO tipo;
+t_log* loggerIO;
 
 int main(int argc, char* argv[]) {
 
     //Creo el config
     t_config* configIO = config_create(argv[1]);
     //Creo el logger
-    t_log* loggerIO = log_create("io.log", "main.c", true, log_level_from_string(config_get_string_value(configIO, "LOG_LEVEL")));
+    loggerIO = log_create("io.log", "main.c", true, log_level_from_string(config_get_string_value(configIO, "LOG_LEVEL")));
     //Defino las variables para conectarme al scheduler
     int socketConScheduler;
     int pid;
@@ -34,8 +35,11 @@ int main(int argc, char* argv[]) {
         //recibir paquete
         t_paquete* paquete;
         paquete = recibir_paquete(socketConScheduler);
-        
-        
+        if(paquete == NULL){
+            log_info(loggerIO, "Scheduler desconectado");
+            break;
+        }
+
         switch (tipo)
         {
         case TIPO_SLEEP:
@@ -44,9 +48,12 @@ int main(int argc, char* argv[]) {
             pid=sl->pid;
             log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
             sleep_func(sl->tiempoADormir,sl->pid,loggerIO);
+            buffer_destroy(paquete->buffer);
             paquete->buffer=serializar_sleep(sl);
             paquete->codigo_operacion=FINALIZAR_SLEEP;
             enviar_paquete(socketConScheduler,paquete);
+            free(sl);
+            eliminar_paquete(paquete);
             log_info(loggerIO, "## PID: %d - Fin de IO",pid);
             break;
         case TIPO_STDIN:
@@ -55,27 +62,31 @@ int main(int argc, char* argv[]) {
             pid=in->pid;
             log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
             in->cadenaLeida=stdin_func(in->bytesALeer,in->pid,loggerIO);
+            buffer_destroy(paquete->buffer);
             paquete->buffer=serializar_stdin(in);
             paquete->codigo_operacion=FINALIZAR_STDIN;
             enviar_paquete(socketConScheduler,paquete);
             free(in->cadenaLeida);
             free(in);
+            eliminar_paquete(paquete);
             log_info(loggerIO, "## PID: %d - Fin de IO",pid);
             break;
         case TIPO_STDOUT:
-        
             t_stdin_stdout* out;
             out = deserializar_stdin(paquete->buffer);
             pid=out->pid;
             log_info(loggerIO, "## PID: %d - Inicio de IO",pid);
             stdout_func(out->cadenaLeida,out->pid,out->bytesALeer,loggerIO);
+            buffer_destroy(paquete->buffer);
             paquete->buffer=serializar_stdin(out);
             paquete->codigo_operacion=FINALIZAR_STDOUT;
             enviar_paquete(socketConScheduler,paquete);
+            free(out);
+            eliminar_paquete(paquete);
             log_info(loggerIO, "## PID: %d - Fin de IO",pid);
             break;
         default:
-        
+            eliminar_paquete(paquete);
             break;
         }
     }
@@ -115,7 +126,7 @@ tipo_IO reconocer_io(char* tipo){
     } else if (strcmp(tipo, "STDOUT") == 0) {
         io = TIPO_STDOUT;
     } else {
-        //tendria que agregar algo para controlar pero xd lol equisde
+        log_error(loggerIO, "Tipo de IO desconocido: %s", tipo);
     }
     return io;
 }
