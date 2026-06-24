@@ -99,6 +99,13 @@ void finalizar_proceso(uint32_t pid){
         }
         pthread_mutex_unlock(&memoria_mutex);
     }else{
+        pthread_mutex_lock(&swap_mutex);
+        for(int i = 0; i < (int)swap_num_bloques; i++){
+            if(tabla_swap[i].ocupado && tabla_swap[i].pid == pid){
+                tabla_swap[i].ocupado = false;
+            }
+        }
+        pthread_mutex_unlock(&swap_mutex);
         while(list_size(proceso->contexto->tabla_segmentos)>0){
             t_segmento* seg = list_remove(proceso->contexto->tabla_segmentos,0);
             free(seg);

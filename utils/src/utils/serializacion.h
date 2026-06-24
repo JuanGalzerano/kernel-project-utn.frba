@@ -158,7 +158,7 @@ typedef enum {
 } op_code;
  
 typedef struct {
-    uint8_t   codigo_operacion;
+    op_code   codigo_operacion;
     t_buffer* buffer;
 } t_paquete;
 
