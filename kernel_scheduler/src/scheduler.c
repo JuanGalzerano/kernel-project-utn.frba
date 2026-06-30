@@ -102,11 +102,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     if(cpu->pcb!=NULL){
                         log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
                         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Desconexion de CPU", cpu->pcb->pid);
-enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!!! FIJARSE SI FUNCA
+                        enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!!! FIJARSE SI FUNCA
 
-                        free(cpu->pcb);}
+                        free(cpu->pcb);
                     }
+                
                     free(cpu);
+                }
+                    
             }
             pthread_mutex_unlock(&exec_mutex);
             break; 
@@ -121,8 +124,14 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
                 pthread_mutex_lock(&exec_mutex);
 
                 t_cpu* cpuFinQuantum = encontrar_cpu_con_pid(pidInterrumpido);
+                if(cpuFinQuantum==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
 
                 log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pidInterrumpido);
+
 
                 
                 t_pcb* pcb = cpuFinQuantum->pcb;
@@ -145,6 +154,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuPadre = encontrar_cpu_con_pid(proc->pid);
+                if(cpuPadre==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
 
                 t_pcb* procPcb = cpuPadre->pcb;
                 cpuPadre->pcb = NULL;
@@ -170,6 +183,11 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpu = encontrar_cpu_con_pid(pid);
 
+                if(cpu==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
+
                 t_pcb* pcbFin = cpu->pcb;
                 cpu->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
@@ -194,6 +212,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuSleep = encontrar_cpu_con_pid(sleep->pid); 
+                if(cpuSleep==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 pthread_mutex_unlock(&exec_mutex);
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
@@ -214,6 +236,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid); 
+                if(cpuUsada==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 pthread_mutex_unlock(&exec_mutex);  
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDIN", procesoStdin->pid);
@@ -233,14 +259,19 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuUsadaStdout = encontrar_cpu_con_pid(procesoStdout->pid); 
+                if(cpuUsadaStdout==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
 
                 //ACA TENGO QUE DIFERENCIAR SI HAY IO DISPONIBLE O NO PARA VER SI BLOQUEEO O NO
                 pthread_mutex_lock(&mutex_stdout_ocupado);
                 if(stdout_ocupado){
+                    t_pcb* pcbStdout = cpuUsadaStdout ? cpuUsadaStdout->pcb : NULL;
                     pthread_mutex_unlock(&exec_mutex);
-                    bloquear_proceso(cpuUsadaStdout->pcb);
+                    if(pcbStdout !=NULL){bloquear_proceso(cpuUsadaStdout->pcb);}
                 } else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
                     cpuUsadaStdout->pcb = NULL;
@@ -387,6 +418,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* unaCpuPadre = encontrar_cpu_con_pid(mutexNuevo->pid);
+                if(unaCpuPadre==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 t_pcb* pcbMutexCreate = unaCpuPadre->pcb;
                 unaCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
@@ -409,9 +444,18 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
                 t_mutex_syscall* mutexABloquearEnLista = buscar_mutex(mutexABloquear->nombreMutex);
                 //log_debug(loggerScheduler, "encontro el mutex: %s", mutexABloquearEnLista->nombreMutex);
                 
+                if(mutexABloquearEnLista ==NULL){
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+                    log_error(loggerScheduler, "Mutex no encontrado: %s", mutexABloquear->nombreMutex);
+                    break;
+                }
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
+                if(cpuALiberar==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 //log_debug(loggerScheduler, "encontro la cpu id: %d   con el pid:  %d", cpuALiberar->cpu_id, cpuALiberar->pcb->pid);
                 pthread_mutex_unlock(&exec_mutex);
 
@@ -465,6 +509,11 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&mutex_lista_mutex);
                 t_mutex_syscall* mutexALiberarEnLista = buscar_mutex(mutexALiberar->nombreMutex);
+                if(mutexALiberarEnLista ==NULL){
+                    pthread_mutex_unlock(&mutex_lista_mutex);
+                    log_error(loggerScheduler, "Mutex no encontrado: %s", mutexABloquear->nombreMutex);
+                    break;
+                }
 
                 mutexALiberarEnLista->contador++;
 
@@ -514,6 +563,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* otraCpuPadre = encontrar_cpu_con_pid(mutexALiberar->pid);
+                if(otraCpuPadre==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 t_pcb* pcbMutexUnlock = otraCpuPadre->pcb;
                 otraCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
@@ -541,10 +594,21 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
+                if(cpuAlloc==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 pthread_mutex_unlock(&exec_mutex);
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
                 op_code rtaKM = solicitar_segmento_memory(infoMemAlloc,SOLICITAR_SEGMENTO,socketCliente);//aca dentro se gestiona las posibles compactaciones y reintentos
 
+
+                //LA BUSCAMOS DE NUEVO POR SI HUBO COMPACTACION AL SOLICITAR EL SEGMENTO
+                cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
+                if(cpuAlloc==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
 
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
@@ -585,6 +649,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* CpuFree = encontrar_cpu_con_pid(infoMemFree->pid);
+                if(CpuFree==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 pthread_mutex_unlock(&exec_mutex);
 
                 if (CpuFree != NULL){
@@ -600,6 +668,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuDesalojada = encontrar_cpu_con_pid(pidDesalojado);
+                if(cpuDesalojada==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 t_pcb* pcbDesalojado = cpuDesalojada->pcb;
                 uint32_t causante_pid = cpuDesalojada->pid_desalojador;
                 int causante_prioridad = cpuDesalojada->prioridad_desalojador;
@@ -616,6 +688,10 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
                 uint32_t pidFault = buffer_read_uint32(paquete->buffer);
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuFault = encontrar_cpu_con_pid(pidFault);
+                if(cpuFault==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
                 t_pcb* pcbFault = cpuFault->pcb;
                 cpuFault->pcb=NULL;
                 pthread_mutex_unlock(&exec_mutex);
@@ -637,6 +713,16 @@ enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!
                 pidBsod = buffer_read_uint32(paquete->buffer);
                 // NO LOGUEO ACA QUE PASAN A EXIT Y EL MOTIVO DE FINALIZACION X SI ME PASA QUE SE EJECUTE EL abort() ANTES DE QUE SE LLEGUE A ESTE CASE
                 log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu* cpuBsod = encontrar_cpu_con_pid(pidBsod);
+                if(cpuBsod!=NULL){
+                    free(cpuBsod->pcb);
+                    cpuBsod->pcb =NULL;
+                    free(cpuBsod);//DESP VER SI ESTA VA O NO
+                }
+                pthread_mutex_unlock(&exec_mutex);
+                //liberar_cpu_y_notificar(); DESP VER SI ESTA LINEA VA O NO, YO CREO Q NO PQ YA SE TERMINA TODO
+
                 break;
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);

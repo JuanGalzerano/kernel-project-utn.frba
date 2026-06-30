@@ -151,26 +151,27 @@ void bloquear_proceso(t_pcb* pcbBlock){
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
     
     //t_pcb* pcbBlockeado = cpu->pcb; comentado pq por ahora creo que no se usa, creo qie en el list add es lo mismo cual use.
-    cpu->pcb = NULL;
-    pthread_mutex_unlock(&exec_mutex);
+    if(cpu!=NULL){    
+        cpu->pcb = NULL;
+        pthread_mutex_unlock(&exec_mutex);
 
-    //le avisamos a la cpu que se bloqueo el proceso
-    t_buffer* buffer = buffer_create(0);
-    buffer_add_uint32(buffer, pcbBlock->pid);
-    t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buffer);
-    enviar_paquete(cpu->socketConexion, unPaquete);//cuidado con la race condition del cpu->socketConexion
+        //le avisamos a la cpu que se bloqueo el proceso
+        t_buffer* buffer = buffer_create(0);
+        buffer_add_uint32(buffer, pcbBlock->pid);
+        t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buffer);
+        enviar_paquete(cpu->socketConexion, unPaquete);//cuidado con la race condition del cpu->socketConexion
 
-    pthread_mutex_lock(&block_mutex);
-    list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
-    pthread_mutex_unlock(&block_mutex);
+        pthread_mutex_lock(&block_mutex);
+        list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
+        pthread_mutex_unlock(&block_mutex);
 
-    timer_tiempo_bloqueado(pcbBlock);
-    
-    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
+        timer_tiempo_bloqueado(pcbBlock);
+        
+        log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
 
-    free(buffer->stream);
-    free(buffer);
-    free(unPaquete);
+        free(buffer->stream);
+        free(buffer);
+        free(unPaquete);}
 }
 
 t_pcb* buscar_y_sacar_de_block(uint32_t pid){
@@ -223,7 +224,7 @@ void* hilo_timer_quantum(void* arg){
     usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
 
     pthread_mutex_lock(&exec_mutex);
-    bool sigueEjecutando = (cpu->pcb != NULL && cpu->pcb->pid == pidCpuOriginal);
+    bool sigueEjecutando = ((cpu->pcb != NULL) && (cpu->pcb->pid == pidCpuOriginal));
     pthread_mutex_unlock(&exec_mutex);
 
     if(sigueEjecutando){
@@ -284,7 +285,7 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
     free(unPaquete);
 
     //ver si hay que elimiinar paquete
-    char* cadena = malloc(bytes);// ver sy es bytes +1 y eso
+    char* cadena =NULL;// ver sy es bytes +1 y eso
 
     t_paquete* respuesta = recibir_paquete(socketConexionMemory);
     
@@ -717,11 +718,15 @@ void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin, uint32_t dire
     pthread_mutex_lock(&mutex_susp_block);
     t_proc_suspendido* proceso=NULL;
     for(int i=0;i<list_size(susp_block);i++){
-        proceso = list_get(susp_block,i);
-        if(proceso->pcb->pid == pid){
+        t_proc_suspendido* procEnLista = list_get(susp_block,i);
+        if(procEnLista->pcb->pid == pid){
             proceso = list_remove(susp_block, i);
             break;
         }
+    }
+    if(proceso == NULL){
+        log_error(loggerScheduler,"no se encontro el pid %d para pasar a SUSP READY", pid);
+        return;
     }
     proceso->cadenaStdin = cadenaStdin;
     proceso->direccionLogicaStdin = direccionLogica;
@@ -740,7 +745,9 @@ void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin, uint32_t dire
         pthread_mutex_unlock(&mutex_susp_ready);
     }else{
         t_paquete* paqSolicitud = crear_paquete(SOLICITAR_PROCS_DESUSPENDIBLES, NULL);
+        pthread_mutex_lock(&mutex_socket_memory);
         enviar_paquete(socketConexionMemory, paqSolicitud);
+        pthread_mutex_unlock(&mutex_socket_memory);
         eliminar_paquete(paqSolicitud);
     }
 
@@ -808,6 +815,10 @@ void desuspender_proceso(t_proc_suspendido* proc){
         sem_post(&sem_hay_proceso_ready);
         despertar_planificador();
         log_info(loggerScheduler,"## (%d) Pasa del estado SUSP READY al estado READY",pcb->pid);
+    }else{
+        log_error(loggerScheduler, "Error al querer desuspender el pid: %d", pcb->pid);
+        eliminar_paquete(paq);
+        //ver si tendria que finalizar el proceso, igual nunca se deberia llegar a esta situacion
     }
     free(proc->cadenaStdin);
     free(proc);
