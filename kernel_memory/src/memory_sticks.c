@@ -95,6 +95,8 @@ void* hilo_monitor_sticks(void* arg){
             eliminar_paquete(aviso);
 
             close(fd);
+            log_info(loggerMemory, "Kernel Memory finalizado por BSOD");
+            abort();
         }
     }
     return NULL;
