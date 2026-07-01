@@ -163,6 +163,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 cpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", proc->pid);
+
                 encolar_pcb_ready(procPcb);
 
                 sem_post(&sem_hay_proceso_ready);
