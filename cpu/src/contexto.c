@@ -4,52 +4,42 @@
 uint32_t obtener_pid(int socketConexionScheduler) {
     while(1) {
         t_paquete *paquete = recibir_paquete(socketConexionScheduler);
-        if(paquete == NULL){
+        if(paquete == NULL) {
             log_debug(loggerCpu, "CPU: Se desconecto el Scheduler al solicitar PID");
             abort();
         }
 
-        if(paquete->codigo_operacion == EJECUTAR_PROCESO){
-            uint32_t pid = buffer_read_uint32(paquete->buffer);
-            eliminar_paquete(paquete);
-            return pid;
+        switch(paquete->codigo_operacion) {
+            case EJECUTAR_PROCESO: {
+                uint32_t pid = buffer_read_uint32(paquete->buffer);
+                eliminar_paquete(paquete);
+                return pid;
+            }
+            case PROCESO_BLOQUEADO:
+            case FIN_PROCESO:
+                eliminar_paquete(paquete);
+                break;
+            case FINALIZAR_POR_QUANTUM:
+            case COMPACTACION:
+            case DESALOJO: {
+                log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
+                log_info(loggerCpu, "## Interrupción recibida");
+                enviar_paquete(socketConexionScheduler, paquete);
+                eliminar_paquete(paquete);
+                break;
+            }
+            case DESALOJAR_POR_BSOD: {
+                log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
+                log_info(loggerCpu, "## Interrupción recibida");
+                enviar_paquete(socketConexionScheduler, paquete);
+                eliminar_paquete(paquete);
+                abort();
+            }
+            default:
+                log_debug(loggerCpu, "DEBUG_CPU: Paquete desconocido recibido en obtener_pid, descartando");
+                eliminar_paquete(paquete);
+                break;
         }
-        if(paquete->codigo_operacion == PROCESO_BLOQUEADO){
-            eliminar_paquete(paquete);
-            continue;
-        }
-        if(paquete->codigo_operacion == FIN_PROCESO ){
-            eliminar_paquete(paquete);
-            continue;
-        }
-        if(paquete->codigo_operacion == FINALIZAR_POR_QUANTUM || paquete->codigo_operacion == COMPACTACION || paquete->codigo_operacion == DESALOJO || paquete->codigo_operacion == DESALOJAR_POR_BSOD) {
-            log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
-            uint32_t pidInterrumpido = buffer_read_uint32(paquete->buffer);
-            log_info(loggerCpu, "## Interrupción recibida");
-
-            t_buffer *buffer = buffer_create(0);
-            buffer_add_uint32(buffer, pidInterrumpido);
-            t_paquete *paq = crear_paquete(paquete->codigo_operacion, buffer);
-            enviar_paquete(socketConexionScheduler, paquete);
-            eliminar_paquete(paquete);
-            eliminar_paquete(paq);
-            continue;
-        }
-        if(paquete->codigo_operacion == DESALOJAR_POR_BSOD){
-            log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
-            uint32_t pidInterrumpido = buffer_read_uint32(paquete->buffer);
-            log_info(loggerCpu, "## Interrupción recibida");
-
-            t_buffer *buffer = buffer_create(0);
-            buffer_add_uint32(buffer, pidInterrumpido);
-            t_paquete *paq = crear_paquete(paquete->codigo_operacion, buffer);
-            enviar_paquete(socketConexionScheduler, paquete);
-            eliminar_paquete(paquete);
-            eliminar_paquete(paq);
-            abort();
-        }
-        log_debug(loggerCpu, "DEBUG_CPU: Paquete desconocido recibido en obtener_pid, descartando");
-        eliminar_paquete(paquete);
     }
 }
 

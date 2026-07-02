@@ -89,8 +89,13 @@ uint32_t ejecutar_mov_out(int socketConexionScheduler, uint32_t pid, Codigo_regi
     }
 
     log_debug(loggerCpu, "DEBUG_CPU: Inicio escritura en memoria");
-    uint32_t primera_dir_fisica = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro, pid, loggerCpu);
+    int primera_dir_fisica = escribir_en_memoria(lista_memory_sticks, (char*)&valor_del_registro, pid, loggerCpu);
     list_destroy_and_destroy_elements(lista_memory_sticks, free);
+    if (primera_dir_fisica == -1) {
+        log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT se desconecto memory stick");
+        lanzar_seg_fault(socketConexionScheduler, pid);
+        return COD_SEG_FAULT;
+    }
 
     log_info(loggerCpu, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", pid, primera_dir_fisica, valor_del_registro);
 
@@ -154,8 +159,13 @@ uint32_t ejecutar_copy_mem(int socketConexionScheduler, uint32_t pid, Codigo_reg
         }
 
         log_debug(loggerCpu, "DEBUG_CPU: Inicio escritura en memoria");
-        uint32_t primera_dir_fisica = escribir_en_memoria(lista_sticks_destino, resultado->dato, pid, loggerCpu);
+        int primera_dir_fisica = escribir_en_memoria(lista_sticks_destino, resultado->dato, pid, loggerCpu);
         list_destroy_and_destroy_elements(lista_sticks_destino, free);
+        if (primera_dir_fisica == -1) {
+            log_debug(loggerCpu, "DEBUG_CPU: Hubo SEG_FAULT se desconecto memory stick");
+            lanzar_seg_fault(socketConexionScheduler, pid);
+            return COD_SEG_FAULT;
+        }
 
         log_info(loggerCpu, "## PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %.*s", pid, primera_dir_fisica, tamanio_dato, resultado->dato);
         free(resultado->dato);
