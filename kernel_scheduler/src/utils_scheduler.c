@@ -432,6 +432,8 @@ void manejar_bsod(){
         t_cpu* cpu = list_get(exec_lista, i);
         if(cpu->pcb != NULL){
             //ACA ME FALTA AGREGAR AVIDARLE A LA CPU    
+            t_buffer* buf = buffer_create(0);
+            buffer_add_uint32(buf, cpu->pcb->pid);
             t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
             enviar_paquete(cpu->socketConexion, paq);
             eliminar_paquete(paq);
@@ -898,9 +900,9 @@ void despostear_todas_cpus(){
     while(valor > 0){
         sem_wait(&sem_hay_cpu_libre);
         sem_getvalue(&sem_hay_cpu_libre, &valor);
-    }
+    }/*
     while(valor < 0){
         sem_post(&sem_hay_cpu_libre);
         sem_getvalue(&sem_hay_cpu_libre, &valor);
-    }   
+    } */  
 }
