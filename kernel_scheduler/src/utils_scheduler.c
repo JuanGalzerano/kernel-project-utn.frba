@@ -441,6 +441,9 @@ void manejar_bsod(){
             log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", cpu->pcb->pid);
             free(cpu->pcb);
             cpu->pcb = NULL;
+            free(cpu);
+            list_remove(exec_lista,i);
+            i--;
         }
     }
     pthread_mutex_unlock(&exec_mutex);
@@ -500,6 +503,17 @@ void manejar_bsod(){
         free(proceso);
     }
     pthread_mutex_unlock(&mutex_susp_ready);
+
+    pthread_mutex_lock(&mutex_lista_mutex);
+
+    for(int i=0;i<list_size(lista_mutex);i++){
+        t_mutex_syscall* mutex = list_remove(lista_mutex,0);
+        free(mutex->nombreMutex);
+        queue_destroy(mutex->colaEspera);
+        free(mutex);
+    }
+
+    pthread_mutex_unlock(&mutex_lista_mutex);
 
     log_info(loggerScheduler, "## Kernel Scheduler finalizado por BSOD");
     abort();

@@ -282,11 +282,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     cpuUsadaStdout->pcb = NULL;
                     pthread_mutex_unlock(&exec_mutex);
 
-                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", stdoutPcb->pid);
-
-                    encolar_pcb_ready(stdoutPcb);
-
-                    sem_post(&sem_hay_proceso_ready);
+                    bloquear_proceso(stdoutPcb);
                     liberar_cpu_y_notificar();
                 }
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
@@ -344,12 +340,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }else if (procSusp !=NULL)
                 {
                     //t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
-                    //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULL
+                    //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULLCREO Q COMENT VIEJO
                     log_info(loggerScheduler,"## (%d) finalizó IO y pasa a SUSP READY",pidFinalizado);
                     pasar_des_susp_block_a_ready(pidFinalizado, NULL, 0);
                     sem_post(&sem_stdout_disponible);   
-                }else{
-                    //estaba ejecutando=>creo que no tengo q hacer nada
                 }
 
                 pthread_mutex_lock(&mutex_stdout_ocupado);
@@ -427,13 +421,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&exec_mutex);
                     break;
                 }
-                t_pcb* pcbMutexCreate = unaCpuPadre->pcb;
-                unaCpuPadre->pcb = NULL;
+                reanudar_proceso_en_cpu(unaCpuPadre);
                 pthread_mutex_unlock(&exec_mutex);
-                encolar_pcb_ready(pcbMutexCreate);
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexCreate->pid);
-                sem_post(&sem_hay_proceso_ready);
-                liberar_cpu_y_notificar();
                 
                 //uint32_t existe=1;
                 //send(socketCliente, &existe, sizeof(uint32_t), 0);decidimos que no es necesario avisarle, ya que si ya esta creado, no realizamos nada y listo
@@ -514,13 +503,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", mutexABloquear->pid, mutexABloquear->nombreMutex);
                     pthread_mutex_lock(&exec_mutex);
-                    t_pcb* pcbMutexLock = cpuALiberar->pcb;
-                    cpuALiberar->pcb = NULL;
+                    reanudar_proceso_en_cpu(cpuALiberar); 
                     pthread_mutex_unlock(&exec_mutex);
-                    encolar_pcb_ready(pcbMutexLock);
-                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexLock->pid);
-                    sem_post(&sem_hay_proceso_ready);
-                    liberar_cpu_y_notificar();
+                    
                 }
 
                 free(mutexABloquear->nombreMutex);
@@ -591,16 +576,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&exec_mutex);
                     break;
                 }
-                t_pcb* pcbMutexUnlock = otraCpuPadre->pcb;
-                otraCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
                 //
-                uint32_t prioridadRecalculada =pcbMutexUnlock->prioridadOriginal;
+                uint32_t prioridadRecalculada =otraCpuPadre->pcb->prioridadOriginal;
                 pthread_mutex_lock(&mutex_lista_mutex);
                 for(int i=0;i<list_size(lista_mutex);i++){
                     t_mutex_syscall* mtx = list_get(lista_mutex,i);
-                    if(mtx->pid == pcbMutexUnlock->pid && !queue_is_empty(mtx->colaEspera)){
+                    if(mtx->pid == otraCpuPadre->pcb->pid && !queue_is_empty(mtx->colaEspera)){
                         for(int j=0;j<queue_size(mtx->colaEspera);j++){
                             t_pcb* posiblePadrePrior =list_get(mtx->colaEspera->elements,j);
 
@@ -614,18 +597,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 pthread_mutex_unlock(&mutex_lista_mutex);
 
-                uint32_t prioridadAnterior = pcbMutexUnlock->prioridad;
-                pcbMutexUnlock->prioridad = prioridadRecalculada;
+                uint32_t prioridadAnterior = otraCpuPadre->pcb->prioridad;
+                otraCpuPadre->pcb->prioridad = prioridadRecalculada;
 
-                if(prioridadAnterior != pcbMutexUnlock->prioridad){
-                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, prioridadAnterior, pcbMutexUnlock->prioridad);
+                if(prioridadAnterior != otraCpuPadre->pcb->prioridad){
+                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", otraCpuPadre->pcb->pid, prioridadAnterior, otraCpuPadre->pcb->prioridad);
                 }
 
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexUnlock->pid);
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", otraCpuPadre->pcb->pid);
 
-                encolar_pcb_ready(pcbMutexUnlock);
-                sem_post(&sem_hay_proceso_ready);
-                liberar_cpu_y_notificar();
+                pthread_mutex_lock(&exec_mutex);
+                reanudar_proceso_en_cpu(otraCpuPadre);
+                pthread_mutex_unlock(&exec_mutex);
 
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
