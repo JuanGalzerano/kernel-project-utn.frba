@@ -19,7 +19,7 @@ void* hilo_kernel_memory_avisos(void* arg) {
     while(1) {
         t_paquete* paquete_sticks = recibir_paquete(socketConexionMemoryAvisos);
         if (paquete_sticks == NULL) {
-            log_error(loggerCpu, "CPU: Se desconecto Kernel Memory Avisos");
+            log_debug(loggerCpu, "CPU: Se desconecto Kernel Memory Avisos");
             abort();
         }
         if (paquete_sticks->codigo_operacion == AVISO_NUEVO_STICK) {

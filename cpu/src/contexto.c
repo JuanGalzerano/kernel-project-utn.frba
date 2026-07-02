@@ -4,25 +4,25 @@
 uint32_t obtener_pid(int socketConexionScheduler) {
     while(1) {
         t_paquete *paquete = recibir_paquete(socketConexionScheduler);
-        if(paquete == NULL) {
-            log_error(loggerCpu, "CPU: Se desconecto el Scheduler al solicitar PID");
+        if(paquete == NULL){
+            log_debug(loggerCpu, "CPU: Se desconecto el Scheduler al solicitar PID");
             abort();
         }
 
-        if(paquete->codigo_operacion == EJECUTAR_PROCESO) {
+        if(paquete->codigo_operacion == EJECUTAR_PROCESO){
             uint32_t pid = buffer_read_uint32(paquete->buffer);
             eliminar_paquete(paquete);
             return pid;
         }
-        if(paquete->codigo_operacion == PROCESO_BLOQUEADO) {
+        if(paquete->codigo_operacion == PROCESO_BLOQUEADO){
             eliminar_paquete(paquete);
             continue;
         }
-        if(paquete->codigo_operacion == FIN_PROCESO ) {
+        if(paquete->codigo_operacion == FIN_PROCESO ){
             eliminar_paquete(paquete);
             continue;
         }
-        if(paquete->codigo_operacion == FINALIZAR_POR_QUANTUM || paquete->codigo_operacion == COMPACTACION || paquete->codigo_operacion == DESALOJO){
+        if(paquete->codigo_operacion == FINALIZAR_POR_QUANTUM || paquete->codigo_operacion == COMPACTACION || paquete->codigo_operacion == DESALOJO || paquete->codigo_operacion == DESALOJAR_POR_BSOD) {
             log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
             uint32_t pidInterrumpido = buffer_read_uint32(paquete->buffer);
             log_info(loggerCpu, "## Interrupción recibida");
@@ -61,8 +61,8 @@ t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory) {
     eliminar_paquete(paqueteConContexto);
 
     t_paquete *paquete = recibir_paquete(socketConexionMemory);
-    if (paquete == NULL) {
-        log_error(loggerCpu, "CPU: Se desconecto Kernel Memory al solicitar contexto del PID: %d", pid);
+    if(paquete == NULL){
+        log_debug(loggerCpu, "CPU: Se desconecto Kernel Memory al solicitar contexto del PID: %d", pid);
         abort();
     }
     t_contexto_ejecucion *ctx = deserializar_contexto_ctx(paquete->buffer);
@@ -70,7 +70,7 @@ t_contexto_ejecucion *obtener_contexto(uint32_t pid, int socketConexionMemory) {
     return ctx;
 }
 
-void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory, uint32_t pid) {  
+void actualizar_contexto(t_contexto_ejecucion *ctx, int socketConexionMemory, uint32_t pid){
     ctx->pc = registros_cpu.pc;
     ctx->ax = registros_cpu.ax;
     ctx->bx = registros_cpu.bx;
