@@ -98,17 +98,21 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (errorCiclo == COD_SEG_FAULT || errorCiclo == COD_EXIT) {
-            log_debug(loggerCpu, "DEBUG_CPU: PID %d - Contexto descartado (SEG_FAULT o EXIT, no se actualiza KM)", pid);
+        if (errorCiclo == COD_SEG_FAULT || errorCiclo == COD_EXIT || errorCiclo == -1) {
+            log_debug(loggerCpu, "DEBUG_CPU: PID %d - Contexto descartado (SEG_FAULT, EXIT o BSOD, no se actualiza KM)", pid);
             liberar_contexto(ctx);
             continue;
         }
-
-        log_info(loggerCpu, "CPU: Contexto actualizado");
-        actualizar_contexto(ctx, socketConexionMemory, pid);
-        if ((errorCiclo != 1) && (errorCiclo != -1) && (errorCiclo != COD_SEG_FAULT) && (errorCiclo != COD_EXIT)) {
+        if (motivo_interrupcion != DESALOJAR_POR_BSOD) {
+            log_info(loggerCpu, "CPU: Contexto actualizado");
+            actualizar_contexto(ctx, socketConexionMemory, pid);
+        }
+        if (errorCiclo != 1) {
             log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
             enviar_pid_y_motivo(pid, motivo_interrupcion, socketConexionScheduler);
+            if (motivo_interrupcion == DESALOJAR_POR_BSOD) {
+                abort();
+            }
         }
     }
     return 0;

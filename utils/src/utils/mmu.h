@@ -28,6 +28,6 @@ t_memory_stick_info* buscar_stick_base(t_list* lista_memory_stick, uint32_t dire
 t_memory_stick_info* buscar_siguiente_stick(t_list* lista_memory_stick, t_memory_stick_info* stick_base);
 uint32_t crear_lista_con_memories_stick_a_llamar(t_memory_stick_info* stick, uint32_t base_del_segmento, uint32_t desplazamiento_del_segmento, uint32_t tamanio, t_list* lista_de_memories_stick_a_llamar, t_list* lista_memory_stick);
 t_resultado_lectura* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, uint32_t pid, t_log* logger);
-uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_escribir, uint32_t pid, t_log* logger);
+int escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_escribir, uint32_t pid, t_log* logger);
 
 #endif

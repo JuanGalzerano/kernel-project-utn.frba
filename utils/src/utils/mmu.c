@@ -159,7 +159,7 @@ t_resultado_lectura* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, u
     return resultado;
 }
 
-uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_escribir, uint32_t pid, t_log* logger) {
+int escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_escribir, uint32_t pid, t_log* logger) {
     uint32_t escrito = 0;
     for (int i = 0; i < list_size(lista_de_memories_stick_a_llamar); i++) {
         struct_control_mmu* memoria_a_llamar = list_get(lista_de_memories_stick_a_llamar, i);
@@ -174,7 +174,12 @@ uint32_t escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* val
         eliminar_paquete(paquete_para_escribir);
 
         t_paquete* respuesta = recibir_paquete(memoria_a_llamar->socketMemoryStick);
-        eliminar_paquete(respuesta);
+        if (respuesta == NULL || respuesta->codigo_operacion != ESCRIBIR_BYTES) {
+            if (respuesta != NULL) {
+                eliminar_paquete(respuesta);
+            }
+            return -1;
+        }
 
         escrito += tamanio;
     }
