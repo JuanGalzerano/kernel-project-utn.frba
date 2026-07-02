@@ -434,7 +434,7 @@ void manejar_bsod(){
             //ACA ME FALTA AGREGAR AVIDARLE A LA CPU    
             t_buffer* buf = buffer_create(0);
             buffer_add_uint32(buf, cpu->pcb->pid);
-            t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,NULL);
+            t_paquete* paq = crear_paquete(DESALOJAR_POR_BSOD,buf);
             enviar_paquete(cpu->socketConexion, paq);
             eliminar_paquete(paq);
             log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
@@ -483,6 +483,7 @@ void manejar_bsod(){
         t_proc_suspendido* proc = list_remove(susp_block, 0);
         log_info(loggerScheduler, "## (%d) Pasa del estado SUSP BLOCK al estado EXIT", proc->pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", proc->pcb->pid);
+        free(proc->cadenaStdin);
         free(proc->pcb);
         free(proc);
     }
@@ -494,6 +495,7 @@ void manejar_bsod(){
         t_proc_suspendido* proceso = list_remove(susp_ready, 0);
         log_info(loggerScheduler, "## (%d) Pasa del estado SUSP READY al estado EXIT", proceso->pcb->pid);
         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Blue Screen of Death (BSOD)", proceso->pcb->pid);
+        free(proceso->cadenaStdin);
         free(proceso->pcb);
         free(proceso);
     }
