@@ -1,4 +1,4 @@
-SLEEP 7000
-INIT_PROC hola.txt 0
-INIT_PROC test_compactacion.prc 0
+MUTEX_CREATE mutex
+MUTEX_CREATE otroMutex
+INIT_PROC hola.txt 3
 EXIT

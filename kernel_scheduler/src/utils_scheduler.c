@@ -583,6 +583,7 @@ void liberar_cpu_y_notificar(){
 }
 
 //ver bien que onda esta xq si esta en ready en CMN, lo saco de la lista pero en todos los casos no, no creo que eso sea correcto
+//USARLA SOLO EN LO DE MUTEX
 t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady){
     *estabaEnReady = 0; 
     pthread_mutex_lock(&exec_mutex);

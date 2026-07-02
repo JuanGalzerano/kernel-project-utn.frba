@@ -150,8 +150,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: INIT_PROC", proc->pid);
 
-                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
-
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuPadre = encontrar_cpu_con_pid(proc->pid);
                 if(cpuPadre==NULL){
@@ -162,13 +160,18 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_pcb* procPcb = cpuPadre->pcb;
                 cpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
+                liberar_cpu_y_notificar();
 
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", proc->pid);
 
                 encolar_pcb_ready(procPcb);
 
                 sem_post(&sem_hay_proceso_ready);
-                liberar_cpu_y_notificar();
+                
+
+                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+
+                
 
                 free(proc->pathArchivoInstrucciones);
                 free(proc);
@@ -408,7 +411,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     t_mutex_syscall* mutexParaLista = malloc(sizeof(t_mutex_syscall));
                     mutexParaLista->colaEspera=queue_create();
                     mutexParaLista->nombreMutex=strdup(mutexNuevo->nombreMutex);
-                    mutexParaLista->pid = UINT32_MAX;//significa LIBRE, xq no podemos usar -1 y tampoco podemos usar NULL. Desp ver si esta bien
+                    mutexParaLista->pid = UINT32_MAX;//significaria LIBRE (igual usamos el contador), xq no podemos usar -1 y tampoco podemos usar NULL. Desp ver si esta bien
                     mutexParaLista->contador = 1;
                     list_add(lista_mutex, mutexParaLista);
                     pthread_mutex_unlock(&mutex_lista_mutex);
@@ -428,6 +431,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 unaCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
                 encolar_pcb_ready(pcbMutexCreate);
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexCreate->pid);
                 sem_post(&sem_hay_proceso_ready);
                 liberar_cpu_y_notificar();
                 
@@ -467,12 +471,30 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->contador--;
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
-                    int estabaEnReady = 0;
+                    int estabaEnReady = 0;//es si estaba en ready de CMN
                     t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid,  &estabaEnReady);
                     if(pcbDueño != NULL && pcbDueño->prioridad > cpuALiberar->pcb->prioridad){
                         //el dueño tiene menor prioridad (número mayor = menor prioridad)
                         log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
                         pcbDueño->prioridad = cpuALiberar->pcb->prioridad;
+                        //ACA TENGO QUE METER FUNCION PARA QUE SI ESTE ESTABA EN OTRA COLA DE UN MUTEX, VER SI EL DUEÑO DE ESE MUTEX TIENE QUE HEREDAR
+
+                        for(int i=0;i<list_size(lista_mutex);i++){
+                            t_mutex_syscall* unMtxEnLista =list_get(lista_mutex,i);
+                            int enReady=0;
+                            t_pcb* otroDueño = buscar_pcb_por_pid(unMtxEnLista->pid, &enReady);
+                            if(unMtxEnLista->pid !=pcbDueño->pid && !queue_is_empty(unMtxEnLista->colaEspera)){//si es el que heredo, el que lo tiene tomado, no tengo que actualizar nada
+                                for(int j=0;j<queue_size(unMtxEnLista->colaEspera);j++){
+                                    t_pcb* posiblePcb =list_get(unMtxEnLista->colaEspera->elements,j);
+                                    if(posiblePcb->pid ==pcbDueño->pid && posiblePcb->prioridad < otroDueño->prioridad){
+                                        log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",otroDueño->pid, otroDueño->prioridad, posiblePcb->prioridad);
+                                        if(enReady){
+                                            encolar_pcb_ready(otroDueño);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if(estabaEnReady){//guarda, aco hago referencia al dueño, no al que solicito la syscall, a ese lo bloqueo abajo
                             encolar_pcb_ready(pcbDueño);
                         }
@@ -481,7 +503,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     bloquear_proceso(cpuALiberar->pcb);
 
-                    pthread_mutex_unlock(&mutex_lista_mutex);
+                    pthread_mutex_unlock(&mutex_lista_mutex);//tendria q ir mas arriba creo
 
                     liberar_cpu_y_notificar();
                 }
@@ -573,11 +595,30 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 otraCpuPadre->pcb = NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
-                uint32_t prioridadAnterior = pcbMutexUnlock->prioridad;
-                pcbMutexUnlock->prioridad = pcbMutexUnlock->prioridadOriginal;
+                //
+                uint32_t prioridadRecalculada =pcbMutexUnlock->prioridadOriginal;
+                pthread_mutex_lock(&mutex_lista_mutex);
+                for(int i=0;i<list_size(lista_mutex);i++){
+                    t_mutex_syscall* mtx = list_get(lista_mutex,i);
+                    if(mtx->pid == pcbMutexUnlock->pid && !queue_is_empty(mtx->colaEspera)){
+                        for(int j=0;j<queue_size(mtx->colaEspera);j++){
+                            t_pcb* posiblePadrePrior =list_get(mtx->colaEspera->elements,j);
 
-                if(prioridadAnterior != pcbMutexUnlock->prioridadOriginal){
-                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, prioridadAnterior, pcbMutexUnlock->prioridadOriginal);
+                                if(posiblePadrePrior->prioridad<prioridadRecalculada){
+                                    prioridadRecalculada=posiblePadrePrior->prioridad;
+                                }
+                            
+                        }
+                    }
+                }
+
+                pthread_mutex_unlock(&mutex_lista_mutex);
+
+                uint32_t prioridadAnterior = pcbMutexUnlock->prioridad;
+                pcbMutexUnlock->prioridad = prioridadRecalculada;
+
+                if(prioridadAnterior != pcbMutexUnlock->prioridad){
+                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", pcbMutexUnlock->pid, prioridadAnterior, pcbMutexUnlock->prioridad);
                 }
 
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pcbMutexUnlock->pid);
