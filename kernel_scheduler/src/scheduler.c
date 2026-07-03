@@ -104,6 +104,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Desconexion de CPU", cpu->pcb->pid);
                         enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!!! FIJARSE SI FUNCA
 
+                        liberar_de_mutex_por_muerte(cpu->pcb);
                         free(cpu->pcb);
                     }
                 
@@ -114,20 +115,42 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             pthread_mutex_unlock(&exec_mutex);
             break; 
         }
+        log_info(loggerScheduler,
+    "RECIBIDO op=%d size=%u",
+    paquete->codigo_operacion,
+    paquete->buffer->size);
 
         switch(paquete->codigo_operacion){
             case FINALIZAR_POR_QUANTUM:
+                log_info(loggerScheduler,"ENTRE AL CASE");
                 
                 uint32_t pidInterrumpido;
+
+
+                if(paquete->buffer == NULL ||
+                   paquete->buffer->stream == NULL ||
+                   paquete->buffer->size < sizeof(uint32_t))
+                {
+                    log_error(loggerScheduler,
+                        "Paquete FINALIZAR_POR_QUANTUM invalido. size=%u stream=%p",
+                        paquete->buffer ? paquete->buffer->size : 0,
+                        paquete->buffer ? paquete->buffer->stream : NULL);
+
+                    eliminar_paquete(paquete);
+                    break;
+                }
+
                 buffer_read(paquete->buffer, &pidInterrumpido, sizeof(uint32_t));
+                log_info(loggerScheduler,"RECIBI PID %d",pidInterrumpido);
 
                 pthread_mutex_lock(&exec_mutex);
-
+                log_info(loggerScheduler,"POR ENCONTRAR CPU");
                 t_cpu* cpuFinQuantum = encontrar_cpu_con_pid(pidInterrumpido);
                 if(cpuFinQuantum==NULL){
                     pthread_mutex_unlock(&exec_mutex);
                     break;
                 }
+                
 
                 log_info(loggerScheduler, "## (%d) - Desalojado por fin de quantum", cpuFinQuantum->pcb->pid);
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pidInterrumpido);
@@ -206,6 +229,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 // 3. loguear y liberar el PCB
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de EXIT", pid);
+                liberar_de_mutex_por_muerte(pcbFin);
                 free(pcbFin);
 
                 // 4. la CPU quedó libre
@@ -652,6 +676,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&exec_mutex);
                     enviar_fin_proceso_memory(pcbOut->pid);
                     enviar_fin_proceso_a_cpu(pcbOut->pid, cpuAlloc->socketConexion);
+                    liberar_de_mutex_por_muerte(pcbOut);
                     free(pcbOut);
                     liberar_cpu_y_notificar();
                 }
@@ -730,6 +755,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Error: Segmentation Fault (SEG_FAULT)", pidFault);
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pidFault);
+                liberar_de_mutex_por_muerte(pcbFault);
 
                 free(pcbFault);
                 liberar_cpu_y_notificar();
@@ -827,7 +853,14 @@ void* planificador(void* arg){
         sem_wait(&sem_hay_proceso_ready);
 
         if(algoritmo==FIFO || algoritmo == RR){ 
-            sem_wait(&sem_hay_cpu_libre);     
+            sem_wait(&sem_hay_cpu_libre);
+            if(compactando){
+                sem_post(&sem_hay_cpu_libre);
+                pthread_mutex_lock(&mutex_planificador);
+                while(compactando) pthread_cond_wait(&cond_planificador, &mutex_planificador);
+                pthread_mutex_unlock(&mutex_planificador);
+                continue;
+            }     
             
             
             t_pcb* pcb =desencolar_pcb_ready();
@@ -848,7 +881,15 @@ void* planificador(void* arg){
 
                 t_cpu* cpuDesalojable = hay_cpu_desalojable(prox_pcb);
 
+                pthread_mutex_lock(&mutex_planificador);
+                    while(compactando) {
+                        pthread_cond_wait(&cond_planificador, &mutex_planificador);
+                    }
+                    pthread_mutex_unlock(&mutex_planificador);
+
                 if((sem_trywait(&sem_hay_cpu_libre)==0) && (prox_pcb!=NULL)){
+
+
                     t_pcb* unPcb = desencolar_pcb_ready();
                     t_cpu* cpuAUsar = obtener_cpu_libre();
                     enviar_proceso_a_cpu(cpuAUsar, unPcb);
@@ -886,6 +927,18 @@ void* planificador(void* arg){
             }else{
                 //NO HAY DESALOJO
                 sem_wait(&sem_hay_cpu_libre);
+
+                pthread_mutex_lock(&mutex_planificador);
+                while(compactando){
+                    sem_post(&sem_hay_cpu_libre);
+                    pthread_cond_wait(&cond_planificador,&mutex_planificador);
+                    //aaca esta dormido y cuando vuelve intenta tomar el sem nuevamente
+                    pthread_mutex_unlock(&mutex_planificador);
+                    sem_wait(&sem_hay_cpu_libre);
+                    pthread_mutex_lock(&mutex_planificador);
+                }
+                pthread_mutex_unlock(&mutex_planificador);
+
                 t_pcb* elPcb = desencolar_pcb_ready();
                 t_cpu* cpuEncontrada = obtener_cpu_libre();
                 enviar_proceso_a_cpu(cpuEncontrada, elPcb);

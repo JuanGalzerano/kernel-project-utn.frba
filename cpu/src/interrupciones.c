@@ -40,6 +40,13 @@ bool hay_interrupcion(uint32_t pidActual, int socketConexionScheduler) {
 void enviar_pid_y_motivo(uint32_t pid, uint32_t motivo, int socketConexionScheduler) {
     t_buffer *buffer = buffer_create(0);
     buffer_add_uint32(buffer, pid);
+
+    log_info(loggerCpu,
+        "ENVIANDO motivo=%d pid=%u size=%u",
+        motivo,
+        pid,
+        buffer->offset);
+
     t_paquete *paquete = crear_paquete(motivo, buffer);
     enviar_paquete(socketConexionScheduler, paquete);
     eliminar_paquete(paquete);

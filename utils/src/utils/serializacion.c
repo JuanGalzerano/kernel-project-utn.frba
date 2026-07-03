@@ -109,6 +109,7 @@ t_paquete* recibir_paquete(int socket) {
     t_paquete* paqueteRecibido = malloc(sizeof(t_paquete));
     
     int bytes = recv(socket, &paqueteRecibido->codigo_operacion, sizeof(op_code), MSG_WAITALL);
+    
     if(bytes <= 0) {  // 0 = desconexión, -1 = error
         free(paqueteRecibido);
         return NULL;

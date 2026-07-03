@@ -223,8 +223,12 @@ void* hilo_timer_quantum(void* arg){
 
     usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
 
+    log_info(loggerScheduler,"ME DESPERTEEEE POR PID %d",pidCpuOriginal);
+
     pthread_mutex_lock(&exec_mutex);
+    log_info(loggerScheduler,"POR EVALUAR COND");
     bool sigueEjecutando = ((cpu->pcb != NULL) && (cpu->pcb->pid == pidCpuOriginal));
+    log_info(loggerScheduler,"EVALUE COND Y ME DIO: %d", sigueEjecutando);
     pthread_mutex_unlock(&exec_mutex);
 
     if(sigueEjecutando){
@@ -234,9 +238,7 @@ void* hilo_timer_quantum(void* arg){
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
         enviar_paquete(cpu->socketConexion, paquete);
         //creo q hay destruir el paquete y buffer
-        free(buffer->stream);
-        free(buffer);
-        free(paquete);
+        eliminar_paquete(paquete);
     }
 
     return NULL;
@@ -358,11 +360,12 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
+        compactando= false;
         for(int i = 0;i<list_size(exec_lista);i++){
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
         }
         log_info(loggerScheduler,"## fin de compactación");
-        compactando= false;
+        
         despertar_planificador();
 
 /*ACA TENDRIA QUE NOTIFICAR PARA QUE VUELVAN A EJECUTAR TODAS LA CPUS Y LOS PROCESOS*/
@@ -922,4 +925,51 @@ void despostear_todas_cpus(){
         sem_post(&sem_hay_cpu_libre);
         sem_getvalue(&sem_hay_cpu_libre, &valor);
     } */  
+}
+
+
+void liberar_de_mutex_por_muerte(t_pcb* pcb){
+    uint32_t pid = pcb->pid;//ya lo tenia todo implementado con el nombre pid ydesp cambie lel parametro
+    pthread_mutex_lock(&mutex_lista_mutex);
+    for(int i=0;i<list_size(lista_mutex);i++){
+        t_mutex_syscall* mtx=list_get(lista_mutex,i);
+        if(mtx->pid ==pid && mtx->contador<1){
+            mtx->contador++;
+            t_pcb* siguiente = queue_pop(mtx->colaEspera);
+            mtx->pid = siguiente->pid;
+                
+            log_info(loggerScheduler, "## (%d) Toma el Mutex %s", siguiente->pid, mtx->nombreMutex);
+            if(!queue_is_empty(mtx->colaEspera)){
+                uint32_t prioridadMaxima = siguiente->prioridad;
+                for(int i=0; i<queue_size(mtx->colaEspera);i++){
+                    t_pcb* pcbTemporal = list_get(mtx->colaEspera->elements,i);
+                    if(prioridadMaxima > pcbTemporal->prioridad){
+                        prioridadMaxima = pcbTemporal->prioridad;
+                    }
+                }
+                if(siguiente->prioridad > prioridadMaxima){
+                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",siguiente->pid, siguiente->prioridad, prioridadMaxima);
+                    siguiente->prioridad = prioridadMaxima;
+                }
+                    
+            }
+            pthread_mutex_unlock(&mutex_lista_mutex);
+            //mover de BLOCK-> READY
+            t_pcb* pcbASacarDeBlock =  buscar_y_sacar_de_block(siguiente->pid);
+            if(pcbASacarDeBlock!=NULL){
+                encolar_pcb_ready(siguiente);
+                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
+                sem_post(&sem_hay_proceso_ready);
+                despertar_planificador();
+            }else{
+                pasar_des_susp_block_a_ready(siguiente->pid,NULL,0);
+            }
+        }else{
+            list_remove_element(lista_mutex,pcb);
+        }
+
+    }
+
+
+    pthread_mutex_unlock(&mutex_lista_mutex);
 }

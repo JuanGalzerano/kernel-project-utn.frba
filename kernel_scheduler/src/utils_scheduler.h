@@ -89,4 +89,6 @@ void destruir_uint32_t(void* nro);
 
 void despostear_todas_cpus();
 
+void liberar_de_mutex_por_muerte(t_pcb* pcb);
+
 #endif
