@@ -218,28 +218,27 @@ void* hilo_timer_quantum(void* arg){
     t_parametros_hilo_quantum* argumento = (t_parametros_hilo_quantum*) arg; //recibo pid original y la cpu
 
     uint32_t pidCpuOriginal = argumento->pid_original;
+    uint32_t miToken = argumento->token;
     t_cpu* cpu = argumento->cpu;
     free(argumento);
 
     usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
 
-    log_info(loggerScheduler,"ME DESPERTEEEE POR PID %d",pidCpuOriginal);
-
     pthread_mutex_lock(&exec_mutex);
-    log_info(loggerScheduler,"POR EVALUAR COND");
-    bool sigueEjecutando = ((cpu->pcb != NULL) && (cpu->pcb->pid == pidCpuOriginal));
-    log_info(loggerScheduler,"EVALUE COND Y ME DIO: %d", sigueEjecutando);
-    pthread_mutex_unlock(&exec_mutex);
+    bool sigueEjecutando = ((cpu->pcb != NULL) && (cpu->pcb->pid == pidCpuOriginal) && (cpu->quantum_token == miToken));
 
     if(sigueEjecutando){
-        //pedir a CPU que finalice por quantum
+        //pedir a CPU que finalice por quantum (mandado con el lock tomado para no pisarse con un desalojo/desconexion concurrente)
         t_buffer* buffer = buffer_create(0);
         buffer_add_uint32(buffer, pidCpuOriginal);
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
         enviar_paquete(cpu->socketConexion, paquete);
         //creo q hay destruir el paquete y buffer
         eliminar_paquete(paquete);
+    } else {
+        log_info(loggerScheduler,"Timer de quantum obsoleto ignorado para pid %d (token %u != %u)", pidCpuOriginal, miToken, cpu->quantum_token);
     }
+    pthread_mutex_unlock(&exec_mutex);
 
     return NULL;
 }
@@ -248,7 +247,11 @@ void* hilo_timer_quantum(void* arg){
 void iniciar_timer_quantum(t_cpu* cpu){
     t_parametros_hilo_quantum* argus = malloc(sizeof(t_parametros_hilo_quantum));
     argus->cpu = cpu;
-    argus->pid_original=cpu->pcb->pid;
+
+    pthread_mutex_lock(&exec_mutex);
+    argus->pid_original = cpu->pcb->pid;
+    argus->token = ++cpu->quantum_token;
+    pthread_mutex_unlock(&exec_mutex);
 
     pthread_t hiloQuantum;
     pthread_create(&hiloQuantum, NULL, hilo_timer_quantum, argus);

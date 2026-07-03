@@ -93,7 +93,7 @@ void enviar_paquete(int socket, t_paquete* paquete) {
     op_code op = paquete->codigo_operacion;
     uint32_t size = 0;
     if (paquete->buffer != NULL) {
-        size = paquete->buffer->offset;
+        size = paquete->buffer->size;
     }
     send(socket, &op, sizeof(op_code), 0);
     send(socket, &size, sizeof(uint32_t), 0);

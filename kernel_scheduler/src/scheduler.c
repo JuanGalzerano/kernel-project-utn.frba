@@ -122,29 +122,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
         switch(paquete->codigo_operacion){
             case FINALIZAR_POR_QUANTUM:
-                log_info(loggerScheduler,"ENTRE AL CASE");
                 
                 uint32_t pidInterrumpido;
 
-
-                if(paquete->buffer == NULL ||
-                   paquete->buffer->stream == NULL ||
-                   paquete->buffer->size < sizeof(uint32_t))
-                {
-                    log_error(loggerScheduler,
-                        "Paquete FINALIZAR_POR_QUANTUM invalido. size=%u stream=%p",
-                        paquete->buffer ? paquete->buffer->size : 0,
-                        paquete->buffer ? paquete->buffer->stream : NULL);
-
-                    eliminar_paquete(paquete);
-                    break;
-                }
-
                 buffer_read(paquete->buffer, &pidInterrumpido, sizeof(uint32_t));
-                log_info(loggerScheduler,"RECIBI PID %d",pidInterrumpido);
 
                 pthread_mutex_lock(&exec_mutex);
-                log_info(loggerScheduler,"POR ENCONTRAR CPU");
                 t_cpu* cpuFinQuantum = encontrar_cpu_con_pid(pidInterrumpido);
                 if(cpuFinQuantum==NULL){
                     pthread_mutex_unlock(&exec_mutex);
@@ -820,6 +803,7 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         nueva_cpu->pcb=NULL;
         nueva_cpu->pid_desalojador = 0;
         nueva_cpu->prioridad_desalojador = 0;
+        nueva_cpu->quantum_token = 0;
 
         //agrego CPU a lista de CPUs
         pthread_mutex_lock(&exec_mutex);

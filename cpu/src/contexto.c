@@ -15,12 +15,28 @@ uint32_t obtener_pid(int socketConexionScheduler) {
                 eliminar_paquete(paquete);
                 return pid;
             }
-            case PROCESO_BLOQUEADO:
-            case FIN_PROCESO:
+            case PROCESO_BLOQUEADO: {
                 eliminar_paquete(paquete);
                 break;
-            case FINALIZAR_POR_QUANTUM:
-            case COMPACTACION:
+            }
+            case FIN_PROCESO: {
+                eliminar_paquete(paquete);
+                break;
+            }
+            case FINALIZAR_POR_QUANTUM: {
+                log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
+                log_info(loggerCpu, "## Interrupción recibida");
+                enviar_paquete(socketConexionScheduler, paquete);
+                eliminar_paquete(paquete);
+                break;
+            }
+            case COMPACTACION: {
+                log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
+                log_info(loggerCpu, "## Interrupción recibida");
+                enviar_paquete(socketConexionScheduler, paquete);
+                eliminar_paquete(paquete);
+                break;
+            }
             case DESALOJO: {
                 log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
                 log_info(loggerCpu, "## Interrupción recibida");
@@ -35,10 +51,11 @@ uint32_t obtener_pid(int socketConexionScheduler) {
                 eliminar_paquete(paquete);
                 abort();
             }
-            default:
-                log_debug(loggerCpu, "DEBUG_CPU: Paquete desconocido recibido en obtener_pid, descartando");
+            default: {
+                log_info(loggerCpu, "PAQUETE DESCONOCIDO: op=%d size=%u", paquete->codigo_operacion, paquete->buffer->size);
                 eliminar_paquete(paquete);
                 break;
+            }
         }
     }
 }

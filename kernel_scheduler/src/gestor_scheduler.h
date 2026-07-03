@@ -23,9 +23,10 @@ typedef struct {
     int socketConexion;
     t_pcb* pcb; // NULL si la CPU está libre
     //estos de abajo solo los uso cuando hay desalojo habiliatdo los necesito pq asi lo logueo cuando me devuelven el pid y motivo y no cuando todavia realmente la cpu no lo desalojoo
-    uint32_t pid_desalojador;       
-    int prioridad_desalojador; 
-}t_cpu; 
+    uint32_t pid_desalojador;
+    int prioridad_desalojador;
+    uint32_t quantum_token;
+}t_cpu;
 
 typedef enum{
     FIFO,
@@ -36,8 +37,9 @@ typedef enum{
 typedef struct{
     t_cpu* cpu;
     uint32_t pid_original;
-}t_parametros_hilo_quantum; //eate  atruct lo usamos para que antes de correr el hilo timer de quantum, podamos guardar el pid, evitando que el de la CPU se ponga en NULL 
-//xq el proceso termino de ejecutar antes y ya dejo en NULL cpu->pcb 
+    uint32_t token;
+}t_parametros_hilo_quantum; //eate  atruct lo usamos para que antes de correr el hilo timer de quantum, podamos guardar el pid, evitando que el de la CPU se ponga en NULL
+//xq el proceso termino de ejecutar antes y ya dejo en NULL cpu->pcb
 
 typedef struct{
     t_pcb* pcb;
