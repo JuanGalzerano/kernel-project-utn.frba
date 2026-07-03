@@ -1,7 +1,7 @@
-SLEEP 20000
 INIT_PROC hola.txt 1
 INIT_PROC hola.txt 2
 INIT_PROC hola.txt 3
 INIT_PROC hola.txt 3
 INIT_PROC hola.txt 4
+INIT_PROC test_compactacion.prc 0
 EXIT

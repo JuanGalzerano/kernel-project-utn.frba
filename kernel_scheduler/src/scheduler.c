@@ -115,10 +115,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
             pthread_mutex_unlock(&exec_mutex);
             break; 
         }
-        log_info(loggerScheduler,
-    "RECIBIDO op=%d size=%u",
-    paquete->codigo_operacion,
-    paquete->buffer->size);
 
         switch(paquete->codigo_operacion){
             case FINALIZAR_POR_QUANTUM:
@@ -759,6 +755,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //liberar_cpu_y_notificar(); DESP VER SI ESTA LINEA VA O NO, YO CREO Q NO PQ YA SE TERMINA TODO
 
                 break;
+            
             default:
                 log_error(loggerScheduler,"------recibi %d , y no lo entiendo", paquete->codigo_operacion);
                 break;
@@ -839,6 +836,7 @@ void* planificador(void* arg){
         if(algoritmo==FIFO || algoritmo == RR){ 
             sem_wait(&sem_hay_cpu_libre);
             if(compactando){
+                sem_post(&sem_hay_proceso_ready); 
                 sem_post(&sem_hay_cpu_libre);
                 pthread_mutex_lock(&mutex_planificador);
                 while(compactando) pthread_cond_wait(&cond_planificador, &mutex_planificador);
@@ -861,15 +859,18 @@ void* planificador(void* arg){
             /*desalojo habilitado y hay uno de menor prior ejecutando*/
             if(hay_desalojo){
 
+                
+
+                pthread_mutex_lock(&mutex_planificador);
+                while(compactando){
+                    sem_post(&sem_hay_proceso_ready);
+                    pthread_cond_wait(&cond_planificador, &mutex_planificador);
+                }
+                pthread_mutex_unlock(&mutex_planificador);
+
                 t_pcb* prox_pcb = pcb_mas_prioritario();
 
                 t_cpu* cpuDesalojable = hay_cpu_desalojable(prox_pcb);
-
-                pthread_mutex_lock(&mutex_planificador);
-                    while(compactando) {
-                        pthread_cond_wait(&cond_planificador, &mutex_planificador);
-                    }
-                    pthread_mutex_unlock(&mutex_planificador);
 
                 if((sem_trywait(&sem_hay_cpu_libre)==0) && (prox_pcb!=NULL)){
 
@@ -933,6 +934,7 @@ void* planificador(void* arg){
         }
         
     }
+
     //cuando un proceso termina de ejcutar, hacer el log que se pasa a exit y volar el PCB de ese proceso (nose si es que va aca)
 }
 
