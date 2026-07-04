@@ -1,0 +1,10 @@
+MUTEX_CREATE mutex_A
+MUTEX_CREATE mutex_B
+INIT_PROC race_multimutex_hijo.prc 2
+MUTEX_LOCK mutex_A
+SLEEP 500
+MUTEX_LOCK mutex_B
+SLEEP 500
+MUTEX_UNLOCK mutex_B
+MUTEX_UNLOCK mutex_A
+EXIT

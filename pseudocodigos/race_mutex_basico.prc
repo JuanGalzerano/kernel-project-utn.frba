@@ -1,0 +1,12 @@
+MEM_ALLOC 0 64
+MUTEX_CREATE mutex_rc
+MUTEX_LOCK mutex_rc
+INIT_PROC race_mutex_hijo.prc 2
+SET AX 8
+SET BX 1
+SUB AX BX
+JNZ AX 1
+MUTEX_UNLOCK mutex_rc
+SLEEP 1000
+MEM_FREE 0
+EXIT
