@@ -5,7 +5,7 @@ INIT_PROC race_mutex_hijo.prc 2
 SET AX 8
 SET BX 1
 SUB AX BX
-JNZ AX 1
+JNZ AX 6
 MUTEX_UNLOCK mutex_rc
 SLEEP 1000
 MEM_FREE 0

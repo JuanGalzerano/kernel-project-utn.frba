@@ -5,7 +5,7 @@ INIT_PROC race_herencia_alto.prc 1
 SET AX 50
 SET BX 1
 SUB AX BX
-JNZ AX 1
+JNZ AX 5
 MUTEX_UNLOCK mutex_h
 MEM_FREE 0
 EXIT
