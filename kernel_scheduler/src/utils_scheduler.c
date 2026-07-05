@@ -218,7 +218,7 @@ void* hilo_timer_quantum(void* arg){
     t_parametros_hilo_quantum* argumento = (t_parametros_hilo_quantum*) arg; //recibo pid original y la cpu
 
     uint32_t pidCpuOriginal = argumento->pid_original;
-    uint32_t miToken = argumento->token;
+    uint32_t miToken= argumento->token;
     t_cpu* cpu = argumento->cpu;
     free(argumento);
 
@@ -357,14 +357,22 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         compactando = true;
         log_info(loggerScheduler,"## Inicio de compactación");
+        int cpusLiberadas=0;
+        for(int i =0;i<list_size(exec_lista);i++){
+            t_cpu* cpu=list_get(exec_lista,i);
+            if(cpu->pcb !=NULL){
+                cpusLiberadas++;
+            }
+        }
         despostear_todas_cpus();
         desalojar_por_compactacion(socket);
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
+        log_info(loggerScheduler,"---- recibi %d",compactacionHecha->codigo_operacion);
         compactando= false;
-        for(int i = 0;i<list_size(exec_lista);i++){
+        for(int i = 0;i<cpusLiberadas;i++){
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
         }
         log_info(loggerScheduler,"## fin de compactación");
