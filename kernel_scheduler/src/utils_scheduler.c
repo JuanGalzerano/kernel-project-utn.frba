@@ -149,7 +149,10 @@ void recibir_tipo_IO(int socketCliente){
 void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid); 
-    
+    if(cpu==NULL){
+        pthread_mutex_lock(&exec_mutex);
+        return;
+    }
     //t_pcb* pcbBlockeado = cpu->pcb; comentado pq por ahora creo que no se usa, creo qie en el list add es lo mismo cual use.
     if(cpu!=NULL){    
         cpu->pcb = NULL;
@@ -710,11 +713,21 @@ void* hilo_timer_bloqueado(void* arg){
 
     usleep(suspensionTimeout*1000);
 
-    t_pcb* pcb = buscar_y_sacar_de_block(pid);
+    pthread_mutex_lock(&block_mutex);
+    t_pcb* pcb=NULL;
+    for(int i=0;i<list_size(block_lista);i++){
+        t_pcb* pcbDeLista = list_get(block_lista,i);
+        if(pcbDeLista->pid==pid){
+            pcb=pcbDeLista;
+            list_remove(block_lista,i);
+            break;
+        }
+    }
 
     if(pcb!=NULL){
         suspender_proceso(pcb);
     }
+    pthread_mutex_unlock(&block_mutex);
     return NULL;
 }
 
@@ -944,13 +957,18 @@ void liberar_de_mutex_por_muerte(t_pcb* pcb){
     pthread_mutex_lock(&mutex_lista_mutex);
     for(int i=0;i<list_size(lista_mutex);i++){
         t_mutex_syscall* mtx=list_get(lista_mutex,i);
+        
         if(mtx->pid ==pid && mtx->contador<1){
+        
             mtx->contador++;
+            log_info(loggerScheduler,"## (%d) Libera el Mutex %s",pid, mtx->nombreMutex);
+
+            if(!queue_is_empty(mtx->colaEspera)){
             t_pcb* siguiente = queue_pop(mtx->colaEspera);
             mtx->pid = siguiente->pid;
                 
             log_info(loggerScheduler, "## (%d) Toma el Mutex %s", siguiente->pid, mtx->nombreMutex);
-            if(!queue_is_empty(mtx->colaEspera)){
+            
                 uint32_t prioridadMaxima = siguiente->prioridad;
                 for(int i=0; i<queue_size(mtx->colaEspera);i++){
                     t_pcb* pcbTemporal = list_get(mtx->colaEspera->elements,i);
@@ -963,7 +981,7 @@ void liberar_de_mutex_por_muerte(t_pcb* pcb){
                     siguiente->prioridad = prioridadMaxima;
                 }
                     
-            }
+            
             pthread_mutex_unlock(&mutex_lista_mutex);
             //mover de BLOCK-> READY
             t_pcb* pcbASacarDeBlock =  buscar_y_sacar_de_block(siguiente->pid);
@@ -975,8 +993,10 @@ void liberar_de_mutex_por_muerte(t_pcb* pcb){
             }else{
                 pasar_des_susp_block_a_ready(siguiente->pid,NULL,0);
             }
+        }
         }else{
-            list_remove_element(lista_mutex,pcb);
+            
+            mtx->pid=UINT32_MAX;
         }
 
     }

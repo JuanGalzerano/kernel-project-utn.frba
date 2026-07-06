@@ -1,7 +1,3 @@
 MUTEX_LOCK otroMutex
-INIT_PROC coscu.txt 0
 MUTEX_LOCK mutex
-SLEEP 40000
-MUTEX_UNLOCK otroMutex
-MUTEX_UNLOCK mutex
 EXIT

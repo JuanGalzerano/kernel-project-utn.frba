@@ -100,11 +100,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     list_remove_element(exec_lista, cpu);//ACACREO QUE PODIRA HACER REMOVE_ELEMNT_BY_CONDITION Y ME AHORRARIA TODO EL FOR Y ESO
 
                     if(cpu->pcb!=NULL){
+                        liberar_de_mutex_por_muerte(cpu->pcb);
                         log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
                         log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Desconexion de CPU", cpu->pcb->pid);
                         enviar_fin_proceso_memory(cpu->pcb->pid);//LINEA ESCRITA DESDE EL CELU DE JUANI!!! FIJARSE SI FUNCA
 
-                        liberar_de_mutex_por_muerte(cpu->pcb);
+                        
                         free(cpu->pcb);
                     }
                 
@@ -205,13 +206,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //revisar si va esta de aca abajo
                 enviar_fin_proceso_a_cpu(pid, socketCliente);
 
-                // 3. loguear y liberar el PCB
+                //loguear y liberar el PCB
+                liberar_de_mutex_por_muerte(pcbFin);
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de EXIT", pid);
-                liberar_de_mutex_por_muerte(pcbFin);
+               
                 free(pcbFin);
 
-                // 4. la CPU quedó libre
+                //la CPU quedó libre
                 liberar_cpu_y_notificar();
                 break;
             case SLEEP://se recibe tiempo a dormir y pid
@@ -282,7 +284,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     if(pcbStdout !=NULL){bloquear_proceso(cpuUsadaStdout->pcb);}
                 } else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
-                    cpuUsadaStdout->pcb = NULL;
+                    
                     pthread_mutex_unlock(&exec_mutex);
 
                     bloquear_proceso(stdoutPcb);
@@ -647,15 +649,17 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
                 //NO HAY MEMORIA DISPONIBLE => FINALIZA POR OUT OF MEMORY COMO DICE EL ISSUE #5206
-                    log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Out Of Memory", infoMemAlloc->pid);
-                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", infoMemAlloc->pid);
+
                     pthread_mutex_lock(&exec_mutex);
                     t_pcb* pcbOut = cpuAlloc->pcb;
                     cpuAlloc->pcb = NULL;
                     pthread_mutex_unlock(&exec_mutex);
+                    liberar_de_mutex_por_muerte(pcbOut);
+                    log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Out Of Memory", infoMemAlloc->pid);
+                    log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", infoMemAlloc->pid);
                     enviar_fin_proceso_memory(pcbOut->pid);
                     enviar_fin_proceso_a_cpu(pcbOut->pid, cpuAlloc->socketConexion);
-                    liberar_de_mutex_por_muerte(pcbOut);
+                    
                     free(pcbOut);
                     liberar_cpu_y_notificar();
                 }
@@ -732,10 +736,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //revisar si va esta de aca abajo
                 enviar_fin_proceso_a_cpu(pidFault, socketCliente);
                 
+                liberar_de_mutex_por_muerte(pcbFault);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Error: Segmentation Fault (SEG_FAULT)", pidFault);
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pidFault);
-                liberar_de_mutex_por_muerte(pcbFault);
-
+                
                 free(pcbFault);
                 liberar_cpu_y_notificar();
                 break;
