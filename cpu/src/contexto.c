@@ -26,6 +26,7 @@ uint32_t obtener_pid(int socketConexionScheduler) {
             case FINALIZAR_POR_QUANTUM: {
                 log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
                 log_info(loggerCpu, "## Interrupción recibida");
+                log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
                 enviar_paquete(socketConexionScheduler, paquete);
                 eliminar_paquete(paquete);
                 break;
@@ -33,6 +34,7 @@ uint32_t obtener_pid(int socketConexionScheduler) {
             case COMPACTACION: {
                 log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
                 log_info(loggerCpu, "## Interrupción recibida");
+                log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
                 enviar_paquete(socketConexionScheduler, paquete);
                 eliminar_paquete(paquete);
                 break;
@@ -40,6 +42,7 @@ uint32_t obtener_pid(int socketConexionScheduler) {
             case DESALOJO: {
                 log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
                 log_info(loggerCpu, "## Interrupción recibida");
+                log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
                 enviar_paquete(socketConexionScheduler, paquete);
                 eliminar_paquete(paquete);
                 break;
@@ -47,6 +50,7 @@ uint32_t obtener_pid(int socketConexionScheduler) {
             case DESALOJAR_POR_BSOD: {
                 log_debug(loggerCpu, "DEBUG_CPU: Interrupcion recibida con cpu ocioso, descartando");
                 log_info(loggerCpu, "## Interrupción recibida");
+                log_info(loggerCpu, "CPU: Envio PID y motivo de interrupcion a Scheduler");
                 enviar_paquete(socketConexionScheduler, paquete);
                 eliminar_paquete(paquete);
                 abort();
