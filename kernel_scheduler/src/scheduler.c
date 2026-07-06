@@ -275,14 +275,20 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(stdout_ocupado){
                     t_pcb* pcbStdout = cpuUsadaStdout ? cpuUsadaStdout->pcb : NULL;
                     pthread_mutex_unlock(&exec_mutex);
-                    if(pcbStdout !=NULL){bloquear_proceso(cpuUsadaStdout->pcb);}
+                    if(pcbStdout !=NULL){
+                        bloquear_proceso(cpuUsadaStdout->pcb);
+                        liberar_cpu_y_notificar();
+                        despertar_planificador();
+                        }
                 } else{
                     t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
+                    //cpuUsadaStdout->pcb=NULL;
                     
                     pthread_mutex_unlock(&exec_mutex);
 
                     bloquear_proceso(stdoutPcb);
                     liberar_cpu_y_notificar();
+                    despertar_planificador();
                 }
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
@@ -883,21 +889,21 @@ void* planificador(void* arg){
             if(hay_desalojo){
 
                 
-
                 pthread_mutex_lock(&mutex_planificador);
+                
                 while(compactando){
+                
                     sem_post(&sem_hay_proceso_ready);
                     pthread_cond_wait(&cond_planificador, &mutex_planificador);
                 }
                 pthread_mutex_unlock(&mutex_planificador);
 
                 t_pcb* prox_pcb = pcb_mas_prioritario();
-
+                
                 t_cpu* cpuDesalojable = hay_cpu_desalojable(prox_pcb);
-
+                
                 if((sem_trywait(&sem_hay_cpu_libre)==0) && (prox_pcb!=NULL)){
-
-
+                
                     t_pcb* unPcb = desencolar_pcb_ready();
                     t_cpu* cpuAUsar = obtener_cpu_libre();
                     enviar_proceso_a_cpu(cpuAUsar, unPcb);
