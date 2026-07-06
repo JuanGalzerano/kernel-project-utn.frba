@@ -38,6 +38,7 @@ pthread_mutex_t exec_mutex; //lista de t_cpu*, aca estan todas las cpus que teng
 
 sem_t sem_hay_proceso_ready;
 sem_t sem_hay_cpu_libre;
+sem_t sem_desalojo_compactacion_completo;
 //para espera activa de planificador en CMN con DESALOJO
 pthread_cond_t  cond_planificador;
 pthread_mutex_t mutex_planificador;

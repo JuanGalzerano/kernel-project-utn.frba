@@ -99,6 +99,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler,"## Se desconectó la CPU ID: %d", cpu->cpu_id);
                     list_remove_element(exec_lista, cpu);//ACACREO QUE PODIRA HACER REMOVE_ELEMNT_BY_CONDITION Y ME AHORRARIA TODO EL FOR Y ESO
 
+                    if(cpu->esperando_ack_compactacion){
+                        sem_post(&sem_desalojo_compactacion_completo);//evita que solicitar_segmento_memory quede esperando un ack que ya no va a llegar
+                    }
+
                     if(cpu->pcb!=NULL){
                         liberar_de_mutex_por_muerte(cpu->pcb);
                         log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", cpu->pcb->pid);
@@ -708,6 +712,30 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 sem_post(&sem_hay_proceso_ready);
                 liberar_cpu_y_notificar();
                 break;
+            case COMPACTACION: {
+                uint32_t pidCompactado;
+                buffer_read(paquete->buffer, &pidCompactado, sizeof(uint32_t));
+
+                pthread_mutex_lock(&exec_mutex);
+                t_cpu* cpuCompactada = encontrar_cpu_con_pid(pidCompactado);
+                if(cpuCompactada==NULL){
+                    pthread_mutex_unlock(&exec_mutex);
+                    break;
+                }
+                t_pcb* pcbCompactado = cpuCompactada->pcb;
+                cpuCompactada->pcb = NULL;
+                cpuCompactada->esperando_ack_compactacion = false;
+                pthread_mutex_unlock(&exec_mutex);
+
+                log_info(loggerScheduler, "## (%d) - Desalojado por compactacion", pidCompactado);
+                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
+
+                enlistar_primero_ready(pcbCompactado);
+                sem_post(&sem_hay_proceso_ready);
+                //NO liberar_cpu_y_notificar() aca: la CPU no debe reasignarse hasta que TERMINE toda la compactacion (lo hace solicitar_segmento_memory tras esperar todos los acks)
+                sem_post(&sem_desalojo_compactacion_completo);
+                break;
+            }
             case SEG_FAULT:
                 uint32_t pidFault = buffer_read_uint32(paquete->buffer);
                 pthread_mutex_lock(&exec_mutex);
@@ -795,6 +823,7 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         nueva_cpu->pid_desalojador = 0;
         nueva_cpu->prioridad_desalojador = 0;
         nueva_cpu->quantum_token = 0;
+        nueva_cpu->esperando_ack_compactacion = false;
 
         //agrego CPU a lista de CPUs
         pthread_mutex_lock(&exec_mutex);

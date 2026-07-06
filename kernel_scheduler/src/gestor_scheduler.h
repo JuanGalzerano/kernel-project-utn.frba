@@ -26,6 +26,7 @@ typedef struct {
     uint32_t pid_desalojador;
     int prioridad_desalojador;
     uint32_t quantum_token;
+    bool esperando_ack_compactacion; // true entre el envío de COMPACTACION y la recepción del ack (o la desconexión)
 }t_cpu;
 
 typedef enum{
@@ -98,6 +99,7 @@ extern pthread_mutex_t exec_mutex;
 //SEMAFOROS
 extern sem_t sem_hay_proceso_ready;
 extern sem_t sem_hay_cpu_libre;
+extern sem_t sem_desalojo_compactacion_completo;
 
 //eatos son para eliminar espera activa de CMN DESALOJO
 extern pthread_cond_t  cond_planificador;

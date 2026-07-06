@@ -81,7 +81,7 @@ void desuspender_proceso(t_proc_suspendido* proc);
 
 bool perteneceALalista(t_proc_suspendido* proc, t_list* lista);
 
-void desalojar_por_compactacion(int socket);
+int desalojar_por_compactacion(int socket);
 
 void enlistar_primero_ready(t_pcb* pcb);
 

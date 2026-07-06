@@ -46,8 +46,9 @@ void inicializar_configs(char* path){
 }
 
 void inicializar_semaforos(){
-    sem_init(&sem_hay_proceso_ready,0, 0); 
-    sem_init(&sem_hay_cpu_libre,0, 0); 
+    sem_init(&sem_hay_proceso_ready,0, 0);
+    sem_init(&sem_hay_cpu_libre,0, 0);
+    sem_init(&sem_desalojo_compactacion_completo,0, 0);
     sem_init(&sem_sleep_disponible, 0, 0);
     sem_init(&sem_stdin_disponible,0, 0);
     sem_init(&sem_stdout_disponible,0, 0);

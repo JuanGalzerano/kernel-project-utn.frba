@@ -324,6 +324,7 @@ void liberar_mutex_y_semaforos(){//si no me equivoxo, nunca se deberia llamar a 
 
     sem_destroy(&sem_hay_proceso_ready);
     sem_destroy(&sem_hay_cpu_libre);
+    sem_destroy(&sem_desalojo_compactacion_completo);
     sem_destroy(&sem_sleep_disponible);
     sem_destroy(&sem_stdin_disponible);
     sem_destroy(&sem_stdout_disponible);
@@ -360,15 +361,9 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         compactando = true;
         log_info(loggerScheduler,"## Inicio de compactación");
-        int cpusLiberadas=0;
-        for(int i =0;i<list_size(exec_lista);i++){
-            t_cpu* cpu=list_get(exec_lista,i);
-            if(cpu->pcb !=NULL){
-                cpusLiberadas++;
-            }
-        }
+
         despostear_todas_cpus();
-        desalojar_por_compactacion(socket);
+        int cpusLiberadas = desalojar_por_compactacion(socket);//adentro espera los acks asincronos de las demas CPUs
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
@@ -889,36 +884,49 @@ bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
 
 
 
-void desalojar_por_compactacion(int socket){
+int desalojar_por_compactacion(int socket){
+    int totalEvictadas = 0;
+    int cpusNotificadas = 0;
 
     pthread_mutex_lock(&exec_mutex);
     for(int i=0;i<list_size(exec_lista);i++){
         t_cpu* cpu = list_get(exec_lista, i);
-        if(cpu->pcb !=NULL){
-            t_buffer* buffer=buffer_create(0);
-            buffer_add_uint32(buffer, cpu->pcb->pid);
-            t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
-            enviar_paquete(cpu->socketConexion, paquete);//armar case pq me devuelven el pid
-            eliminar_paquete(paquete);
-            
-            t_paquete* paqRespuesta = recibir_paquete(cpu->socketConexion);
-            uint32_t pidCompactado = buffer_read_uint32(paqRespuesta->buffer);
-            if(pidCompactado!= cpu->pcb->pid){
-                log_info(loggerScheduler, "----esto no funca, trate el cpu_id");
-            }
-            log_info(loggerScheduler,"## (%d) - Desalojado por compactacion", pidCompactado); //la verdad nose si ira este log xq no esta entre los obligatorios, pero a mi me parece necesario
-            t_pcb* pcbCompactado = cpu->pcb;
-            
-            cpu->pcb=NULL;
-            
-            enlistar_primero_ready(pcbCompactado);
+        if(cpu->pcb == NULL) continue;
+
+        if(cpu->socketConexion == socket){
+            //Es la propia CPU que disparó la compactación: su hilo atender_cliente está bloqueado
+            //en este mismo flujo (no hay nadie leyendo su socket), así que la desalojamos localmente
+            //en vez de mandarle un paquete y esperar una respuesta asincrona que nunca se procesaria.
+            t_pcb* pcbPropio = cpu->pcb;
+            uint32_t pidPropio = pcbPropio->pid;
+            cpu->pcb = NULL;
+
+            log_info(loggerScheduler, "## (%d) - Desalojado por compactacion", pidPropio);
+            log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pidPropio);
+
+            enlistar_primero_ready(pcbPropio);
             sem_post(&sem_hay_proceso_ready);
-            log_info(loggerScheduler,"## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
-            
+            totalEvictadas++;
+            continue;
         }
+
+        t_buffer* buffer=buffer_create(0);
+        buffer_add_uint32(buffer, cpu->pcb->pid);
+        t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
+        enviar_paquete(cpu->socketConexion, paquete);//fire-and-forget: la respuesta la procesa el propio atender_cliente de esa CPU (case COMPACTACION), nunca leemos acá para no competir por el mismo socket
+        eliminar_paquete(paquete);
+
+        cpu->esperando_ack_compactacion = true;
+        cpusNotificadas++;
+        totalEvictadas++;
     }
     pthread_mutex_unlock(&exec_mutex);
-    //,eter en principio de ready los desalojado
+
+    for(int i = 0; i<cpusNotificadas; i++){
+        sem_wait(&sem_desalojo_compactacion_completo);//espero el ack asincrono de cada otra CPU (o su desconexion) antes de seguir
+    }
+
+    return totalEvictadas;
 }
 
 void enlistar_primero_ready(t_pcb* pcb){
