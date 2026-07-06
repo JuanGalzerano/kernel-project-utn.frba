@@ -373,7 +373,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
-        log_info(loggerScheduler,"---- recibi %d",compactacionHecha->codigo_operacion);
+        
         compactando= false;
         for(int i = 0;i<cpusLiberadas;i++){
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST

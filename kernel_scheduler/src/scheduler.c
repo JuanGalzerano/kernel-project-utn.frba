@@ -153,26 +153,16 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: INIT_PROC", proc->pid);
 
+                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuPadre = encontrar_cpu_con_pid(proc->pid);
                 if(cpuPadre==NULL){
                     pthread_mutex_unlock(&exec_mutex);
                     break;
-                }
+                }pthread_mutex_unlock(&exec_mutex);
 
-                t_pcb* procPcb = cpuPadre->pcb;
-                cpuPadre->pcb = NULL;
-                pthread_mutex_unlock(&exec_mutex);
-                liberar_cpu_y_notificar();
-
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", proc->pid);
-
-                encolar_pcb_ready(procPcb);
-
-                sem_post(&sem_hay_proceso_ready);
-                
-
-                crear_proceso(nuevoPid, proc->pathArchivoInstrucciones, proc->prioridad);
+                reanudar_proceso_en_cpu(cpuPadre);
 
                 
 
