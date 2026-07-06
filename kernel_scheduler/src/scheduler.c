@@ -232,6 +232,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 sem_post(&sem_hay_proc_esperando_sleep);
                 liberar_cpu_y_notificar();
+
+                despertar_planificador();
               
                 break;
             case STDIN:
@@ -326,6 +328,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", pidTerminado);
                     pasar_des_susp_block_a_ready(pidTerminado, NULL, 0);
                     sem_post(&sem_sleep_disponible);
+                    despertar_planificador();
                 }
                 break;
             case FINALIZAR_STDOUT: 
@@ -609,7 +612,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", otraCpuPadre->pcb->pid, prioridadAnterior, otraCpuPadre->pcb->prioridad);
                 }
 
-                log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", otraCpuPadre->pcb->pid);
+                //log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", otraCpuPadre->pcb->pid); lo saco pq no asa aready, vuelve a la misma cpu
 
                 pthread_mutex_lock(&exec_mutex);
                 reanudar_proceso_en_cpu(otraCpuPadre);
