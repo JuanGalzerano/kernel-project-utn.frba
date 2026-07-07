@@ -469,7 +469,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
                     int estabaEnReady = 0;//es si estaba en ready de CMN
+                   
                     t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid,  &estabaEnReady);
+                    
                     if(pcbDueño != NULL && pcbDueño->prioridad > cpuALiberar->pcb->prioridad){
                         //el dueño tiene menor prioridad (número mayor = menor prioridad)
                         log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);

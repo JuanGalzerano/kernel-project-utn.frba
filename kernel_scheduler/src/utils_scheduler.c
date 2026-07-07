@@ -959,56 +959,55 @@ void despostear_todas_cpus(){
     } */  
 }
 
-
 void liberar_de_mutex_por_muerte(t_pcb* pcb){
-    uint32_t pid = pcb->pid;//ya lo tenia todo implementado con el nombre pid ydesp cambie lel parametro
+    uint32_t pid =pcb->pid;
     pthread_mutex_lock(&mutex_lista_mutex);
-    for(int i=0;i<list_size(lista_mutex);i++){
-        t_mutex_syscall* mtx=list_get(lista_mutex,i);
-        
-        if(mtx->pid ==pid && mtx->contador<1){
-        
-            mtx->contador++;
-            log_info(loggerScheduler,"## (%d) Libera el Mutex %s",pid, mtx->nombreMutex);
 
-            if(!queue_is_empty(mtx->colaEspera)){
-            t_pcb* siguiente = queue_pop(mtx->colaEspera);
-            mtx->pid = siguiente->pid;
-                
-            log_info(loggerScheduler, "## (%d) Toma el Mutex %s", siguiente->pid, mtx->nombreMutex);
-            
-                uint32_t prioridadMaxima = siguiente->prioridad;
-                for(int i=0; i<queue_size(mtx->colaEspera);i++){
-                    t_pcb* pcbTemporal = list_get(mtx->colaEspera->elements,i);
-                    if(prioridadMaxima > pcbTemporal->prioridad){
-                        prioridadMaxima = pcbTemporal->prioridad;
-                    }
-                }
-                if(siguiente->prioridad > prioridadMaxima){
-                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",siguiente->pid, siguiente->prioridad, prioridadMaxima);
-                    siguiente->prioridad = prioridadMaxima;
-                }
-                    
-            
-            pthread_mutex_unlock(&mutex_lista_mutex);
-            //mover de BLOCK-> READY
-            t_pcb* pcbASacarDeBlock =  buscar_y_sacar_de_block(siguiente->pid);
-            if(pcbASacarDeBlock!=NULL){
-                encolar_pcb_ready(siguiente);
-                log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado READY", siguiente->pid);
-                sem_post(&sem_hay_proceso_ready);
-                despertar_planificador();
-            }else{
-                pasar_des_susp_block_a_ready(siguiente->pid,NULL,0);
+    for(int i = 0;i<list_size(lista_mutex);i++){
+        t_mutex_syscall* mtx = list_get(lista_mutex,i);
+        //Este mutex no pertenece al proceso que murió
+        if(mtx->pid != pid || mtx->contador >= 1){
+            continue;
+        }
+
+        //comoo el proc era dueño del mutex
+        mtx->contador++;
+        log_info(loggerScheduler,"## (%d) Libera el Mutex %s",pid,mtx->nombreMutex);
+
+        if(queue_is_empty(mtx->colaEspera)){
+            mtx->pid = UINT32_MAX;
+            continue;
+        }
+
+        t_pcb* siguiente = queue_pop(mtx->colaEspera);
+        mtx->pid = siguiente->pid;
+
+        log_info(loggerScheduler,"## (%d) Toma el Mutex %s",siguiente->pid,mtx->nombreMutex);
+        uint32_t prioridadMaxima = siguiente->prioridad;
+        for(int j = 0; j < queue_size(mtx->colaEspera); j++){
+            t_pcb* pcbTemporal = list_get(mtx->colaEspera->elements, j);
+            if(pcbTemporal->prioridad < prioridadMaxima){
+                prioridadMaxima = pcbTemporal->prioridad;
             }
         }
-        }else{
-            
-            mtx->pid=UINT32_MAX;
+
+        if(siguiente->prioridad > prioridadMaxima){
+            log_info(loggerScheduler,"## %d Cambio de prioridad: %d - %d",siguiente->pid,siguiente->prioridad,prioridadMaxima);
+            siguiente->prioridad = prioridadMaxima;
         }
 
-    }
+        t_pcb* pcbASacarDeBlock = buscar_y_sacar_de_block(siguiente->pid);
 
+        if(pcbASacarDeBlock != NULL){
+            encolar_pcb_ready(siguiente);
+
+            log_info(loggerScheduler,"## (%d) Pasa del estado BLOCK al estado READY",siguiente->pid);
+            sem_post(&sem_hay_proceso_ready);
+            despertar_planificador();
+        }else{
+            pasar_des_susp_block_a_ready(siguiente->pid, NULL, 0);
+        }
+    }
 
     pthread_mutex_unlock(&mutex_lista_mutex);
 }
