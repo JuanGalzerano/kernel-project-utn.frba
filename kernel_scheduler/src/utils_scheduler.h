@@ -13,7 +13,11 @@ t_cpu* obtener_cpu_libre();
 
 void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb);
 
-void reanudar_proceso_en_cpu(t_cpu* cpu);
+bool reanudar_proceso_en_cpu(t_cpu* cpu);
+
+bool intentar_enviar_control_cpu(t_cpu* cpu, t_paquete* paquete);
+
+bool intentar_enviar_control_cpu_bajo_lock(t_cpu* cpu, t_paquete* paquete);
 
 uint32_t generar_pid();
 
@@ -27,7 +31,7 @@ t_pcb* buscar_y_sacar_de_block(uint32_t pid);
 
 void enviar_fin_proceso_memory(uint32_t pid);
 
-void enviar_fin_proceso_a_cpu(uint32_t pid, int socketCPU);
+void enviar_fin_proceso_a_cpu(uint32_t pid, t_cpu* cpu);
 
 void* hilo_timer_quantum(void* arg);
 
@@ -55,11 +59,11 @@ t_pcb* pcb_mas_prioritario();
 
 t_cpu* hay_cpu_desalojable(t_pcb* pcbCandidato);
 
-void enviar_desalojo_cpu(t_cpu* cpuDesalojable);
+bool enviar_desalojo_cpu(t_cpu* cpuDesalojable);
 
 void liberar_cpu_y_notificar();//
 
-t_pcb* buscar_pcb_por_pid(uint32_t pid, int* estabaEnReady);
+t_pcb* buscar_pcb_por_pid(uint32_t pid, uint32_t prioridadCandidata, int* estabaEnReady);
 
 void despertar_planificador();//
 

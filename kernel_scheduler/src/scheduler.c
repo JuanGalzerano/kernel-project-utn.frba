@@ -143,6 +143,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 
                 t_pcb* pcb = cpuFinQuantum->pcb;
                 cpuFinQuantum->pcb = NULL;
+                cpuFinQuantum->control_enviado = false;
                 pthread_mutex_unlock(&exec_mutex);
 
                 encolar_pcb_ready(pcb);
@@ -192,13 +193,16 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 t_pcb* pcbFin = cpu->pcb;
                 cpu->pcb = NULL;
+                //OJO: NO resetear control_enviado acá -- enviar_fin_proceso_a_cpu (más abajo)
+                //necesita leer su valor actual para decidir si manda FIN_PROCESO o si otro
+                //paquete de control ya se adelantó para este pid.
                 pthread_mutex_unlock(&exec_mutex);
 
                 //notificar al KM que libere los recursos del proceso
                 enviar_fin_proceso_memory(pid);
 
                 //revisar si va esta de aca abajo
-                enviar_fin_proceso_a_cpu(pid, socketCliente);
+                enviar_fin_proceso_a_cpu(pid, cpu);
 
                 //loguear y liberar el PCB
                 liberar_de_mutex_por_muerte(pcbFin);
@@ -429,8 +433,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_unlock(&exec_mutex);
                     break;
                 }
-                reanudar_proceso_en_cpu(unaCpuPadre);
                 pthread_mutex_unlock(&exec_mutex);
+                reanudar_proceso_en_cpu(unaCpuPadre); //toma exec_mutex internamente
                 
                 //uint32_t existe=1;
                 //send(socketCliente, &existe, sizeof(uint32_t), 0);decidimos que no es necesario avisarle, ya que si ya esta creado, no realizamos nada y listo
@@ -468,10 +472,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->contador--;
                     queue_push(mutexABloquearEnLista->colaEspera, cpuALiberar->pcb);
 
-                    int estabaEnReady = 0;//es si estaba en ready de CMN
-                   
-                    t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid,  &estabaEnReady);
-                    
+                    int estabaEnReady = 0;//es si estaba en ready de CMN y hubo que sacarlo para subirle prioridad
+
+                    t_pcb* pcbDueño = buscar_pcb_por_pid(mutexABloquearEnLista->pid, cpuALiberar->pcb->prioridad, &estabaEnReady);
+
                     if(pcbDueño != NULL && pcbDueño->prioridad > cpuALiberar->pcb->prioridad){
                         //el dueño tiene menor prioridad (número mayor = menor prioridad)
                         log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
@@ -480,16 +484,38 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                         for(int i=0;i<list_size(lista_mutex);i++){
                             t_mutex_syscall* unMtxEnLista =list_get(lista_mutex,i);
+                            if(unMtxEnLista->pid == pcbDueño->pid || queue_is_empty(unMtxEnLista->colaEspera)){
+                                continue;//si es el que heredo, el que lo tiene tomado, no tengo que actualizar nada
+                            }
+
+                            //primero sólo miramos (UINT32_MAX nunca "mejora" una prioridad real, así que esta
+                            //llamada nunca lo saca de la cola): necesitamos su prioridad actual para decidir
+                            //si corresponde heredar, sin arriesgarnos a perderlo si después no corresponde.
                             int enReady=0;
-                            t_pcb* otroDueño = buscar_pcb_por_pid(unMtxEnLista->pid, &enReady);
-                            if(unMtxEnLista->pid !=pcbDueño->pid && !queue_is_empty(unMtxEnLista->colaEspera)){//si es el que heredo, el que lo tiene tomado, no tengo que actualizar nada
-                                for(int j=0;j<queue_size(unMtxEnLista->colaEspera);j++){
-                                    t_pcb* posiblePcb =list_get(unMtxEnLista->colaEspera->elements,j);
-                                    if(posiblePcb->pid ==pcbDueño->pid && posiblePcb->prioridad < otroDueño->prioridad){
-                                        log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",otroDueño->pid, otroDueño->prioridad, posiblePcb->prioridad);
-                                        if(enReady){
-                                            encolar_pcb_ready(otroDueño);
-                                        }
+                            t_pcb* otroDueño = buscar_pcb_por_pid(unMtxEnLista->pid, UINT32_MAX, &enReady);
+                            if(otroDueño == NULL){
+                                continue;
+                            }
+
+                            uint32_t prioridadHeredada = otroDueño->prioridad;
+                            bool correspondeHeredar = false;
+                            for(int j=0;j<queue_size(unMtxEnLista->colaEspera);j++){
+                                t_pcb* posiblePcb =list_get(unMtxEnLista->colaEspera->elements,j);
+                                if(posiblePcb->pid ==pcbDueño->pid && posiblePcb->prioridad < prioridadHeredada){
+                                    prioridadHeredada = posiblePcb->prioridad;
+                                    correspondeHeredar = true;
+                                }
+                            }
+
+                            if(correspondeHeredar){
+                                log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",otroDueño->pid, otroDueño->prioridad, prioridadHeredada);
+                                //ahora sí, búsqueda + extracción atómica con la prioridad real que corresponde
+                                int extraidoDeReady = 0;
+                                otroDueño = buscar_pcb_por_pid(unMtxEnLista->pid, prioridadHeredada, &extraidoDeReady);
+                                if(otroDueño != NULL){
+                                    otroDueño->prioridad = prioridadHeredada;
+                                    if(extraidoDeReady){
+                                        encolar_pcb_ready(otroDueño);
                                     }
                                 }
                             }
@@ -512,10 +538,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     mutexABloquearEnLista->pid = mutexABloquear->pid;
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     log_info(loggerScheduler, "## (%d) Toma el Mutex %s", mutexABloquear->pid, mutexABloquear->nombreMutex);
-                    pthread_mutex_lock(&exec_mutex);
-                    reanudar_proceso_en_cpu(cpuALiberar); 
-                    pthread_mutex_unlock(&exec_mutex);
-                    
+                    reanudar_proceso_en_cpu(cpuALiberar); //toma exec_mutex internamente
                 }
 
                 free(mutexABloquear->nombreMutex);
@@ -616,9 +639,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 //log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", otraCpuPadre->pcb->pid); lo saco pq no asa aready, vuelve a la misma cpu
 
-                pthread_mutex_lock(&exec_mutex);
-                reanudar_proceso_en_cpu(otraCpuPadre);
-                pthread_mutex_unlock(&exec_mutex);
+                reanudar_proceso_en_cpu(otraCpuPadre); //toma exec_mutex internamente
 
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
@@ -663,7 +684,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Out Of Memory", infoMemAlloc->pid);
                     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", infoMemAlloc->pid);
                     enviar_fin_proceso_memory(pcbOut->pid);
-                    enviar_fin_proceso_a_cpu(pcbOut->pid, cpuAlloc->socketConexion);
+                    enviar_fin_proceso_a_cpu(pcbOut->pid, cpuAlloc);
                     
                     free(pcbOut);
                     liberar_cpu_y_notificar();
@@ -715,6 +736,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 uint32_t causante_pid = cpuDesalojada->pid_desalojador;
                 int causante_prioridad = cpuDesalojada->prioridad_desalojador;
                 cpuDesalojada->pcb = NULL;
+                cpuDesalojada->control_enviado = false;
                 pthread_mutex_unlock(&exec_mutex);
 
                 log_info(loggerScheduler, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso %d con prioridad %d", pcbDesalojado->pid, pcbDesalojado->prioridad, causante_pid, causante_prioridad);
@@ -736,6 +758,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_pcb* pcbCompactado = cpuCompactada->pcb;
                 cpuCompactada->pcb = NULL;
                 cpuCompactada->esperando_ack_compactacion = false;
+                cpuCompactada->control_enviado = false;
                 pthread_mutex_unlock(&exec_mutex);
 
                 log_info(loggerScheduler, "## (%d) - Desalojado por compactacion", pidCompactado);
@@ -763,7 +786,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 enviar_fin_proceso_memory(pidFault);
 
                 //revisar si va esta de aca abajo
-                enviar_fin_proceso_a_cpu(pidFault, socketCliente);
+                enviar_fin_proceso_a_cpu(pidFault, cpuFault);
                 
                 liberar_de_mutex_por_muerte(pcbFault);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Error: Segmentation Fault (SEG_FAULT)", pidFault);
@@ -835,6 +858,7 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         nueva_cpu->prioridad_desalojador = 0;
         nueva_cpu->quantum_token = 0;
         nueva_cpu->esperando_ack_compactacion = false;
+        nueva_cpu->control_enviado = false;
 
         //agrego CPU a lista de CPUs
         pthread_mutex_lock(&exec_mutex);
@@ -907,8 +931,13 @@ void* planificador(void* arg){
                 
                 t_cpu* cpuDesalojable = hay_cpu_desalojable(prox_pcb);
                 
-                if((sem_trywait(&sem_hay_cpu_libre)==0) && (prox_pcb!=NULL)){
-                
+                //ojo: sem_trywait no puede ir directamente como operando izquierdo de un &&
+                //junto a (prox_pcb!=NULL) -- si prox_pcb es NULL igual consume el crédito de
+                //sem_hay_cpu_libre (evaluación de corto circuito ejecuta igual el operando
+                //izquierdo) y esa CPU libre queda "perdida" para el próximo pcb real que llegue.
+                bool hayCpuLibreParaUsar = (prox_pcb!=NULL) && (sem_trywait(&sem_hay_cpu_libre)==0);
+                if(hayCpuLibreParaUsar){
+
                     t_pcb* unPcb = desencolar_pcb_ready();
                     t_cpu* cpuAUsar = obtener_cpu_libre();
                     enviar_proceso_a_cpu(cpuAUsar, unPcb);
@@ -919,13 +948,15 @@ void* planificador(void* arg){
                 }else if ((cpuDesalojable!=NULL) && (prox_pcb!=NULL))
                 {
                     t_pcb* otroPcb = desencolar_pcb_ready();
-                    
+
                     pthread_mutex_lock(&exec_mutex);
                     cpuDesalojable->pid_desalojador = otroPcb->pid;
                     cpuDesalojable->prioridad_desalojador = otroPcb->prioridad;
-                    pthread_mutex_unlock(&exec_mutex);
-
+                    //el envío va bajo el mismo lock que reserva control_enviado, para que no
+                    //pueda entrelazarse en el socket con un EJECUTAR_PROCESO de reanudar_proceso_en_cpu
+                    //(ver causa raíz documentada en el plan)
                     enviar_desalojo_cpu(cpuDesalojable);
+                    pthread_mutex_unlock(&exec_mutex);
 
                     //esperamos a que selibere la CPU tras el desalojo
                     sem_wait(&sem_hay_cpu_libre);

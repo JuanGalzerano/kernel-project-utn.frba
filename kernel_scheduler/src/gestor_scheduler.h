@@ -27,6 +27,10 @@ typedef struct {
     int prioridad_desalojador;
     uint32_t quantum_token;
     bool esperando_ack_compactacion; // true entre el envío de COMPACTACION y la recepción del ack (o la desconexión)
+    bool control_enviado; // true si ya se mandó, para el pcb actual de esta CPU, alguno de:
+                          // PROCESO_BLOQUEADO, FIN_PROCESO, FINALIZAR_POR_QUANTUM, COMPACTACION,
+                          // DESALOJO o DESALOJAR_POR_BSOD. Mientras sea true no debe mandarse
+                          // EJECUTAR_PROCESO de reanudación para ese pcb (ver reanudar_proceso_en_cpu).
 }t_cpu;
 
 typedef enum{
