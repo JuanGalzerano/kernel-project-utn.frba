@@ -372,7 +372,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_lock(&mutex_socket_memory);
                     t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
                     enviar_paquete(socketConexionMemory, paqueteKM);
-                    free(paqueteKM);
+                    eliminar_paquete(paqueteKM);
 
                     //recibo ok
                     op_code ok = recibir_respuesta_memory();
@@ -657,7 +657,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
                 pthread_mutex_unlock(&exec_mutex);
                 //sollicitar segmento a KM(acordarme de avisar a cpu que se ejecuto syscall, tipo reaundar_proc y eso)
-                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc,SOLICITAR_SEGMENTO,socketCliente);//aca dentro se gestiona las posibles compactaciones y reintentos
+                op_code rtaKM = solicitar_segmento_memory(infoMemAlloc,SOLICITAR_SEGMENTO,socketCliente);//aca dentro se gestiona las posibles actaciones y reintentos
 
 
                 //LA BUSCAMOS DE NUEVO POR SI HUBO COMPACTACION AL SOLICITAR EL SEGMENTO
