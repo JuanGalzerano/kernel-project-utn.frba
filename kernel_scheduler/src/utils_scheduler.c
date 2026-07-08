@@ -178,7 +178,7 @@ void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid);
     if(cpu==NULL){
-        pthread_mutex_unlock(&exec_mutex); /
+        pthread_mutex_unlock(&exec_mutex);
         return;
     }
     cpu->pcb = NULL;
@@ -393,7 +393,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         if(compactacionHecha->codigo_operacion!=COMPACTACION_EXITOSA){
             log_error(loggerScheduler,"Compactacion NO exitosa");
             pthread_mutex_unlock(&mutex_socket_memory);
-            return NULL;
+            return MEMORIA_NO_DISPONIBLE;
         }
         compactando= false;
         for(int i = 0;i<cpusLiberadas;i++){
@@ -660,7 +660,7 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, uint32_t prioridadCandidata, int* estaba
         pthread_mutex_lock(&ready_mutex);
         for(int i = 0; i < queue_size(ready_cola); i++){
             t_pcb* pcb = list_get(ready_cola->elements, i);
-            if(pcb->pid == pid)intentar_enviar_control_cpu_bajo_lock{
+            if(pcb->pid == pid){
                 pthread_mutex_unlock(&ready_mutex);
                 return pcb;
             }
