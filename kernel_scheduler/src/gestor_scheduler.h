@@ -21,16 +21,13 @@ typedef struct{
 typedef struct {
     int cpu_id;
     int socketConexion;
-    t_pcb* pcb; // NULL si la CPU está libre
+    t_pcb* pcb; //NULL si la CPU está libre
     //estos de abajo solo los uso cuando hay desalojo habiliatdo los necesito pq asi lo logueo cuando me devuelven el pid y motivo y no cuando todavia realmente la cpu no lo desalojoo
     uint32_t pid_desalojador;
     int prioridad_desalojador;
     uint32_t quantum_token;
-    bool esperando_ack_compactacion; // true entre el envío de COMPACTACION y la recepción del ack (o la desconexión)
-    bool control_enviado; // true si ya se mandó, para el pcb actual de esta CPU, alguno de:
-                          // PROCESO_BLOQUEADO, FIN_PROCESO, FINALIZAR_POR_QUANTUM, COMPACTACION,
-                          // DESALOJO o DESALOJAR_POR_BSOD. Mientras sea true no debe mandarse
-                          // EJECUTAR_PROCESO de reanudación para ese pcb (ver reanudar_proceso_en_cpu).
+    bool esperando_ack_compactacion; 
+    bool control_enviado;
 }t_cpu;
 
 typedef enum{

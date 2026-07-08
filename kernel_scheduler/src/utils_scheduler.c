@@ -77,7 +77,7 @@ t_cpu* obtener_cpu_libre(){
 void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb){//el socket esta en la cpu
     pthread_mutex_lock(&exec_mutex);
     cpu->pcb = pcb;
-    cpu->control_enviado = false; // arranca "limpio" para este nuevo ocupante de la CPU
+    cpu->control_enviado = false; 
 
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, cpu->pcb->pid);
@@ -94,11 +94,7 @@ void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb){//el socket esta en la cpu
     free(paquete);
 }
 
-// Reserva atómicamente, bajo exec_mutex, el envío de un paquete de "control" a una CPU
-// (PROCESO_BLOQUEADO, FIN_PROCESO, FINALIZAR_POR_QUANTUM, COMPACTACION, DESALOJO o
-// DESALOJAR_POR_BSOD). Si otra ruta ya se había adelantado para el pcb actual de esa CPU
-// (cpu->control_enviado ya en true), NO manda el paquete y devuelve false: el llamador no
-// debe tocar cpu->pcb ni loguear la transición, la ruta que ganó es la que la resuelve.
+//me aparece q ya no la uso mas a esta
 bool intentar_enviar_control_cpu(t_cpu* cpu, t_paquete* paquete){
     pthread_mutex_lock(&exec_mutex);
     bool enviado = intentar_enviar_control_cpu_bajo_lock(cpu, paquete);
@@ -106,8 +102,7 @@ bool intentar_enviar_control_cpu(t_cpu* cpu, t_paquete* paquete){
     return enviado;
 }
 
-// Misma lógica que intentar_enviar_control_cpu pero para llamadores que YA tienen
-// exec_mutex tomado (evita el doble lock/deadlock).
+//version sin tomar el mtx, me deja que si ya se mando otra interrup =>no se mande esta tmb
 bool intentar_enviar_control_cpu_bajo_lock(t_cpu* cpu, t_paquete* paquete){
     if(cpu->control_enviado){
         return false;
@@ -117,9 +112,7 @@ bool intentar_enviar_control_cpu_bajo_lock(t_cpu* cpu, t_paquete* paquete){
     return true;
 }
 
-// Devuelve true si se mandó EJECUTAR_PROCESO (nadie se había adelantado); false si ya
-// se había mandado, para el pcb actual de esta CPU, alguno de los 6 paquetes de control
-// mencionados arriba — en ese caso no corresponde reanudar, la otra ruta resuelve el estado.
+//si manda->true, si no manda, es pq se mando una interrupcion y se esta esperando el pid y motivo para finalizar el desalojo->false
 bool reanudar_proceso_en_cpu(t_cpu* cpu){
     pthread_mutex_lock(&exec_mutex);
     if(cpu->control_enviado){
@@ -185,14 +178,11 @@ void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid);
     if(cpu==NULL){
-        pthread_mutex_unlock(&exec_mutex); //BUG previo: esto era pthread_mutex_lock, causaba deadlock potencial
+        pthread_mutex_unlock(&exec_mutex); /
         return;
     }
     cpu->pcb = NULL;
 
-    //le avisamos a la cpu que se bloqueo el proceso, bajo el mismo lock que reserva
-    //control_enviado (evita que se entrelace en el socket con un EJECUTAR_PROCESO de
-    //reanudar_proceso_en_cpu -- ver causa raíz documentada en el plan)
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, pcbBlock->pid);
     t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buffer);
@@ -240,10 +230,7 @@ void enviar_fin_proceso_memory(uint32_t pid){ //esta la voy a usar tmb para el d
     free(paquete);
 }
 
-// Recibe la CPU (no sólo el socket) para poder reservar el envío bajo exec_mutex vía
-// intentar_enviar_control_cpu y evitar que se entrelace con un EJECUTAR_PROCESO de
-// reanudar_proceso_en_cpu -- esto es lo que el comentario previo ("desp ver si se genera
-// race condition aca") ya anticipaba.
+
 void enviar_fin_proceso_a_cpu(uint32_t pid, t_cpu* cpu){
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, pid);
@@ -393,18 +380,21 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
     eliminar_paquete(respuesta);
 
     if(codigo == COMPACTACION){
-        //Hay memoria pero no continua => pedir compactacion y esperar que termine
         //aca tendria que hacer la func compactacion() que desaloje todos los procesos y no permita enviarle PROCESOS_DESALOJADOS hasta que no se desaloje todo
         compactando = true;
         log_info(loggerScheduler,"## Inicio de compactación");
 
         despostear_todas_cpus();
-        int cpusLiberadas = desalojar_por_compactacion(socket);//adentro espera los acks asincronos de las demas CPUs
+        int cpusLiberadas = desalojar_por_compactacion(socket);
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
         enviar_paquete(socketConexionMemory, pacComp);
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
-        
+        if(compactacionHecha->codigo_operacion!=COMPACTACION_EXITOSA){
+            log_error(loggerScheduler,"Compactacion NO exitosa");
+            pthread_mutex_unlock(&mutex_socket_memory);
+            return NULL;
+        }
         compactando= false;
         for(int i = 0;i<cpusLiberadas;i++){
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
@@ -418,7 +408,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         eliminar_paquete(compactacionHecha);
         pthread_mutex_unlock(&mutex_socket_memory);
 
-        //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI
+        //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI//NO SE DEBERIA LLEGAR NUNCA AL BSOD
         op_code reintentar = solicitar_segmento_memory(infoMemAlloc,RESOLICITAR_SEGMENTO, socket);
         if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul.xq sino es un bucle de solicitar_segmento_memory
         return reintentar;
@@ -626,10 +616,6 @@ t_cpu* hay_cpu_desalojable(t_pcb* pcbCandidato){
     return cpuADesalojar;
 }
 
-// Requiere exec_mutex tomado por el llamador (para que el envío quede en la misma
-// sección crítica que reservó cpuDesalojable->control_enviado, y así no pueda
-// entrelazarse en el socket con un EJECUTAR_PROCESO de reanudar_proceso_en_cpu).
-// Devuelve false sin mandar nada si el pcb ya no está (se resolvió por otra vía).
 bool enviar_desalojo_cpu(t_cpu* cpuDesalojable){
     if(cpuDesalojable->pcb == NULL){
         return false;
@@ -654,14 +640,6 @@ void liberar_cpu_y_notificar(){
 
 //ver bien que onda esta xq si esta en ready en CMN, lo saco de la lista pero en todos los casos no, no creo que eso sea correcto
 //USARLA SOLO EN LO DE MUTEX
-// Busca el pcb dueño de pid en EXEC, READY o BLOCK/SUSP. En la cola de READY de CMN,
-// sólo lo extrae de su cola de prioridad (dejando *estabaEnReady en 1) si
-// prioridadCandidata mejora su prioridad actual (número menor = más prioritario) --
-// la búsqueda y la extracción son atómicas bajo el mismo lock de la cola, para que el
-// planificador no pueda despacharlo justo en el medio. Si no corresponde extraerlo
-// (no mejora, o el llamador sólo quiere mirar pasando un valor que nunca mejora, p.ej.
-// UINT32_MAX), el pcb queda intacto en su posición original: no pierde su lugar en la
-// cola por el sólo hecho de haber sido consultado.
 t_pcb* buscar_pcb_por_pid(uint32_t pid, uint32_t prioridadCandidata, int* estabaEnReady){
     *estabaEnReady = 0;
     pthread_mutex_lock(&exec_mutex);
@@ -682,7 +660,7 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, uint32_t prioridadCandidata, int* estaba
         pthread_mutex_lock(&ready_mutex);
         for(int i = 0; i < queue_size(ready_cola); i++){
             t_pcb* pcb = list_get(ready_cola->elements, i);
-            if(pcb->pid == pid){
+            if(pcb->pid == pid)intentar_enviar_control_cpu_bajo_lock{
                 pthread_mutex_unlock(&ready_mutex);
                 return pcb;
             }
@@ -695,7 +673,7 @@ t_pcb* buscar_pcb_por_pid(uint32_t pid, uint32_t prioridadCandidata, int* estaba
                 t_pcb* pcb = list_get(cola_multinivel[i]->elements, j);
                 if(pcb->pid == pid){
                     if(prioridadCandidata < pcb->prioridad){
-                        list_remove(cola_multinivel[i]->elements, j);
+                        list_remove(cola_multinivel[i]->elements, j);//aca lo saco pq va a heredar
                         *estabaEnReady=1;
                     }
                     pthread_mutex_unlock(&mutex_cola_multinivel);
@@ -939,18 +917,16 @@ bool perteneceALalista(t_proc_suspendido* proc, t_list* lista){
 
 
 int desalojar_por_compactacion(int socket){
-    int totalEvictadas = 0;
-    int cpusNotificadas = 0;
+    int totalEvictadas= 0;
+    int cpusNotificadas=0;
 
     pthread_mutex_lock(&exec_mutex);
-    for(int i=0;i<list_size(exec_lista);i++){
-        t_cpu* cpu = list_get(exec_lista, i);
+    for(int i=0; i<list_size(exec_lista);i++){
+        t_cpu* cpu= list_get(exec_lista,i);
         if(cpu->pcb == NULL) continue;
 
         if(cpu->socketConexion == socket){
-            //Es la propia CPU que disparó la compactación: su hilo atender_cliente está bloqueado
-            //en este mismo flujo (no hay nadie leyendo su socket), así que la desalojamos localmente
-            //en vez de mandarle un paquete y esperar una respuesta asincrona que nunca se procesaria.
+            //Es la q disparo la compac
             t_pcb* pcbPropio = cpu->pcb;
             uint32_t pidPropio = pcbPropio->pid;
             cpu->pcb = NULL;
@@ -968,10 +944,6 @@ int desalojar_por_compactacion(int socket){
         t_buffer* buffer=buffer_create(0);
         buffer_add_uint32(buffer, cpu->pcb->pid);
         t_paquete* paquete = crear_paquete(COMPACTACION,buffer);
-        //fire-and-forget: la respuesta la procesa el propio atender_cliente de esa CPU (case
-        //COMPACTACION), nunca leemos acá para no competir por el mismo socket. El envío queda
-        //bajo exec_mutex (ya tomado por este for) vía el helper, para no entrelazarse con un
-        //EJECUTAR_PROCESO de reanudar_proceso_en_cpu.
         bool compactacionEnviada = intentar_enviar_control_cpu_bajo_lock(cpu, paquete);
         eliminar_paquete(paquete);
 
@@ -984,7 +956,7 @@ int desalojar_por_compactacion(int socket){
     pthread_mutex_unlock(&exec_mutex);
 
     for(int i = 0; i<cpusNotificadas; i++){
-        sem_wait(&sem_desalojo_compactacion_completo);//espero el ack asincrono de cada otra CPU (o su desconexion) antes de seguir
+        sem_wait(&sem_desalojo_compactacion_completo);
     }
 
     return totalEvictadas;
