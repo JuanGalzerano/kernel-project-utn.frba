@@ -16,6 +16,7 @@ typedef struct{
     uint32_t prioridad;//esto va para CMN
     uint32_t prioridadOriginal;
     //despues tengo que agregar cosas de mutex creo
+    uint32_t tokenBloqueado;
 }t_pcb;
 
 typedef struct {

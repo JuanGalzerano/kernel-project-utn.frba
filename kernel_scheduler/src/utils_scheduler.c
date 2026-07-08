@@ -7,6 +7,7 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
         pcb->pid = pid;
         pcb->prioridad = prioridad;
         pcb->prioridadOriginal=prioridad;
+        pcb->tokenBloqueado=0;
 
         //loguear que entro a NEW
         log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
@@ -204,11 +205,11 @@ void bloquear_proceso(t_pcb* pcbBlock){
     t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buffer);
     intentar_enviar_control_cpu_bajo_lock(cpu, unPaquete);
     pthread_mutex_unlock(&exec_mutex);
-
+    
     pthread_mutex_lock(&block_mutex);
     list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
-
+    
     timer_tiempo_bloqueado(pcbBlock);
 
     log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado BLOCK", pcbBlock->pid);
@@ -742,32 +743,33 @@ void despertar_planificador(){
 }
 
 void timer_tiempo_bloqueado(t_pcb* pcb){
-    uint32_t *pid = malloc(sizeof(uint32_t));
-    *pid = pcb->pid;
+    pcb->tokenBloqueado++;
+    //t_pcb* argumento = malloc(sizeof(t_pcb));
+    //argumento =pcb;
     pthread_t hiloTimer;
-    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pid);
+    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pcb);
     pthread_detach(hiloTimer);
 }
 
 void* hilo_timer_bloqueado(void* arg){
-    uint32_t* argu = (uint32_t*) arg;
-    uint32_t pid = *argu;
-    free(argu);
-
+    t_pcb* argu = (t_pcb*) arg;
+    uint32_t pid = argu->pid;
+    uint32_t tokenBlock = argu->tokenBloqueado;
+    //free(argu);
     usleep(suspensionTimeout*1000);
-
+    
     pthread_mutex_lock(&block_mutex);
     t_pcb* pcb=NULL;
     for(int i=0;i<list_size(block_lista);i++){
         t_pcb* pcbDeLista = list_get(block_lista,i);
-        if(pcbDeLista->pid==pid){
+        if(pcbDeLista->pid==pid && (tokenBlock==pcbDeLista->tokenBloqueado)){
             pcb=pcbDeLista;
             list_remove(block_lista,i);
             break;
         }
     }
 
-    if(pcb!=NULL){
+    if(pcb!=NULL /*&& (tokenBlock==pcb->tokenBloqueado)*/){
         suspender_proceso(pcb);
     }
     pthread_mutex_unlock(&block_mutex);
