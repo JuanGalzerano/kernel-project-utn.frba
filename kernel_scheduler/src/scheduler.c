@@ -638,9 +638,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
 
                 //log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", otraCpuPadre->pcb->pid); lo saco pq no asa aready, vuelve a la misma cpu
-
-                reanudar_proceso_en_cpu(otraCpuPadre); 
-
+/*
+                bool reanudacion =reanudar_proceso_en_cpu_bajo_lock(otraCpuPadre); 
+                if(reanudacion){
+                    pthread_mutex_unlock(exec_mutex);
+                }
+*/
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
                 break;

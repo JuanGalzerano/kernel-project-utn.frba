@@ -129,7 +129,23 @@ bool reanudar_proceso_en_cpu(t_cpu* cpu){
     free(buffer);
     free(paquete);
     return true;
-}
+}/*
+bool reanudar_proceso_en_cpu_bajo_lock(t_cpu* cpu){
+    if(cpu->control_enviado){
+        pthread_mutex_unlock(&exec_mutex);
+        return false;
+    }
+    t_buffer* buffer = buffer_create(0);
+    buffer_add_uint32(buffer, cpu->pcb->pid);
+    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
+    enviar_paquete(cpu->socketConexion, paquete);
+    pthread_mutex_unlock(&exec_mutex);
+
+    free(buffer->stream);
+    free(buffer);
+    free(paquete);
+    return true;
+}*/
 
 uint32_t generar_pid(){
     pthread_mutex_lock(&mutex_pid);
@@ -178,11 +194,7 @@ void bloquear_proceso(t_pcb* pcbBlock){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = encontrar_cpu_con_pid(pcbBlock->pid);
     if(cpu==NULL){
-<<<<<<< HEAD
         pthread_mutex_unlock(&exec_mutex); 
-=======
-        pthread_mutex_unlock(&exec_mutex);
->>>>>>> 2f22caa0cb2882b4fd540dc7ae34f54864dae51a
         return;
     }
     cpu->pcb = NULL;
@@ -397,11 +409,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         if(compactacionHecha->codigo_operacion!=COMPACTACION_EXITOSA){
             log_error(loggerScheduler,"Compactacion NO exitosa");
             pthread_mutex_unlock(&mutex_socket_memory);
-<<<<<<< HEAD
-            return -1;
-=======
             return MEMORIA_NO_DISPONIBLE;
->>>>>>> 2f22caa0cb2882b4fd540dc7ae34f54864dae51a
         }
         compactando= false;
         for(int i = 0;i<cpusLiberadas;i++){
