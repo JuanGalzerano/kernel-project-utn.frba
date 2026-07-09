@@ -55,7 +55,7 @@ op_code recibir_respuesta_memory(){
 
     t_paquete* paquete = recibir_paquete(socketConexionMemory);
     op_code codigo = paquete->codigo_operacion;
-    eliminar_paquete(paquete);
+    free(paquete);
     return codigo;
 }
 
@@ -454,10 +454,7 @@ void* hilo_escuchar_memory(void* arg){
             case NUEVA_MEMORIA_DISPONIBLE: {
                 uint32_t cantPidsDesuspendibles = buffer_read_uint32(paquete->buffer);
 
-                if(cantPidsDesuspendibles==0){
-                    eliminar_paquete(paquete);
-                    break;
-                }
+                if(cantPidsDesuspendibles==0) break;
 
                 t_list* pidsDesuspendibles = list_create();
                 for(int i =0; i<cantPidsDesuspendibles;i++){
