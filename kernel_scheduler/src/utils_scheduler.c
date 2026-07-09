@@ -262,8 +262,8 @@ void* hilo_timer_quantum(void* arg){
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
         intentar_enviar_control_cpu_bajo_lock(cpu, paquete);
         eliminar_paquete(paquete);
-    } else {
-        log_info(loggerScheduler,"Timer de quantum obsoleto ignorado para pid %d (token %u != %u)", pidCpuOriginal, miToken, cpu->quantum_token);
+    }else{
+        log_debug(loggerScheduler,"Timer de quantum obsoleto ignorado para pid %d (token %u != %u)", pidCpuOriginal, miToken, cpu->quantum_token);
     }
     pthread_mutex_unlock(&exec_mutex);
 
@@ -936,7 +936,7 @@ int desalojar_por_compactacion(int socket){
             cpu->pcb = NULL;
             cpu->control_enviado = false;
 
-            log_info(loggerScheduler, "## (%d) - Desalojado por compactacion", pidPropio);
+            log_info(loggerScheduler, "(%d) - Desalojado por compactacion", pidPropio);
             log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pidPropio);
 
             enlistar_primero_ready(pcbPropio);
@@ -1029,7 +1029,7 @@ void liberar_de_mutex_por_muerte(t_pcb* pcb){
         }
 
         if(siguiente->prioridad > prioridadMaxima){
-            log_info(loggerScheduler,"## %d Cambio de prioridad: %d - %d",siguiente->pid,siguiente->prioridad,prioridadMaxima);
+            log_info(loggerScheduler,"## (%d) Cambio de prioridad: %d - %d",siguiente->pid,siguiente->prioridad,prioridadMaxima);
             siguiente->prioridad = prioridadMaxima;
         }
 

@@ -476,7 +476,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                     if(pcbDueño != NULL && pcbDueño->prioridad > cpuALiberar->pcb->prioridad){
                         //el dueño tiene menor prioridad (número mayor = menor prioridad)
-                        log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
+                        log_info(loggerScheduler, "## (%d) Cambio de prioridad: %d - %d",pcbDueño->pid, pcbDueño->prioridad, cpuALiberar->pcb->prioridad);
                         pcbDueño->prioridad = cpuALiberar->pcb->prioridad;
                         //ACA TENGO QUE METER FUNCION PARA QUE SI ESTE ESTABA EN OTRA COLA DE UN MUTEX, VER SI EL DUEÑO DE ESE MUTEX TIENE QUE HEREDAR
 
@@ -507,7 +507,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                             }
 
                             if(correspondeHeredar){
-                                log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",otroDueño->pid, otroDueño->prioridad, prioridadHeredada);
+                                log_info(loggerScheduler, "## (%d) Cambio de prioridad: %d - %d",otroDueño->pid, otroDueño->prioridad, prioridadHeredada);
                                 //ahora sí, búsqueda + extracción atómica con la prioridad real que corresponde
                                 int extraidoDeReady = 0;
                                 otroDueño = buscar_pcb_por_pid(unMtxEnLista->pid, prioridadHeredada, &extraidoDeReady);
@@ -582,7 +582,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                             }
                         }
                         if(siguiente->prioridad > prioridadMaxima){
-                            log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d",siguiente->pid, siguiente->prioridad, prioridadMaxima);
+                            log_info(loggerScheduler, "## (%d) Cambio de prioridad: %d - %d",siguiente->pid, siguiente->prioridad, prioridadMaxima);
                             siguiente->prioridad = prioridadMaxima;
                         }
                         
@@ -634,7 +634,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 otraCpuPadre->pcb->prioridad = prioridadRecalculada;
 
                 if(prioridadAnterior != otraCpuPadre->pcb->prioridad){
-                    log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", otraCpuPadre->pcb->pid, prioridadAnterior, otraCpuPadre->pcb->prioridad);
+                    log_info(loggerScheduler, "## (%d) Cambio de prioridad: %d - %d", otraCpuPadre->pcb->pid, prioridadAnterior, otraCpuPadre->pcb->prioridad);
                 }
 
                 reanudar_proceso_en_cpu(otraCpuPadre);
@@ -760,7 +760,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 cpuCompactada->control_enviado= false;
                 pthread_mutex_unlock(&exec_mutex);
 
-                log_info(loggerScheduler, "## (%d) - Desalojado por compactacion", pidCompactado);
+                log_info(loggerScheduler, "(%d) - Desalojado por compactacion", pidCompactado);
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado READY", pidCompactado);
 
                 enlistar_primero_ready(pcbCompactado);
@@ -798,7 +798,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 uint32_t pidBsod;
                 pidBsod = buffer_read_uint32(paquete->buffer);
                 // NO LOGUEO ACA QUE PASAN A EXIT Y EL MOTIVO DE FINALIZACION X SI ME PASA QUE SE EJECUTE EL abort() ANTES DE QUE SE LLEGUE A ESTE CASE
-                log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
+                //log_debug(loggerScheduler, "desalojo el pid (%d) por bsod. DESP SACAR ESTE LOG", pidBsod);
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuBsod = encontrar_cpu_con_pid(pidBsod);
                 if(cpuBsod!=NULL){
