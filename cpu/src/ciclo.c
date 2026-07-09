@@ -14,7 +14,7 @@ int ejecutar_ciclo_de_instruccion(int socketConexionMemory, int socketConexionSc
     uint32_t pc = registros_cpu.pc;
     log_info(loggerCpu, "## PID: %d - FETCH - Program Counter: %d", pid, pc);
 
-    log_info(loggerCpu, "CPU: Solicitando linea con instruccion a Kernel Memory");
+    log_debug(loggerCpu, "CPU_DEBUG: Solicitando linea con instruccion a Kernel Memory");
     char *inicioInstruccion = obtener_linea_con_instruccion(pid, pc, socketConexionMemory);
     if (inicioInstruccion == NULL) {
         log_info(loggerCpu, "CPU: Error al obtener linea con instruccion de Kernel Memory");

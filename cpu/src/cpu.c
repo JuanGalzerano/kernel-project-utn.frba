@@ -66,13 +66,13 @@ int main(int argc, char *argv[]) {
 
     log_info(loggerCpu, "CPU: Comienzo como cpu");
     while (1) {
-        log_info(loggerCpu, "CPU: Solicitando PID a Scheduler");
+        log_debug(loggerCpu, "CPU_DEBUG: Solicitando PID a Scheduler");
         uint32_t pid = obtener_pid(socketConexionScheduler);
         log_info(loggerCpu, "CPU: Obtuve PID: %d", pid);
 
-        log_info(loggerCpu, "CPU: Solicitando contexto a Kernel Memory");
+        log_debug(loggerCpu, "CPU_DEBUG: Solicitando contexto a Kernel Memory");
         t_contexto_ejecucion *ctx = obtener_contexto(pid, socketConexionMemory);
-        log_info(loggerCpu, "CPU: Obtuve contexto de ejecucion");
+        log_debug(loggerCpu, "CPU_DEBUG: Obtuve contexto de ejecucion");
         actualizar_registros_cpu(ctx);
         log_info(loggerCpu, "CPU: Contexto actualizado");
 
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
         if (motivo_interrupcion != DESALOJAR_POR_BSOD) {
-            log_info(loggerCpu, "CPU: Contexto actualizado");
+            log_info(loggerCpu, "CPU: Envio el contexto a Kernel Memory");
             actualizar_contexto(ctx, socketConexionMemory, pid);
         }
         if (errorCiclo != 1) {
