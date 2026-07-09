@@ -15,6 +15,7 @@ typedef struct {
     int socketMemoryStick;
     uint32_t desde_donde_leer;
     uint32_t tamanio_a_leer_en_esta_memory_stick;
+    uint32_t base_acumulada;
 } struct_control_mmu;
 typedef struct {
     char* dato;

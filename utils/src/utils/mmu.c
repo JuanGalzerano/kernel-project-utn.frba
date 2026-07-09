@@ -96,6 +96,7 @@ uint32_t crear_lista_con_memories_stick_a_llamar(t_memory_stick_info* stick, uin
         control->socketMemoryStick = stick->socket;
         control->desde_donde_leer = offset_en_stick;
         control->tamanio_a_leer_en_esta_memory_stick = bytes_a_leer_en_este_stick;
+        control->base_acumulada = stick->base_acumulada;
         list_add(lista_de_memories_stick_a_llamar, control);
 
         // Descuento lo que ya planifique leer
@@ -155,7 +156,7 @@ t_resultado_lectura* leer_en_memoria(t_list* lista_de_memories_stick_a_llamar, u
     struct_control_mmu* primer_memoria_llamada = list_get(lista_de_memories_stick_a_llamar, 0);
     t_resultado_lectura* resultado = malloc(sizeof(t_resultado_lectura));
     resultado->dato = valor_leido;
-    resultado->dir_fisica = primer_memoria_llamada->desde_donde_leer;
+    resultado->dir_fisica = primer_memoria_llamada->desde_donde_leer + primer_memoria_llamada->base_acumulada;
     return resultado;
 }
 
@@ -185,5 +186,5 @@ int escribir_en_memoria(t_list* lista_de_memories_stick_a_llamar, char* valor_a_
     }
 
     struct_control_mmu* primer_memoria_llamada = list_get(lista_de_memories_stick_a_llamar, 0);
-    return primer_memoria_llamada->desde_donde_leer;
+    return primer_memoria_llamada->desde_donde_leer + primer_memoria_llamada->base_acumulada;
 }
