@@ -130,23 +130,7 @@ bool reanudar_proceso_en_cpu(t_cpu* cpu){
     free(buffer);
     free(paquete);
     return true;
-}/*
-bool reanudar_proceso_en_cpu_bajo_lock(t_cpu* cpu){
-    if(cpu->control_enviado){
-        pthread_mutex_unlock(&exec_mutex);
-        return false;
-    }
-    t_buffer* buffer = buffer_create(0);
-    buffer_add_uint32(buffer, cpu->pcb->pid);
-    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
-    enviar_paquete(cpu->socketConexion, paquete);
-    pthread_mutex_unlock(&exec_mutex);
-
-    free(buffer->stream);
-    free(buffer);
-    free(paquete);
-    return true;
-}*/
+}
 
 uint32_t generar_pid(){
     pthread_mutex_lock(&mutex_pid);
@@ -771,7 +755,7 @@ void* hilo_timer_bloqueado(void* arg){
         }
     }
 
-    if(pcb!=NULL /*&& (tokenBlock==pcb->tokenBloqueado)*/){
+    if(pcb!=NULL){
         suspender_proceso(pcb);
     }
     pthread_mutex_unlock(&block_mutex);

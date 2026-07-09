@@ -59,6 +59,9 @@ int conectarme_nuevas_sticks(t_list* nueva_lista_memory_stick, int memory_sticks
                 log_info(loggerCpu, "CPU: No se pudo conectar con Memory Stick %d", stick->puerto);
                 abort();
             }
+            uint32_t sizeIdCpu = strlen(idCpu) + 1;
+            send(socketConexionMemoryStick, &sizeIdCpu, sizeof(int), 0);
+            send(socketConexionMemoryStick, idCpu, sizeIdCpu, 0);
             stick->socket = socketConexionMemoryStick;
             log_info(loggerCpu, "CPU: Conexion establecida con Memory Stick %d", stick->puerto);
 
