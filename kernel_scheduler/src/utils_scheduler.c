@@ -744,18 +744,20 @@ void despertar_planificador(){
 
 void timer_tiempo_bloqueado(t_pcb* pcb){
     pcb->tokenBloqueado++;
-    //t_pcb* argumento = malloc(sizeof(t_pcb));
-    //argumento =pcb;
+    t_timer_block* args = malloc(sizeof(t_timer_block));
+    args->pid=pcb->pid;
+    args->tokenBloqueado=pcb->tokenBloqueado;
+
     pthread_t hiloTimer;
-    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,pcb);
+    pthread_create(&hiloTimer,NULL, hilo_timer_bloqueado,args);
     pthread_detach(hiloTimer);
 }
 
 void* hilo_timer_bloqueado(void* arg){
-    t_pcb* argu = (t_pcb*) arg;
+    t_timer_block* argu = (t_timer_block*) arg;
     uint32_t pid = argu->pid;
     uint32_t tokenBlock = argu->tokenBloqueado;
-    //free(argu);
+    free(argu);
     usleep(suspensionTimeout*1000);
     
     pthread_mutex_lock(&block_mutex);

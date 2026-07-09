@@ -51,6 +51,11 @@ typedef struct{
     uint32_t direccionLogicaStdin;
 }t_proc_suspendido;
 
+typedef struct{
+    uint32_t pid;
+    uint32_t tokenBloqueado;
+}t_timer_block;
+
 
 //VARIABLES GLOBALESu
 
