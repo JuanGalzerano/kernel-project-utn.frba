@@ -35,6 +35,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     handshake_cliente_id(socketConMemory, loggerSwap, SWAP);
+    log_info(loggerSwap, "## Conectado a Kernel Memory");
 
     //Anunciatamaño total y tamanio de bloque a Kernel Memory
     t_buffer* bufInit = buffer_create(0);
@@ -60,7 +61,7 @@ int main(int argc, char* argv[]) {
                 escribir_Bloque(bloque, archivo, datos, tamanio);
                 free(datos);
 
-                log_info(loggerSwap, "ESCRIBIR_SWAP bloque %d (%d bytes)", bloque, tamanio);
+                log_info(loggerSwap, "## Escritura del bloque: %d (%d bytes)", bloque, tamanio);
 
                 t_paquete* resp = crear_paquete(ESCRIBIR_SWAP, NULL);
                 enviar_paquete(socketConMemory, resp);
@@ -75,7 +76,7 @@ int main(int argc, char* argv[]) {
 
                 char* datos = leer_Bloque(bloque, archivo, tamanio);
 
-                log_info(loggerSwap, "LEER_SWAP bloque %d (%d bytes)", bloque, tamanio);
+                log_info(loggerSwap, "## Lectura del bloque: %d (%d bytes)", bloque, tamanio);
 
                 t_buffer* buf = buffer_create(0);
                 buffer_add(buf, datos, tamanio);

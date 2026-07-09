@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
         abort();
     }
 
-    log_info(loggerIO, "conexion establecida con Kernel Scheduler");
+    log_info(loggerIO, "## Conectado a Kernel Scheduler");
     handshake_cliente_id(socketConScheduler, loggerIO, IO);
     send(socketConScheduler, &tipo, sizeof(tipo_IO), 0);
 
