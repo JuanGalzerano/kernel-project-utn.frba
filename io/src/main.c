@@ -81,6 +81,7 @@ int main(int argc, char* argv[]) {
             paquete->buffer=serializar_stdin(out);
             paquete->codigo_operacion=FINALIZAR_STDOUT;
             enviar_paquete(socketConScheduler,paquete);
+            free(out->cadenaLeida);
             free(out);
             eliminar_paquete(paquete);
             log_info(loggerIO, "## PID: %d - Fin de IO",pid);

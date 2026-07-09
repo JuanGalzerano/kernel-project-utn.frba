@@ -55,6 +55,8 @@ void* hilo_io_stdout(void* arg){
         free(unBuffer->stream);
         free(unBuffer);
         free(paqueteStdout);
+        free(procesoStdout->cadenaLeida);
+        free(procesoStdout);
     }
 
 }
