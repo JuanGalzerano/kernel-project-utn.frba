@@ -563,7 +563,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(mutexALiberarEnLista->contador==1){
                     //nadie esperando, queda libre
                     pthread_mutex_unlock(&mutex_lista_mutex);
-                } else {
+                } else{
                     //hay alguien esperando, le damos el mutex
                     
                     t_pcb* siguiente = queue_pop(mutexALiberarEnLista->colaEspera);
@@ -637,6 +637,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     log_info(loggerScheduler, "## %d Cambio de prioridad: %d - %d", otraCpuPadre->pcb->pid, prioridadAnterior, otraCpuPadre->pcb->prioridad);
                 }
 
+                reanudar_proceso_en_cpu(otraCpuPadre);
 
                 free(mutexALiberar->nombreMutex);
                 free(mutexALiberar);
