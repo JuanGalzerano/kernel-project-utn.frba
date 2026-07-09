@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     //traigo de config 
     char* puertoMemory = config_get_string_value(configMemoryStick,"PUERTO_MEMORY");
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
-    char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
+    // char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
     delay = config_get_int_value(configMemoryStick, "MEMORY_DELAY");
 
     //Reservo memoria dependiendo el tamaño recibido
