@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     char* swapFilePath = config_get_string_value(configSwap, "SWAP_FILE_PATH");
     uint32_t swapFileSize = (uint32_t)config_get_int_value(configSwap, "SWAP_FILE_SIZE");
     blockSize = (uint32_t)config_get_int_value(configSwap, "BLOCK_SIZE");
-
+    config_destroy(configSwap);
     // Abrir/crear el archivo de swap con el tamanio correcto
     FILE* archivo = fopen(swapFilePath, "w+b");
     if (!archivo) {
@@ -96,7 +96,6 @@ int main(int argc, char* argv[]) {
 
     log_warning(loggerSwap, "Kernel Memory desconectado");
     fclose(archivo);
-    config_destroy(configSwap);
     log_destroy(loggerSwap);
     return 0;
 }

@@ -68,7 +68,6 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
 
     //Liberamos memoria
     close(socketConexionMemory);
-    config_destroy(configScheduler);
     log_destroy(loggerScheduler);
     //LIBERAR RECURSOS DE SEMAFOROS Y MUTEX
     liberar_mutex_y_semaforos();

@@ -28,7 +28,6 @@ void inicializar_configs(char* path){
     hay_desalojo = (strcmp(hayDesalojo, "TRUE") == 0);
     suspensionTimeout = config_get_int_value(configScheduler, "SUSPENSION_TIMEOUT");
     free(hayDesalojo);
-    
     char* algoritmoDePlanificacion = config_get_string_value(configScheduler, "PLANIFICATION_ALGORITHM");
     if(strcmp(algoritmoDePlanificacion, "FIFO")==0){
         algoritmo = FIFO;}
@@ -43,6 +42,7 @@ void inicializar_configs(char* path){
     if(algoritmo == CMN){
         inicializar_cola_multinivel();
     }
+    config_destroy(configScheduler);
 }
 
 void inicializar_semaforos(){

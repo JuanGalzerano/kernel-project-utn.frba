@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
     // char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
     delay = config_get_int_value(configMemoryStick, "MEMORY_DELAY");
-
+    config_destroy(configMemoryStick);
     //Reservo memoria dependiendo el tamaño recibido
     uint32_t tamano = (uint32_t)atoi (argv[2]);
     tamanioMemoria = tamano;
@@ -51,7 +51,9 @@ int main(int argc, char* argv[]) {
     recv(socketconexionKernelMemory, &puertoAsignado, sizeof(uint32_t), MSG_WAITALL);
 
     //abrir socket de escucha para que se conecte la cpu
-    int socketEscucha = iniciar_servidor(string_itoa(puertoAsignado)); //string_itoa convierte 7 en "7"
+    char* puertoStr = string_itoa(puertoAsignado);//string_itoa convierte 7 en "7"
+    int socketEscucha = iniciar_servidor(puertoStr);
+    free(puertoStr);
     if(socketEscucha == EXIT_FAILURE){
         log_info(loggerMemoryStick, "no se pudo iniciar servidor");
         abort();
@@ -93,7 +95,6 @@ int main(int argc, char* argv[]) {
     
 
     free(memoria);
-    config_destroy(configMemoryStick);
     return 0;
 }
 

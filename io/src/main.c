@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     char* ip=config_get_string_value(configIO,"IP_SCHEDULER");
     char* puerto= config_get_string_value(configIO,"PUERTO_SCHEDULER");
     tipo = reconocer_io(argv[2]);
-
+    config_destroy(configIO);
     //Creo conexion con Scheduler
     socketConScheduler = iniciar_conexion(ip,puerto);
     if(socketConScheduler == EXIT_FAILURE){
