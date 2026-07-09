@@ -15,7 +15,6 @@ void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb);
 
 bool reanudar_proceso_en_cpu(t_cpu* cpu);
 
-//bool reanudar_proceso_en_cpu_bajo_lock(t_cpu* cpu);//en prueba
 
 bool intentar_enviar_control_cpu(t_cpu* cpu, t_paquete* paquete);
 
