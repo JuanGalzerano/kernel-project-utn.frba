@@ -412,22 +412,22 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
             pthread_mutex_unlock(&mutex_socket_memory);
             return MEMORIA_NO_DISPONIBLE;
         }
+        eliminar_paquete(compactacionHecha);
+        pthread_mutex_unlock(&mutex_socket_memory);
+
+        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,RESOLICITAR_SEGMENTO, socket);
+        if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();
+
         compactando= false;
         for(int i = 0;i<cpusLiberadas;i++){
             liberar_cpu_y_notificar();//ACA VER SI HAY QUE PONER ESTE O SOLO EL SEMPOST
         }
         log_info(loggerScheduler,"## fin de compactación");
-        
+
         despertar_planificador();
 
 /*ACA TENDRIA QUE NOTIFICAR PARA QUE VUELVAN A EJECUTAR TODAS LA CPUS Y LOS PROCESOS*/
 
-        eliminar_paquete(compactacionHecha);
-        pthread_mutex_unlock(&mutex_socket_memory);
-
-        //Post-compactacion debe poder y sino es bsod REVISAR SI ES ASI//NO SE DEBERIA LLEGAR NUNCA AL BSOD
-        op_code reintentar = solicitar_segmento_memory(infoMemAlloc,RESOLICITAR_SEGMENTO, socket);
-        if(reintentar != MEMORIA_DISPONIBLE) manejar_bsod();//realmente imposible pero bueno en casos especiales, pantallazo azul.xq sino es un bucle de solicitar_segmento_memory
         return reintentar;
     }
 
