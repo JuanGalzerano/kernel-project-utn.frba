@@ -9,7 +9,7 @@ void inicializar(char* path){
     inicializar_semaforos();
 
     loggerScheduler = log_create("kernel.log", "kernel_scheduler", true, log_level_from_string(config_get_string_value(configScheduler, "LOG_LEVEL"))); 
-
+    config_destroy(configScheduler);
     inicializar_listas(); 
 
     pthread_mutex_init(&mutex_socket_memory, NULL);
@@ -27,7 +27,6 @@ void inicializar_configs(char* path){
     char* hayDesalojo = config_get_string_value(configScheduler, "QUEUE_PREEMPTION");
     hay_desalojo = (strcmp(hayDesalojo, "TRUE") == 0);
     suspensionTimeout = config_get_int_value(configScheduler, "SUSPENSION_TIMEOUT");
-    free(hayDesalojo);
     char* algoritmoDePlanificacion = config_get_string_value(configScheduler, "PLANIFICATION_ALGORITHM");
     if(strcmp(algoritmoDePlanificacion, "FIFO")==0){
         algoritmo = FIFO;}
@@ -37,12 +36,10 @@ void inicializar_configs(char* path){
     else if(strcmp(algoritmoDePlanificacion, "CMN")==0){
         algoritmo=CMN;
     }
-    free(algoritmoDePlanificacion);
 
     if(algoritmo == CMN){
         inicializar_cola_multinivel();
     }
-    config_destroy(configScheduler);
 }
 
 void inicializar_semaforos(){
