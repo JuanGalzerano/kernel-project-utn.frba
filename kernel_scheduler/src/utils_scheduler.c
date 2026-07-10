@@ -862,7 +862,7 @@ void recorrer_y_desuspender(t_list* pidsDesuspendibles){
     for(int i=0;i<list_size(susp_ready);i++){
         t_proc_suspendido* proc = list_get(susp_ready,i);
         if(perteneceALalista(proc, pidsDesuspendibles)){ 
-            desuspender_proceso(proc);//liberar proc pero no pcb
+            desuspender_proceso(proc);//liberar proc pero no pcb        
             break;
         }
     }
@@ -895,6 +895,13 @@ void desuspender_proceso(t_proc_suspendido* proc){
         sem_post(&sem_hay_proceso_ready);
         despertar_planificador();
         log_info(loggerScheduler,"## (%d) Pasa del estado SUSP READY al estado READY",pcb->pid);
+        /////ya deberia andar funcando esto de abajo//////
+        t_paquete* paqSolicitud = crear_paquete(SOLICITAR_PROCS_DESUSPENDIBLES, NULL);
+        pthread_mutex_lock(&mutex_socket_memory);
+        enviar_paquete(socketConexionMemory, paqSolicitud);
+        pthread_mutex_unlock(&mutex_socket_memory);
+        eliminar_paquete(paqSolicitud);
+        /////////////////////
     }else{
         log_error(loggerScheduler, "Error al querer desuspender el pid: %d", pcb->pid);
         eliminar_paquete(paq);

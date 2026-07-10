@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
                 escribir_Bloque(bloque, archivo, datos, tamanio);
                 free(datos);
 
-                log_info(loggerSwap, "## Escritura del bloque: %d (%d bytes)", bloque, tamanio);
+                log_info(loggerSwap, "## Escritura del bloque: %d", bloque);
 
                 t_paquete* resp = crear_paquete(ESCRIBIR_SWAP, NULL);
                 enviar_paquete(socketConMemory, resp);
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 
                 char* datos = leer_Bloque(bloque, archivo, tamanio);
 
-                log_info(loggerSwap, "## Lectura del bloque: %d (%d bytes)", bloque, tamanio);
+                log_info(loggerSwap, "## Lectura del bloque: %d", bloque);
 
                 t_buffer* buf = buffer_create(0);
                 buffer_add(buf, datos, tamanio);
