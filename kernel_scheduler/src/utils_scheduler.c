@@ -605,15 +605,18 @@ t_pcb* pcb_mas_prioritario(){
     return pcb;
 }
 
+//ahora devuelve la cpu con la peor prioridad ejecutando y no la primer cpu desalojable
 t_cpu* hay_cpu_desalojable(t_pcb* pcbCandidato){
     if(pcbCandidato == NULL) return NULL;
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpuADesalojar = NULL;
-    for(int i = 0; i < list_size(exec_lista); i++){
+    int peorPrioridad = pcbCandidato->prioridad;
+
+    for(int i = 0;i<list_size(exec_lista);i++){
         t_cpu* cpu = list_get(exec_lista, i);
-        if(cpu->pcb != NULL && cpu->pcb->prioridad > pcbCandidato->prioridad){
-            cpuADesalojar = cpu;
-            break;
+        if(cpu->pcb != NULL && cpu->pcb->prioridad > peorPrioridad){
+            cpuADesalojar= cpu;
+            peorPrioridad=cpu->pcb->prioridad;
         }
     }
     pthread_mutex_unlock(&exec_mutex);
