@@ -862,7 +862,7 @@ void recorrer_y_desuspender(t_list* pidsDesuspendibles){
     for(int i=0;i<list_size(susp_ready);i++){
         t_proc_suspendido* proc = list_get(susp_ready,i);
         if(perteneceALalista(proc, pidsDesuspendibles)){ 
-            desuspender_proceso(proc);//liberar proc pero no pcb
+            desuspender_proceso(proc);//liberar proc pero no pcb        
             break;
         }
     }
