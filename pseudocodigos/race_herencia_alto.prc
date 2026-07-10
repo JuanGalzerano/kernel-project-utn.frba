@@ -1,3 +1,0 @@
-MUTEX_LOCK mutex_h
-MUTEX_UNLOCK mutex_h
-EXIT

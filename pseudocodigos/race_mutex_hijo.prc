@@ -1,5 +1,0 @@
-MEM_ALLOC 0 32
-MUTEX_LOCK mutex_rc
-MUTEX_UNLOCK mutex_rc
-MEM_FREE 0
-EXIT

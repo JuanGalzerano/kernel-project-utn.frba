@@ -1,5 +1,0 @@
-MUTEX_LOCK mutex_A
-MUTEX_LOCK mutex_B
-MUTEX_UNLOCK mutex_B
-MUTEX_UNLOCK mutex_A
-EXIT

@@ -1,3 +1,0 @@
-MUTEX_LOCK otroMutex
-MUTEX_UNLOCK otroMutex
-EXIT
