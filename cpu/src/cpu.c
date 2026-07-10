@@ -115,5 +115,6 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    config_destroy(configCpu);
     return 0;
 }

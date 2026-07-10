@@ -139,6 +139,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    config_destroy(configMemory);
     return 0;
 }
 
