@@ -757,7 +757,7 @@ void* hilo_timer_bloqueado(void* arg){
             break;
         }
     }
-
+    //pthread_mutex_unlock(&block_mutex); se libera antes del round-trip a Kernel Memory (suspender_proceso) para no retener block_mutex mientras se espera mutex_socket_memory
     if(pcb!=NULL){
         suspender_proceso(pcb);
     }

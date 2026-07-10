@@ -924,13 +924,19 @@ void* planificador(void* arg){
             
             
             t_pcb* pcb =desencolar_pcb_ready();
-            
+
 
             t_cpu* cpu = obtener_cpu_libre();
-            enviar_proceso_a_cpu(cpu, pcb); 
+            if(cpu == NULL){
+                log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", pcb->pid);
+                encolar_pcb_ready(pcb);
+                sem_post(&sem_hay_proceso_ready);
+            }else{
+                enviar_proceso_a_cpu(cpu, pcb);
 
-            if (algoritmo == RR){
-                iniciar_timer_quantum(cpu);
+                if (algoritmo == RR){
+                    iniciar_timer_quantum(cpu);
+                }
             }
         }
         if(algoritmo == CMN){
@@ -956,11 +962,17 @@ void* planificador(void* arg){
 
                     t_pcb* unPcb = desencolar_pcb_ready();
                     t_cpu* cpuAUsar = obtener_cpu_libre();
-                    enviar_proceso_a_cpu(cpuAUsar, unPcb);
-                    if(algoritmo_por_cola[unPcb->prioridad]== RR){
-                        iniciar_timer_quantum(cpuAUsar);
+                    if(cpuAUsar == NULL){
+                        log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", unPcb->pid);
+                        encolar_pcb_ready(unPcb);
+                        sem_post(&sem_hay_proceso_ready);
+                    }else{
+                        enviar_proceso_a_cpu(cpuAUsar, unPcb);
+                        if(algoritmo_por_cola[unPcb->prioridad]== RR){
+                            iniciar_timer_quantum(cpuAUsar);
+                        }
                     }
-                
+
                 }else if((cpuDesalojable!=NULL) && (prox_pcb!=NULL))
                 {
                     t_pcb* otroPcb = desencolar_pcb_ready();
@@ -975,9 +987,15 @@ void* planificador(void* arg){
                     //esperar a que selibere la CPU tras el desalojo
                     sem_wait(&sem_hay_cpu_libre);
                     t_cpu* laCpu = obtener_cpu_libre();
-                    enviar_proceso_a_cpu(laCpu, otroPcb);
-                    if(algoritmo_por_cola[otroPcb->prioridad] == RR){
-                        iniciar_timer_quantum(laCpu);
+                    if(laCpu == NULL){
+                        log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", otroPcb->pid);
+                        encolar_pcb_ready(otroPcb);
+                        sem_post(&sem_hay_proceso_ready);
+                    }else{
+                        enviar_proceso_a_cpu(laCpu, otroPcb);
+                        if(algoritmo_por_cola[otroPcb->prioridad] == RR){
+                            iniciar_timer_quantum(laCpu);
+                        }
                     }
                 }
                 else{
@@ -1005,9 +1023,15 @@ void* planificador(void* arg){
 
                 t_pcb* elPcb = desencolar_pcb_ready();
                 t_cpu* cpuEncontrada = obtener_cpu_libre();
-                enviar_proceso_a_cpu(cpuEncontrada, elPcb);
-                if(algoritmo_por_cola[elPcb->prioridad] == RR){
-                    iniciar_timer_quantum(cpuEncontrada);
+                if(cpuEncontrada == NULL){
+                    log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", elPcb->pid);
+                    encolar_pcb_ready(elPcb);
+                    sem_post(&sem_hay_proceso_ready);
+                }else{
+                    enviar_proceso_a_cpu(cpuEncontrada, elPcb);
+                    if(algoritmo_por_cola[elPcb->prioridad] == RR){
+                        iniciar_timer_quantum(cpuEncontrada);
+                    }
                 }
             }
         }
