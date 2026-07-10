@@ -163,6 +163,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* cpuPadre = encontrar_cpu_con_pid(proc->pid);
                 if(cpuPadre==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(proc->pathArchivoInstrucciones);
+                    free(proc);
                     break;
                 }pthread_mutex_unlock(&exec_mutex);
 
@@ -216,9 +218,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_sleep* sleep = deserializar_sleep(paquete->buffer);
 
                 pthread_mutex_lock(&exec_mutex);
-                t_cpu* cpuSleep = encontrar_cpu_con_pid(sleep->pid); 
+                t_cpu* cpuSleep = encontrar_cpu_con_pid(sleep->pid);
                 if(cpuSleep==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(sleep);
                     break;
                 }
                 pthread_mutex_unlock(&exec_mutex);
@@ -242,9 +245,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_stdin_stdout* procesoStdin = deserializar_stdin(paquete->buffer);//cuando viotti me lo mande, cadenaLeida=NULL
 
                 pthread_mutex_lock(&exec_mutex);
-                t_cpu* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid); 
+                t_cpu* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid);
                 if(cpuUsada==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(procesoStdin);
                     break;
                 }
                 pthread_mutex_unlock(&exec_mutex);  
@@ -265,9 +269,10 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_stdin_stdout* procesoStdout = deserializar_stdin(paquete->buffer); //cuando viotti me lo mande, cadenaLeida=NULL
 
                 pthread_mutex_lock(&exec_mutex);
-                t_cpu* cpuUsadaStdout = encontrar_cpu_con_pid(procesoStdout->pid); 
+                t_cpu* cpuUsadaStdout = encontrar_cpu_con_pid(procesoStdout->pid);
                 if(cpuUsadaStdout==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(procesoStdout);
                     break;
                 }
 
@@ -305,8 +310,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     sem_post(&sem_hay_proc_esperando_stdout);
                 }else{
                     log_error(loggerScheduler ,"no se pudieron leer los bytes que solicito el pid: (%d)", procesoStdout->pid);
+                    free(procesoStdout);
                 }
-                
+
                 break;
             case FINALIZAR_SLEEP: 
                 
@@ -428,6 +434,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* unaCpuPadre = encontrar_cpu_con_pid(mutexNuevo->pid);
                 if(unaCpuPadre==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(mutexNuevo->nombreMutex);
+                    free(mutexNuevo);
                     break;
                 }
                 pthread_mutex_unlock(&exec_mutex);
@@ -451,6 +459,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(mutexABloquearEnLista ==NULL){
                     pthread_mutex_unlock(&mutex_lista_mutex);
                     log_error(loggerScheduler, "Mutex no encontrado: %s", mutexABloquear->nombreMutex);
+                    free(mutexABloquear->nombreMutex);
+                    free(mutexABloquear);
                     break;
                 }
 
@@ -458,6 +468,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* cpuALiberar = encontrar_cpu_con_pid(mutexABloquear->pid);
                 if(cpuALiberar==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(mutexABloquear->nombreMutex);
+                    free(mutexABloquear);
                     break;
                 }
                 //log_debug(loggerScheduler, "encontro la cpu id: %d   con el pid:  %d", cpuALiberar->cpu_id, cpuALiberar->pcb->pid);
@@ -551,7 +563,9 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_mutex_syscall* mutexALiberarEnLista = buscar_mutex(mutexALiberar->nombreMutex);
                 if(mutexALiberarEnLista ==NULL){
                     pthread_mutex_unlock(&mutex_lista_mutex);
-                    log_error(loggerScheduler, "Mutex no encontrado: %s", mutexABloquear->nombreMutex);
+                    log_error(loggerScheduler, "Mutex no encontrado: %s", mutexALiberar->nombreMutex);
+                    free(mutexALiberar->nombreMutex);
+                    free(mutexALiberar);
                     break;
                 }
 
@@ -606,6 +620,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* otraCpuPadre = encontrar_cpu_con_pid(mutexALiberar->pid);
                 if(otraCpuPadre==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(mutexALiberar->nombreMutex);
+                    free(mutexALiberar);
                     break;
                 }
                 pthread_mutex_unlock(&exec_mutex);
@@ -650,6 +666,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
                 if(cpuAlloc==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(infoMemAlloc);
                     break;
                 }
                 pthread_mutex_unlock(&exec_mutex);
@@ -658,11 +675,14 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
 
                 //LA BUSCAMOS DE NUEVO POR SI HUBO COMPACTACION AL SOLICITAR EL SEGMENTO
+                pthread_mutex_lock(&exec_mutex);
                 cpuAlloc = encontrar_cpu_con_pid(infoMemAlloc->pid);
                 if(cpuAlloc==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(infoMemAlloc);
                     break;
                 }
+                pthread_mutex_unlock(&exec_mutex);
 
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
@@ -708,6 +728,8 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 t_cpu* CpuFree = encontrar_cpu_con_pid(infoMemFree->pid);
                 if(CpuFree==NULL){
                     pthread_mutex_unlock(&exec_mutex);
+                    free(paqueteFree);//no libero el buffer pq es del otro paquete
+                    free(infoMemFree);
                     break;
                 }
                 pthread_mutex_unlock(&exec_mutex);

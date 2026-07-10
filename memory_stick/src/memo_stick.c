@@ -22,13 +22,12 @@ int main(int argc, char* argv[]) {
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
     // char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
     delay = config_get_int_value(configMemoryStick, "MEMORY_DELAY");
-    config_destroy(configMemoryStick);
     //Reservo memoria dependiendo el tamaño recibido
     uint32_t tamano = (uint32_t)atoi (argv[2]);
     tamanioMemoria = tamano;
     memoria =malloc(tamano);
     if (memoria==NULL)
-    {   
+    {
         log_info(loggerMemoryStick, "Error al reservar memoria");
         abort();
     }
@@ -40,6 +39,7 @@ int main(int argc, char* argv[]) {
             log_info(loggerMemoryStick,"Memory Stick no se pudo conectar a la Memory");
             abort();
         }
+    config_destroy(configMemoryStick);
     log_info(loggerMemoryStick,"## Conectado a Kernel Memory");
     handshake_cliente_id(socketconexionKernelMemory, loggerMemoryStick, MEMORY_STICK);
     

@@ -27,7 +27,6 @@ int main(int argc, char* argv[]) {
     instruction_delay = (uint32_t)config_get_int_value(configMemory, "INSTRUCTION_DELAY");
     compaction_delay = (uint32_t)config_get_int_value(configMemory, "COMPACTION_DELAY");
     puertoMemoryStick = config_get_string_value(configMemory, "PUERTO_MEMORYSTICK");
-    config_destroy(configMemory);
     lista_procesos = list_create();
     lista_memory_sticks = list_create();
     lista_sockets_cpu_notif = list_create();

@@ -38,5 +38,4 @@ void inicializar_log_y_config(char* path, char* idDeCpu) {
     puertoKernelMemoryNotificaciones = config_get_string_value(configCpu, "PUERTO_KERNEL_MEMORY_AVISOS");
     puertoMemoryStick = config_get_string_value(configCpu, "PUERTO_MEMORYSTICK");
     IPMemoryStick = config_get_string_value(configCpu, "IP_MEMORY_STICK");
-    config_destroy(configCpu);
 }
