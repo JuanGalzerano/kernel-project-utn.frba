@@ -24,7 +24,10 @@ int main(int argc, char* argv[]) {
         log_error(loggerSwap, "No se pudo abrir el archivo de swap: %s", swapFilePath);
         return EXIT_FAILURE;
     }
-    ftruncate(fileno(archivo), swapFileSize);//para que el archivo tenga los bytes que dice swapFileSize
+    if (ftruncate(fileno(archivo), swapFileSize) != 0) {//para que el archivo tenga los bytes que dice swapFileSize
+        log_error(loggerSwap, "No se pudo truncar el archivo de swap al tamanio %d", swapFileSize);
+        return EXIT_FAILURE;
+    }
     log_info(loggerSwap, "Swap file listo: %s (%d bytes, bloques de %d)", swapFilePath, swapFileSize, blockSize);
 
     // Conectar con Kernel Memory
@@ -111,6 +114,9 @@ char* leer_Bloque(uint32_t idBloque, FILE* archivo, uint32_t tamanio){
     char* buffer = malloc(tamanio);
     long offset  = idBloque * blockSize;
     fseek(archivo, offset, SEEK_SET);
-    fread(buffer, 1, tamanio, archivo);
+    size_t leidos = fread(buffer, 1, tamanio, archivo);
+    if (leidos < tamanio) {
+        memset(buffer + leidos, 0, tamanio - leidos);
+    }
     return buffer;
 }

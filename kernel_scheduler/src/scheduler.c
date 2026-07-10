@@ -377,7 +377,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     pthread_mutex_lock(&mutex_socket_memory);
                     t_paquete* paqueteKM = crear_paquete(ESCRIBIR_BYTES, paquete->buffer);
                     enviar_paquete(socketConexionMemory, paqueteKM);
-                    eliminar_paquete(paqueteKM);
+                    free(paqueteKM);//no libero el buffer pq es del otro paquete (se libera al final del switch)
 
                     //recibo ok
                     op_code ok = recibir_respuesta_memory();

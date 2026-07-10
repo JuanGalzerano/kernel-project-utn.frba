@@ -128,6 +128,7 @@ tipo_IO reconocer_io(char* tipo){
         io = TIPO_STDOUT;
     } else {
         log_error(loggerIO, "Tipo de IO desconocido: %s", tipo);
+        abort();
     }
     return io;
 }
