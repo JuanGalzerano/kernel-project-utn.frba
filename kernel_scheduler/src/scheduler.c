@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
     close(socketStdout);
 
     //ver si aca tendria que cerrar las conexiones con las CPUs que quedarin conectadas
-
+    config_destroy(configScheduler);
     return 0;
 }
 

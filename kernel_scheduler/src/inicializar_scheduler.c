@@ -9,7 +9,7 @@ void inicializar(char* path){
     inicializar_semaforos();
 
     loggerScheduler = log_create("kernel.log", "kernel_scheduler", true, log_level_from_string(config_get_string_value(configScheduler, "LOG_LEVEL"))); 
-    config_destroy(configScheduler);
+    
     inicializar_listas(); 
 
     pthread_mutex_init(&mutex_socket_memory, NULL);
