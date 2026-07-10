@@ -295,7 +295,7 @@ void* atender_scheduler(void* arg){
                     uint32_t desp_leer = dir_logica % segment_max_size;
                     t_segmento* seg_l = buscar_segmento_proceso(proc, seg_id_leer);
                     uint32_t dir_fisica = seg_l->base + desp_leer;
-                    log_info(loggerMemory, "## PID: %d - Lectura - Dir. Fisica: %d - Tamanio: %d", pid, dir_fisica, bytes);
+                    log_info(loggerMemory, "## PID: %d - Lectura - Dir. Física: %d - Tamaño: %d", pid, dir_fisica, bytes);
                     t_buffer* buf = buffer_create(0);
                     buffer_add(buf, datos, bytes);
                     t_paquete* respuesta = crear_paquete(LEER_BYTES, buf);

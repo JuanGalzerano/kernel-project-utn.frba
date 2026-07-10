@@ -101,7 +101,7 @@ op_code crear_segmento(uint32_t pid, uint32_t id_segmento, uint32_t tamanio){
         memoria_libre_size -= tamanio;
 
         pthread_mutex_unlock(&memoria_mutex);
-        log_info(loggerMemory, "## PID: %d - Segmento Creado %d - Tamanio: %d", pid, id_segmento, tamanio);
+        log_info(loggerMemory, "## PID: %d - Segmento Creado %d - Tamaño: %d", pid, id_segmento, tamanio);
         return MEMORIA_DISPONIBLE;
     }
 
@@ -224,7 +224,7 @@ op_code escribir_bytes_en_memoria(uint32_t pid, uint32_t dir_logica, uint32_t by
     if(ok ==ESCRIBIR_BYTES){
         t_segmento* seg_log = buscar_segmento_proceso(proc, seg_id);
         uint32_t dir_fisica = seg_log->base + desp;
-        log_info(loggerMemory, "## PID: %d - Escritura - Dir. Fisica: %d - Tamanio: %d", pid, dir_fisica, bytes);
+        log_info(loggerMemory, "## PID: %d - Escritura - Dir. Física: %d - Tamaño: %d", pid, dir_fisica, bytes);
     }
     list_destroy_and_destroy_elements(pedazos, free);
     return ok;
