@@ -13,7 +13,6 @@ extern char* IPMemory;
 extern char* idCpu;
 extern char* puertoKernelMemoryNotificaciones;
 extern char* puertoMemoryStick;
-extern char* IPMemoryStick;
 
 void inicializar_log_y_config(char* path, char* idDeCpu);
 

@@ -332,6 +332,7 @@ t_buffer* serializar_memory_stick_info(t_memory_stick_info* stick){
     buffer_add_uint32(buf, stick->puerto);
     buffer_add_uint32(buf, stick->size);
     buffer_add_uint32(buf, stick->base_acumulada);
+    buffer_add(buf, stick->ip, sizeof(stick->ip));
     return buf;
 }
 
@@ -340,6 +341,7 @@ t_memory_stick_info* deserializar_memory_stick_info(t_buffer* buf){
     stick->puerto         = buffer_read_uint32(buf);
     stick->size           = buffer_read_uint32(buf);
     stick->base_acumulada = buffer_read_uint32(buf);
+    buffer_read(buf, stick->ip, sizeof(stick->ip));
     stick->socket         = -1; // lo setea el receptor al conectarse al stick
     return stick;
 }
@@ -354,6 +356,7 @@ t_buffer* serializar_aviso_nuevo_stick(t_list* lista_memory_sticks){
         buffer_add_uint32(buf, stick->puerto);
         buffer_add_uint32(buf, stick->size);
         buffer_add_uint32(buf, stick->base_acumulada);
+        buffer_add(buf, stick->ip, sizeof(stick->ip));
     }
     return buf;
 }

@@ -4,10 +4,12 @@
 
 extern void notificar_desuspendibles();
 
-void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick){
+void agregar_memory_stick(int socket, uint32_t size, char* puertoMemoryStick, char* ipStick){
     t_memory_stick_info* stick = malloc(sizeof(t_memory_stick_info));
     stick->socket = socket;
     stick->size  = size;
+    strncpy(stick->ip, ipStick, sizeof(stick->ip) - 1);
+    stick->ip[sizeof(stick->ip) - 1] = '\0';
 
     pthread_mutex_lock(&memoria_mutex);
 

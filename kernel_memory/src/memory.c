@@ -128,7 +128,9 @@ int main(int argc, char* argv[]) {
             case MEMORY_STICK:{
                 uint32_t stick_size = 0;
                 recv(socket, &stick_size, sizeof(uint32_t), MSG_WAITALL);
-                agregar_memory_stick(socket, stick_size, puertoMemoryStick);
+                char ipStick[16] = {0};
+                recv(socket, ipStick, sizeof(ipStick), MSG_WAITALL);
+                agregar_memory_stick(socket, stick_size, puertoMemoryStick, ipStick);
                 log_info(loggerMemory, "## Memory Stick de %d bytes Conectada", stick_size);
                 break;
             }

@@ -53,7 +53,7 @@ int conectarme_nuevas_sticks(t_list* nueva_lista_memory_stick, int memory_sticks
             t_memory_stick_info* stick = list_get(nueva_lista_memory_stick, i);
 
             char* puertoStr = string_itoa(stick->puerto);
-            int socketConexionMemoryStick = iniciar_conexion(IPMemoryStick, puertoStr);
+            int socketConexionMemoryStick = iniciar_conexion(stick->ip, puertoStr);
             free(puertoStr);
             if (socketConexionMemoryStick == EXIT_FAILURE) {
                 log_info(loggerCpu, "CPU: No se pudo conectar con Memory Stick %d", stick->puerto);

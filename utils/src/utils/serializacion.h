@@ -93,6 +93,7 @@ typedef struct {
     uint32_t size;
     uint32_t base_acumulada;
     uint32_t puerto;
+    char     ip[16]; //IPv4 como string, ej "255.255.255.255\0"
 } t_memory_stick_info;
 
 typedef enum {

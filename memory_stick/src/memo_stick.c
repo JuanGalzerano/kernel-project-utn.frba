@@ -21,6 +21,8 @@ int main(int argc, char* argv[]) {
     char* puertoMemory = config_get_string_value(configMemoryStick,"PUERTO_MEMORY");
     char* ipMemory = config_get_string_value(configMemoryStick,"IP_MEMORY");
     // char* puertoEscucha =config_get_string_value(configMemoryStick,"PUERTO_MEMORYSTICK");
+    char ipStick[16] = {0};
+    strncpy(ipStick, config_get_string_value(configMemoryStick,"IP_STICK"), sizeof(ipStick) - 1);
     delay = config_get_int_value(configMemoryStick, "MEMORY_DELAY");
     //Reservo memoria dependiendo el tamaño recibido
     uint32_t tamano = (uint32_t)atoi (argv[2]);
@@ -45,6 +47,9 @@ int main(int argc, char* argv[]) {
     
     //Le envio a la memory el tamaño del stick
     send(socketconexionKernelMemory,&tamano,sizeof(uint32_t),0);
+
+    //Le envio mi propia IP para que despues se la reenvie a las CPUs
+    send(socketconexionKernelMemory,ipStick,sizeof(ipStick),0);
 
     //Recibo el puerto correcto;
     uint32_t puertoAsignado;
