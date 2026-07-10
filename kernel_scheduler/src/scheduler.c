@@ -927,19 +927,19 @@ void* planificador(void* arg){
 
 
             t_cpu* cpu = obtener_cpu_libre();
-            if(cpu == NULL){
-                log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", pcb->pid);
+            if(cpu== NULL){
+                log_warning(loggerScheduler, "(%d) No hay CPU realmente libre (se desconecto), reencolando",pcb->pid);
                 encolar_pcb_ready(pcb);
                 sem_post(&sem_hay_proceso_ready);
             }else{
-                enviar_proceso_a_cpu(cpu, pcb);
+                enviar_proceso_a_cpu(cpu,pcb);
 
-                if (algoritmo == RR){
+                if (algoritmo==RR){
                     iniciar_timer_quantum(cpu);
                 }
             }
         }
-        if(algoritmo == CMN){
+        if(algoritmo== CMN){
             /*desalojo habilitado y hay uno de menor prior ejecutando*/
             if(hay_desalojo){
 
@@ -963,7 +963,7 @@ void* planificador(void* arg){
                     t_pcb* unPcb = desencolar_pcb_ready();
                     t_cpu* cpuAUsar = obtener_cpu_libre();
                     if(cpuAUsar == NULL){
-                        log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", unPcb->pid);
+                        log_warning(loggerScheduler, "(%d) No hay CPU realmente libre (se desconecto), reencolando", unPcb->pid);
                         encolar_pcb_ready(unPcb);
                         sem_post(&sem_hay_proceso_ready);
                     }else{
@@ -988,7 +988,7 @@ void* planificador(void* arg){
                     sem_wait(&sem_hay_cpu_libre);
                     t_cpu* laCpu = obtener_cpu_libre();
                     if(laCpu == NULL){
-                        log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", otroPcb->pid);
+                        log_warning(loggerScheduler, "(%d) No hay CPU realmente libre (se desconecto), reencolando", otroPcb->pid);
                         encolar_pcb_ready(otroPcb);
                         sem_post(&sem_hay_proceso_ready);
                     }else{
@@ -1024,7 +1024,7 @@ void* planificador(void* arg){
                 t_pcb* elPcb = desencolar_pcb_ready();
                 t_cpu* cpuEncontrada = obtener_cpu_libre();
                 if(cpuEncontrada == NULL){
-                    log_warning(loggerScheduler, "## (%d) No hay CPU realmente libre (se desconecto), reencolando", elPcb->pid);
+                    log_warning(loggerScheduler,"(%d) No hay CPU realmente libre (se desconecto), reencolando", elPcb->pid);
                     encolar_pcb_ready(elPcb);
                     sem_post(&sem_hay_proceso_ready);
                 }else{
