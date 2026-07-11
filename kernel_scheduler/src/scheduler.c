@@ -18,7 +18,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
         log_error(loggerScheduler, "no se pudo conectar al canal de notificaciones de Kernel Memory");
         abort();
     }
-    log_info(loggerScheduler, "Conectado al canal de notificaciones de Kernel Memory");
+    log_debug(loggerScheduler, "Conectado al canal de notificaciones de Kernel Memory");
 
     pthread_t hilo_memory_notif;
     pthread_create(&hilo_memory_notif, NULL, hilo_escuchar_memory, NULL);
@@ -87,7 +87,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
     free(arg); 
 
     while(1){
-        //recibir paquete 
+        //
         t_paquete* paquete;
         paquete = recibir_paquete(socketCliente);//fijarse si hay que liberar memoria
         if(paquete==NULL){//yo creo q siempre van a ser CPUs las que se pueden desonectar, no creo que evaluen la desconexion de IOs
@@ -99,7 +99,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     list_remove_element(exec_lista, cpu);//ACACREO QUE PODIRA HACER REMOVE_ELEMNT_BY_CONDITION Y ME AHORRARIA TODO EL FOR Y ESO
 
                     if(cpu->esperando_ack_compactacion){
-                        sem_post(&sem_desalojo_compactacion_completo);//evita que solicitar_segmento_memory quede esperando un ack que ya no va a llegar
+                        sem_post(&sem_desalojo_compactacion_completo);//baiscamenteevita que solicitar_segmento_memory quede esperando un ack que ya no va a llegar
                     }
 
                     if(cpu->pcb!=NULL){
@@ -183,7 +183,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
 
                 log_info(loggerScheduler, "## (%d) - Solicitó syscall: EXIT", pid);
 
-                // encontrar el pcb en exec_lista y liberarlo
+            
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpu = encontrar_cpu_con_pid(pid);
 
@@ -197,20 +197,17 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 
                 pthread_mutex_unlock(&exec_mutex);
 
-                //notificar al KM que libere los recursos del proceso
                 enviar_fin_proceso_memory(pid);
 
-                //revisar si va esta de aca abajo
+                //revisar si va esta de aca abajo, YO DEL FUTURO: sisi va (creo)
                 enviar_fin_proceso_a_cpu(pid, cpu);
 
-                //loguear y liberar el PCB
+                //eta va por si tiene algun mtx tomado 
                 liberar_de_mutex_por_muerte(pcbFin);
                 log_info(loggerScheduler, "## (%d) Pasa del estado EXEC al estado EXIT", pid);
                 log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de EXIT", pid);
                
                 free(pcbFin);
-
-                //la CPU quedó libre
                 liberar_cpu_y_notificar();
                 break;
             case SLEEP://se recibe tiempo a dormir y pid
@@ -226,12 +223,12 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
                 pthread_mutex_unlock(&exec_mutex);
 
-                log_info(loggerScheduler, "## (%d) - Solicitó syscall: SLEEP", sleep->pid);
+                log_info(loggerScheduler,"## (%d) - Solicitó syscall: SLEEP",sleep->pid);
                 
                 bloquear_proceso(cpuSleep->pcb);
 
                 pthread_mutex_lock(&mutex_cola_sleep);
-                queue_push(cola_sleep, sleep);
+                queue_push(cola_sleep,sleep);
                 pthread_mutex_unlock(&mutex_cola_sleep);
 
                 sem_post(&sem_hay_proc_esperando_sleep);
@@ -242,7 +239,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 break;
             case STDIN:
             
-                t_stdin_stdout* procesoStdin = deserializar_stdin(paquete->buffer);//cuando viotti me lo mande, cadenaLeida=NULL
+                t_stdin_stdout* procesoStdin=deserializar_stdin(paquete->buffer);//cuando viotti me lo mande, cadenaLeida=NULL
 
                 pthread_mutex_lock(&exec_mutex);
                 t_cpu* cpuUsada = encontrar_cpu_con_pid(procesoStdin->pid);
@@ -258,7 +255,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 bloquear_proceso(cpuUsada->pcb);           
              
                 pthread_mutex_lock(&mutex_cola_stdin);
-                queue_push(cola_stdin, procesoStdin);
+                queue_push(cola_stdin,procesoStdin);
                 pthread_mutex_unlock(&mutex_cola_stdin);
 
                 sem_post(&sem_hay_proc_esperando_stdin);
@@ -276,28 +273,19 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     break;
                 }
 
-                log_info(loggerScheduler, "## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
+                log_info(loggerScheduler,"## (%d) - Solicitó syscall: STDOUT", procesoStdout->pid);
 
-                //ACA TENGO QUE DIFERENCIAR SI HAY IO DISPONIBLE O NO PARA VER SI BLOQUEEO O NO
+                //ACA TENGO QUE DIFERENCIAR SI HAY IO DISPONIBLE O NO PARA VER SI BLOQUEEO O NO=>SIEMPRE SEBLOQUEA AL FINAL
                 pthread_mutex_lock(&mutex_stdout_ocupado);
-                if(stdout_ocupado){
-                    t_pcb* pcbStdout = cpuUsadaStdout ? cpuUsadaStdout->pcb : NULL;
-                    pthread_mutex_unlock(&exec_mutex);
-                    if(pcbStdout !=NULL){
-                        bloquear_proceso(cpuUsadaStdout->pcb);
-                        liberar_cpu_y_notificar();
-                        despertar_planificador();
-                        }
-                } else{
-                    t_pcb* stdoutPcb = cpuUsadaStdout->pcb;
-                    //cpuUsadaStdout->pcb=NULL;
-                    
-                    pthread_mutex_unlock(&exec_mutex);
-
-                    bloquear_proceso(stdoutPcb);
+                
+                t_pcb* pcbStdout = cpuUsadaStdout ? cpuUsadaStdout->pcb : NULL;//basicamente si la cpu no es null, asigna el pcb a pcbStdout, sino, lo pone en NULL. Se lo vi a juani y esta
+                pthread_mutex_unlock(&exec_mutex);
+                if(pcbStdout !=NULL){
+                    bloquear_proceso(cpuUsadaStdout->pcb);
                     liberar_cpu_y_notificar();
                     despertar_planificador();
                 }
+                
                 pthread_mutex_unlock(&mutex_stdout_ocupado);
 
                 
@@ -352,7 +340,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     sem_post(&sem_stdout_disponible);
                     sem_post(&sem_hay_proceso_ready);
                     despertar_planificador();
-                }else if (procSusp !=NULL)
+                }else if(procSusp !=NULL)
                 {
                     //t_proc_suspendido* enSuspBlock = buscar_en_susp_block(pidFinalizado);
                     //imposible qe sa NULL si se lelgo hasta aca asi q comento la de arriba y ni verifico si da NULLCREO Q COMENT VIEJO
@@ -379,7 +367,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     enviar_paquete(socketConexionMemory, paqueteKM);
                     free(paqueteKM);//no libero el buffer pq es del otro paquete (se libera al final del switch)
 
-                    //recibo ok
+                    //recibo elok
                     op_code ok = recibir_respuesta_memory();
                     pthread_mutex_unlock(&mutex_socket_memory);
                     if(ok == ESCRITURA_FALLIDA){
@@ -395,7 +383,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                     sem_post(&sem_hay_proceso_ready);
                     despertar_planificador();
                 }else{
-                    //segmento en swap,guarda para escribir al desuspender
+                    //segmento en swap,entonc guardo para escribir al desuspender
                     log_info(loggerScheduler, "## (%d) finalizó IO y pasa a SUSP READY", resultado->pid);
                     pasar_des_susp_block_a_ready(resultado->pid,resultado->cadenaLeida,resultado->direccionLogica);
                     sem_post(&sem_stdin_disponible);//SERA???
@@ -576,7 +564,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(mutexALiberarEnLista->contador==1){
                     //nadie esperando, queda libre
                     pthread_mutex_unlock(&mutex_lista_mutex);
-                } else{
+                }else{
                     //hay alguien esperando, le damos el mutex
                     
                     t_pcb* siguiente = queue_pop(mutexALiberarEnLista->colaEspera);
@@ -626,7 +614,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 }
                 pthread_mutex_unlock(&exec_mutex);
 
-                //recalculo por si tiene otro mutex tomado que lo haga heredar aun mas
+                //recalculo por si tiene otro mutex tomado que lo haga heredar 
                 uint32_t prioridadRecalculada =otraCpuPadre->pcb->prioridadOriginal;
                 pthread_mutex_lock(&mutex_lista_mutex);
                 for(int i=0;i<list_size(lista_mutex);i++){
@@ -687,7 +675,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 if(rtaKM == MEMORIA_DISPONIBLE){
                 //HAY MEMORIA DISPONIBLE => confirmar creacion a CPU, no se bloquea
                     if(cpuAlloc!=NULL){
-                            reanudar_proceso_en_cpu(cpuAlloc);
+                        reanudar_proceso_en_cpu(cpuAlloc);
                     }
                 }
                 if(rtaKM==MEMORIA_NO_DISPONIBLE){
@@ -765,7 +753,7 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 sem_post(&sem_hay_proceso_ready);
                 liberar_cpu_y_notificar();
                 break;
-            case COMPACTACION: {
+            case COMPACTACION: 
                 uint32_t pidCompactado;
                 buffer_read(paquete->buffer,&pidCompactado, sizeof(uint32_t));
 
@@ -789,7 +777,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 //no pongo aca liberar_cpu_y_notificar() xq la CPU no debe reasignarse hasta que TERMINE toda la compactacion (lo hace solicitar_segmento_memory desp de esperar todos los acks)
                 sem_post(&sem_desalojo_compactacion_completo);
                 break;
-            }
             case SEG_FAULT:
                 uint32_t pidFault = buffer_read_uint32(paquete->buffer);
                 pthread_mutex_lock(&exec_mutex);
@@ -802,7 +789,6 @@ void *atender_cliente(void *arg){//lo que recibe es el socket cliente (con el qu
                 cpuFault->pcb=NULL;
                 pthread_mutex_unlock(&exec_mutex);
 
-                //notificar al KM que libere los recursos del proceso
                 enviar_fin_proceso_memory(pidFault);
 
                 //revisar si va esta de aca abajo
@@ -880,19 +866,17 @@ int aceptar_cliente_scheduler(int socketEscucha, t_log *logger){
         nueva_cpu->esperando_ack_compactacion = false;
         nueva_cpu->control_enviado = false;
 
-        //agrego CPU a lista de CPUs
         pthread_mutex_lock(&exec_mutex);
-        list_add(exec_lista, nueva_cpu);
+        list_add(exec_lista,nueva_cpu);
         pthread_mutex_unlock(&exec_mutex);
         
-        //sem post cpu libre
         if(compactando==false){
-            liberar_cpu_y_notificar();//hace el sempost
+            liberar_cpu_y_notificar();
         }
         free(idCPU);
         break;
     case IO:
-        log_info(logger, "IO CONECTADO"); 
+        log_debug(logger, "IO CONECTADO"); 
         recibir_tipo_IO(socketCliente);
         break;
     case -1:
@@ -934,26 +918,22 @@ void* planificador(void* arg){
             }else{
                 enviar_proceso_a_cpu(cpu,pcb);
 
-                if (algoritmo==RR){
+                if(algoritmo==RR){
                     iniciar_timer_quantum(cpu);
                 }
             }
         }
         if(algoritmo== CMN){
             /*desalojo habilitado y hay uno de menor prior ejecutando*/
-            if(hay_desalojo){
-
-                
-                pthread_mutex_lock(&mutex_planificador);
-                
+            if(hay_desalojo){    
+                pthread_mutex_lock(&mutex_planificador);  
                 while(compactando){
-                
                     sem_post(&sem_hay_proceso_ready);
                     pthread_cond_wait(&cond_planificador, &mutex_planificador);
                 }
                 pthread_mutex_unlock(&mutex_planificador);
 
-                t_pcb* prox_pcb = pcb_mas_prioritario();
+                t_pcb* prox_pcb=pcb_mas_prioritario();
                 
                 t_cpu* cpuDesalojable = hay_cpu_desalojable(prox_pcb);
                 

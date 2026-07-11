@@ -128,7 +128,7 @@ extern pthread_mutex_t mutex_cola_sleep;
 extern pthread_mutex_t mutex_cola_stdin;
 extern pthread_mutex_t mutex_cola_stdout;
 
-//cola MUTEX
+//lista MUTEX
 
 extern t_list* lista_mutex;
 extern pthread_mutex_t mutex_lista_mutex;
