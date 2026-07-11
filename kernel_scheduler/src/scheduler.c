@@ -30,7 +30,7 @@ int main(int argc, char* argv[]){ //argv[1]: Path al config, argv[2]: path al pr
         log_info(loggerScheduler, "No se pudo iniciar el servidor");
         abort();
     }
-    log_info(loggerScheduler, "Servidor iniciado");
+    log_debug(loggerScheduler, "Servidor iniciado");
 
     crear_proceso(0, argv[2], 0); //por el momento asignamos random el de prioridad xq recien lo usamos para CMN, en este proceso debera ser siempre la maxima
 
