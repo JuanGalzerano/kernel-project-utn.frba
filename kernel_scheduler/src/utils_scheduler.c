@@ -9,19 +9,17 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
         pcb->prioridadOriginal=prioridad;
         pcb->tokenBloqueado=0;
 
-        //loguear que entro a NEW
         log_info(loggerScheduler, "## (%d) Se crea el proceso - Estado: NEW", pcb->pid);
 
-        //Avisar al KM (mandar pid + path)
         pthread_mutex_lock(&mutex_socket_memory);
         enviar_path_proceso_memory(pcb->pid, path);
 
-        //Esperar respuesta OK del KM
+
         int ok = recibir_ok_memory();
 
         pthread_mutex_unlock(&mutex_socket_memory);
 
-        //Mover a READY y loguear
+
         if(ok == 0){
             free(pcb);
             log_error(loggerScheduler, "(%d) Error al crear proceso en KM", pid);
@@ -44,7 +42,7 @@ t_pcb* crear_proceso(uint32_t pid, char* path, int prioridad){
 
 int recibir_ok_memory(){
     int resultado;
-    recv(socketConexionMemory, &resultado,sizeof(int),0);//el OK no me lo mandes por paquete juani, pq si o si es lo siguiente a recibir
+    recv(socketConexionMemory,&resultado,sizeof(int),0);//el OK no me lo mandes por paquete juani, pq si o si es lo siguiente a recibir
     if(!resultado){
         return 0;
     }
@@ -63,7 +61,7 @@ t_cpu* obtener_cpu_libre(){
     pthread_mutex_lock(&exec_mutex);
     t_cpu* cpu = NULL;
 
-    for(int i = 0; i<list_size(exec_lista); i++){
+    for(int i = 0;i<list_size(exec_lista); i++){
         t_cpu* cpuTemporal = list_get(exec_lista, i);
         if (cpuTemporal->pcb == NULL){
             cpu= cpuTemporal;
@@ -78,7 +76,7 @@ t_cpu* obtener_cpu_libre(){
 void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb){//el socket esta en la cpu
     pthread_mutex_lock(&exec_mutex);
     cpu->pcb = pcb;
-    cpu->control_enviado = false; 
+    cpu->control_enviado = false;//seteo en false pq para este proc no hay ningun control enviado todavia
 
     t_buffer* buffer = buffer_create(0);
     buffer_add_uint32(buffer, cpu->pcb->pid);
@@ -88,7 +86,7 @@ void enviar_proceso_a_cpu(t_cpu* cpu,t_pcb* pcb){//el socket esta en la cpu
     pthread_mutex_unlock(&exec_mutex);
 
     //hacer log de que se pasa a running
-    log_info(loggerScheduler, "## (%d) Pasa del estado READY al estado EXEC", pcb->pid);
+    log_info(loggerScheduler,"## (%d) Pasa del estado READY al estado EXEC", pcb->pid);
 
     free(buffer->stream);
     free(buffer);
@@ -120,10 +118,10 @@ bool reanudar_proceso_en_cpu(t_cpu* cpu){
         pthread_mutex_unlock(&exec_mutex);
         return false;
     }
-    t_buffer* buffer = buffer_create(0);
-    buffer_add_uint32(buffer, cpu->pcb->pid);
-    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO, buffer);
-    enviar_paquete(cpu->socketConexion, paquete);
+    t_buffer* buffer=buffer_create(0);
+    buffer_add_uint32(buffer,cpu->pcb->pid);
+    t_paquete* paquete = crear_paquete(EJECUTAR_PROCESO,buffer);
+    enviar_paquete(cpu->socketConexion,paquete);
     pthread_mutex_unlock(&exec_mutex);
 
     free(buffer->stream);
@@ -134,15 +132,15 @@ bool reanudar_proceso_en_cpu(t_cpu* cpu){
 
 uint32_t generar_pid(){
     pthread_mutex_lock(&mutex_pid);
-    uint32_t pid = proximo_pid++;
+    uint32_t pid=proximo_pid++;
     pthread_mutex_unlock(&mutex_pid);
     return pid;
 }
 
-t_cpu* encontrar_cpu_con_pid(uint32_t pid){//entiendo que si se llama a esta funcion, es xq la cpu esta ejecutando, por lo que no contemplo el caso en las lamadas a la funcion que se pueda retornar NULL
+t_cpu* encontrar_cpu_con_pid(uint32_t pid){
     t_cpu* cpu = NULL;
-        for(int i = 0; i < list_size(exec_lista); i++){
-            t_cpu* cpuEncontrada = list_get(exec_lista, i);
+        for(int i = 0; i<list_size(exec_lista); i++){
+            t_cpu* cpuEncontrada = list_get(exec_lista,i);
             if(cpuEncontrada->pcb != NULL && cpuEncontrada->pcb->pid == pid){
                 cpu = cpuEncontrada;
                 break;
@@ -184,14 +182,14 @@ void bloquear_proceso(t_pcb* pcbBlock){
     }
     cpu->pcb = NULL;
 
-    t_buffer* buffer = buffer_create(0);
+    t_buffer* buffer=buffer_create(0);
     buffer_add_uint32(buffer, pcbBlock->pid);
     t_paquete* unPaquete = crear_paquete(PROCESO_BLOQUEADO, buffer);
-    intentar_enviar_control_cpu_bajo_lock(cpu, unPaquete);
+    intentar_enviar_control_cpu_bajo_lock(cpu,unPaquete);
     pthread_mutex_unlock(&exec_mutex);
     
     pthread_mutex_lock(&block_mutex);
-    list_add(block_lista, pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
+    list_add(block_lista,pcbBlock); //cuando implemente plani a mediado plazo, aca voy a tener que correr el hilo para ver si va a susp block
     pthread_mutex_unlock(&block_mutex);
     
     timer_tiempo_bloqueado(pcbBlock);
@@ -245,9 +243,9 @@ void enviar_fin_proceso_a_cpu(uint32_t pid, t_cpu* cpu){
 void* hilo_timer_quantum(void* arg){
     t_parametros_hilo_quantum* argumento = (t_parametros_hilo_quantum*) arg; //recibo pid original y la cpu
 
-    uint32_t pidCpuOriginal = argumento->pid_original;
+    uint32_t pidCpuOriginal=argumento->pid_original;
     uint32_t miToken= argumento->token;
-    t_cpu* cpu = argumento->cpu;
+    t_cpu* cpu=argumento->cpu;
     free(argumento);
 
     usleep(quantum*1000);//usleep recibe microsegundos de parametro VER SI ESTA BIEN USAR ESTA FUNCION
@@ -260,7 +258,7 @@ void* hilo_timer_quantum(void* arg){
         t_buffer* buffer = buffer_create(0);
         buffer_add_uint32(buffer, pidCpuOriginal);
         t_paquete* paquete = crear_paquete(FINALIZAR_POR_QUANTUM, buffer);
-        intentar_enviar_control_cpu_bajo_lock(cpu, paquete);
+        intentar_enviar_control_cpu_bajo_lock(cpu,paquete);
         eliminar_paquete(paquete);
     }else{
         log_debug(loggerScheduler,"Timer de quantum obsoleto ignorado para pid %d (token %u != %u)", pidCpuOriginal, miToken, cpu->quantum_token);
@@ -288,11 +286,11 @@ void iniciar_timer_quantum(t_cpu* cpu){
 void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que esta va a haber que hacerla con paquete y eso xq sino solo funca para el proceso 0
     uint32_t tamanioPath = strlen(path)+1;
     t_buffer* buffer = buffer_create(0);
-    buffer_add_uint32(buffer, pid);
-    buffer_add_uint32(buffer, tamanioPath);
-    buffer_add_string(buffer, tamanioPath, path);
+    buffer_add_uint32(buffer,pid);
+    buffer_add_uint32(buffer,tamanioPath);
+    buffer_add_string(buffer,tamanioPath, path);
     t_paquete* paquete = crear_paquete(PATH_PROCESO, buffer);
-    enviar_paquete(socketConexionMemory, paquete);
+    enviar_paquete(socketConexionMemory,paquete);
     free(buffer->stream);
     free(buffer);
     free(paquete);
@@ -304,10 +302,10 @@ void enviar_path_proceso_memory(uint32_t pid, char* path){//decirle a juani que 
 }
 
 char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t bytes){
-    t_buffer* buffer = buffer_create(0);
-    buffer_add_uint32(buffer, pid);
+    t_buffer* buffer= buffer_create(0);
+    buffer_add_uint32(buffer,pid);
     buffer_add_uint32(buffer, direccionLogica);
-    buffer_add_uint32(buffer, bytes);
+    buffer_add_uint32(buffer,bytes);
     t_paquete* unPaquete = crear_paquete(LEER_BYTES, buffer);
     pthread_mutex_lock(&mutex_socket_memory);
     enviar_paquete(socketConexionMemory, unPaquete);
@@ -324,8 +322,8 @@ char* solicitar_cadena_a_memory(uint32_t pid, uint32_t direccionLogica, uint32_t
     if(respuesta->codigo_operacion == LECTURA_FALLIDA){
         free(cadena);
         cadena = NULL;
-    } else {
-        cadena = buffer_read_string(respuesta->buffer, bytes);
+    }else{
+        cadena=buffer_read_string(respuesta->buffer, bytes);
     }
 
     eliminar_paquete(respuesta);
@@ -368,7 +366,6 @@ t_mutex_syscall* buscar_mutex(char* nombreMutex){
     return NULL;
 }
 
-
 op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDeSolicitud,int socket){//instancia de solicitud seria SOLICITAR_SEGMENTO o RESOLICITAR_SEGMENTO
     t_buffer* buffer = serializar_mem_alloc(infoMemAlloc);//VER SI PPASANDO EL SOCKET FUNCIONA Y SINO VOY A TENER QUE PASAR EL ID DE LA CPU AL HILO GRAL
     t_paquete* paquete = crear_paquete(instanciaDeSolicitud, buffer);
@@ -388,7 +385,7 @@ op_code solicitar_segmento_memory(t_mem_alloc* infoMemAlloc, op_code instanciaDe
         despostear_todas_cpus();
         int cpusLiberadas = desalojar_por_compactacion(socket);
         t_paquete* pacComp = crear_paquete(PROCESOS_DESALOJADOS, NULL);
-        enviar_paquete(socketConexionMemory, pacComp);
+        enviar_paquete(socketConexionMemory,pacComp);
         eliminar_paquete(pacComp);
         t_paquete* compactacionHecha = recibir_paquete(socketConexionMemory);//creo que no tengo que hacer nada con este paquete
         if(compactacionHecha->codigo_operacion!=COMPACTACION_EXITOSA){
@@ -628,7 +625,7 @@ bool enviar_desalojo_cpu(t_cpu* cpuDesalojable){
         return false;
     }
     t_buffer* buffer = buffer_create(0);
-    buffer_add_uint32(buffer, cpuDesalojable->pcb->pid);
+    buffer_add_uint32(buffer,cpuDesalojable->pcb->pid);
     t_paquete* paquete = crear_paquete(DESALOJO, buffer);
     bool enviado = intentar_enviar_control_cpu_bajo_lock(cpuDesalojable, paquete);
 
@@ -786,6 +783,11 @@ void suspender_proceso(t_pcb* pcb){
     proc->cadenaStdin=NULL;
     if(resp->codigo_operacion==MEMORIA_NO_DISPONIBLE){
         /*VER QUE CARAJO DEBERIA HACER ACA (nota de juani, para mi que termine el proceso xd)*/
+        log_error(loggerScheduler, "memoria no disponible para desuspender el proceso pid %d",pcb->pid);
+        log_info(loggerScheduler, "## (%d) finalizó su ejecución con motivo de Memoria no disponible para suspender proceso", pcb->pid);
+        log_info(loggerScheduler, "## (%d) Pasa del estado BLOCK al estado EXIT", pcb->pid);
+        free(proc);
+        free(pcb);
     }
     eliminar_paquete(resp);
     proc->pcb = pcb;
@@ -833,9 +835,6 @@ void pasar_des_susp_block_a_ready(uint32_t pid, char* cadenaStdin, uint32_t dire
         pthread_mutex_unlock(&mutex_socket_memory);
         eliminar_paquete(paqSolicitud);
     }
-
-    
-
 }
 
 //igual evr si funciona
@@ -968,10 +967,10 @@ int desalojar_por_compactacion(int socket){
             cpu->esperando_ack_compactacion = true;
             cpusNotificadas++;
         }
-        totalEvictadas++;
+        totalEvictadas++;//evictadas no es lo mismo q desalojadas pq notificadas hace referencia a la cant que esta desalojada y notif a las que se les envio exitosamente el desalojo (no entra la q disparo comapc)
     }
     pthread_mutex_unlock(&exec_mutex);
-
+//aca espero a que todas las que les mande me respondan
     for(int i = 0; i<cpusNotificadas; i++){
         sem_wait(&sem_desalojo_compactacion_completo);
     }
