@@ -1,0 +1,23 @@
+# Kernel Memory
+./bin/kernel_memory src/memory.config
+
+# Kernel Scheduler
+./bin/kernel_scheduler src/kernel.config ../pseudocodigos/noop.txt
+
+# Swap
+./bin/swap src/swap.config
+
+# Memory Stick
+./bin/memory_stick src/memoryStick.config 512
+
+# IO
+./bin/io src/io.config SLEEP
+./bin/io src/io.config STDIN
+./bin/io src/io.config STDOUT
+
+# CPU
+./bin/cpu src/cpu.config 1
+
+
+//El Loop_mem.txt no e infinito infinito
+//ahora si lo puse inf, si lo quieren limitado haganle un sub al registro EAX q es el q se usa para la condicion del jump

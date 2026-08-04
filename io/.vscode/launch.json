@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
-      "args": ["src/io.config"],
+      "args": ["src/io.config", "SLEEP"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

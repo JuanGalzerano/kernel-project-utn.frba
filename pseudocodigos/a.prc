@@ -1,0 +1,6 @@
+INIT_PROC b.prc 0
+SLEEP 1000
+INIT_PROC c.prc 2
+INIT_PROC c.prc 2
+INIT_PROC c.prc 1
+EXIT

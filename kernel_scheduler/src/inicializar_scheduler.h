@@ -5,5 +5,12 @@
 
 void inicializar(char* path);
 
+void inicializar_configs(char* path);
+
+void inicializar_semaforos();
+
+void inicializar_listas();
+
+void inicializar_cola_multinivel();
 
 #endif

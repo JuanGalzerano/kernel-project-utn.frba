@@ -1,7 +1,6 @@
 #ifndef CPU_H_
 #define CPU_H_
 
-#include "cpu_gestor.h"
 #include "inicializar_cpu.h"
 
 //DEFINO VARIABLES GLOBALES
@@ -16,6 +15,11 @@ extern char* IPMemory;
 extern char* puertoMemoryStick;
 extern char* IPMemoryStick;
 extern char* idCpu;
+#include "instrucciones.h"
+#include "syscalls.h"
+#include "contexto.h"
+#include "ciclo.h"
+#include "interrupciones.h"
 
 //REGISTROS CPU
 typedef struct {
